@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js"></script>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111827">
 <link rel="apple-touch-icon" href="logo.png">
@@ -330,6 +331,9 @@ const db = firebase.firestore();
 db.enablePersistence({synchronizeTabs:true}).catch(()=>{});   // offline cache
 const col = () => db.collection('leads');
 const CLOUDINARY = { cloud:'dlcxawjii', preset:'plot_crm_unsigned' };   // owner's Cloudinary — unsigned upload
+const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsDemRTi4vBqgRTGiI6mlKWow';
+let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
+let swReg = null;
 
 let leads = [], user = null, unsub = null;
 
@@ -396,6 +400,7 @@ function sideHTML(){
       <div class="hdr-actions">
         <button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
         <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>
+        <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
     </div>
@@ -417,6 +422,7 @@ function sideHTML(){
         <button class="btn light import-d" onclick="importCSV()" style="flex:1">${IC.upload} Import</button>
         <button class="btn light export-d" onclick="exportCSV()" style="flex:1">${IC.download} Export</button>
       </div>
+      <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
       <button class="btn light logout-d" onclick="doLogout()">${IC.logout} Log out${user&&user.email?' · '+esc(user.email.split('@')[0]):''}</button>
     </div>
   </aside>`;
@@ -928,6 +934,29 @@ function doReset(){
 }
 function doLogout(){ auth.signOut(); }
 
+// ── push notifications (reminders) ───────────────────────────────────────────
+async function enableNotifs(){
+  if(!messaging){ alert('Is browser/phone me notifications support nahi. (iPhone pe: app install karke, iOS 16.4+ chahiye.)'); return; }
+  let name = localStorage.getItem('myName');
+  if(!name){
+    name = prompt('Aapka naam? (jaisa leads me "Executive" likhte ho — isi se aapke follow-up ka notification aayega)');
+    if(!name || !name.trim()){ return; }
+    name = name.trim(); localStorage.setItem('myName', name);
+  }
+  try{
+    const perm = await Notification.requestPermission();
+    if(perm!=='granted'){ alert('Notification allow nahi hui. Phone settings me is site ke liye notifications ON karo.'); return; }
+    const reg = swReg || await navigator.serviceWorker.ready;
+    const token = await messaging.getToken({ vapidKey: VAPID, serviceWorkerRegistration: reg });
+    if(!token){ alert('Token nahi mila — dobara try karo.'); return; }
+    await db.collection('tokens').doc(token).set({
+      token, name, nameKey: name.toLowerCase(),
+      email: user ? user.email : '', ts: Date.now()
+    });
+    alert('Reminder notifications ON ✅\nAb roz subah aapke due follow-ups ka notification aayega, '+name+'!');
+  }catch(e){ alert('Error: '+e.message); }
+}
+
 // ── boot ─────────────────────────────────────────────────────────────────────
 let _t;
 function debouncedRender(){ clearTimeout(_t); _t=setTimeout(render,180); }
@@ -958,7 +987,7 @@ auth.onAuthStateChanged(u=>{
 
 // PWA — register service worker (offline + installable)
 if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').then(r=>{swReg=r;}).catch(()=>{}));
 }
 </script>
 </body>
