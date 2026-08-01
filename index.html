@@ -334,6 +334,7 @@ const CLOUDINARY = { cloud:'dlcxawjii', preset:'plot_crm_unsigned' };   // owner
 const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsDemRTi4vBqgRTGiI6mlKWow';
 let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
 let swReg = null;
+const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji'];   // executives — dropdown me pehle se dikhenge
 
 let leads = [], user = null, unsub = null;
 
@@ -716,9 +717,31 @@ function modal(html){
   document.body.appendChild(bg);
 }
 const val = id => document.getElementById(id).value.trim();
-// file inputs keep the NAME only (localStorage can't hold audio/large images).
-// ponytail: name-only proof-of-action; wire Firebase Storage for real upload+playback.
 const fileName = id => { const f=document.getElementById(id).files[0]; return f?f.name:''; };
+
+// executive dropdown — list from existing leads + your own name + "add new"
+function execList(){
+  const s = new Set(EXECS.map(x=>x.trim()).filter(Boolean));
+  leads.forEach(L=>{ const e=(L.exec||'').trim(); if(e) s.add(e); });
+  const mine = localStorage.getItem('myName'); if(mine) s.add(mine.trim());
+  return [...s].sort();
+}
+function execSelect(id, selected){
+  selected = (selected||'').trim();
+  const opts = execList();
+  if(selected && !opts.includes(selected)) opts.unshift(selected);
+  return `<select id="${id}" onchange="execPick(this)">
+    <option value="">— Choose executive —</option>
+    ${opts.map(o=>`<option ${o===selected?'selected':''}>${esc(o)}</option>`).join('')}
+    <option value="__new__">＋ New executive…</option>
+  </select>`;
+}
+function execPick(sel){
+  if(sel.value!=='__new__') return;
+  const n=(prompt('Naye executive ka naam')||'').trim();
+  if(n){ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.insertBefore(o, sel.lastElementChild); sel.value=n; }
+  else { sel.value=''; }
+}
 
 function openLeadForm(id){
   const L = id? leads.find(x=>x.id===id) : {};
@@ -740,7 +763,7 @@ function openLeadForm(id){
       <div class="field"><label>Agent name</label><input id="l_agent" value="${esc(L.agent||'')}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>Executive</label><input id="l_exec" value="${esc(L.exec||'')}"></div>
+      <div class="field"><label>Executive</label>${execSelect('l_exec', L.exec || (id?'':(localStorage.getItem('myName')||'')))}</div>
       <div class="field"><label>Status</label><select id="l_status">
         ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
     </div>
@@ -794,7 +817,7 @@ function openFU(id){
     <h2>Add follow-up</h2><div class="msub">${esc(L.name)} · ${esc(L.mobile)}</div>
     <div class="grid2">
       <div class="field"><label>Date</label><input type="date" id="fu_date" value="${today()}"></div>
-      <div class="field"><label>By (executive)</label><input id="fu_by" value="${esc(L.exec||'')}"></div>
+      <div class="field"><label>By (executive)</label>${execSelect('fu_by', localStorage.getItem('myName') || L.exec || '')}</div>
     </div>
     <div class="field"><label>Purpose</label><input id="fu_purpose" placeholder="e.g. Site visit follow-up"></div>
     <div class="field"><label>Response</label><textarea id="fu_response" rows="2" placeholder="What did the customer say…"></textarea></div>
@@ -935,17 +958,26 @@ function doReset(){
 function doLogout(){ auth.signOut(); }
 
 // ── push notifications (reminders) ───────────────────────────────────────────
-async function enableNotifs(){
+function enableNotifs(){
   if(!messaging){ alert('Is browser/phone me notifications support nahi. (iPhone pe: app install karke, iOS 16.4+ chahiye.)'); return; }
-  let name = localStorage.getItem('myName');
-  if(!name){
-    name = prompt('Aapka naam? (jaisa leads me "Executive" likhte ho — isi se aapke follow-up ka notification aayega)');
-    if(!name || !name.trim()){ return; }
-    name = name.trim(); localStorage.setItem('myName', name);
-  }
+  const cur = localStorage.getItem('myName')||'';
+  modal(`
+    <h2>Reminder notifications ON</h2>
+    <div class="msub">Apna naam chuno — isi se aapke due follow-up ka notification aayega</div>
+    <div class="field"><label>Aapka naam</label>${execSelect('notif_name', cur)}</div>
+    <div class="row" style="gap:11px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="confirmNotif()">Enable</button>
+    </div>`);
+}
+async function confirmNotif(){
+  const name = val('notif_name');
+  if(!name){ alert('Pehle apna naam chuno'); return; }
+  localStorage.setItem('myName', name);
+  const m=document.querySelector('.modal-bg'); if(m) m.remove();
   try{
     const perm = await Notification.requestPermission();
-    if(perm!=='granted'){ alert('Notification allow nahi hui. Phone settings me is site ke liye notifications ON karo.'); return; }
+    if(perm!=='granted'){ alert('Notification allow nahi hui. Phone settings me is site ke notifications ON karo.'); return; }
     const reg = swReg || await navigator.serviceWorker.ready;
     const token = await messaging.getToken({ vapidKey: VAPID, serviceWorkerRegistration: reg });
     if(!token){ alert('Token nahi mila — dobara try karo.'); return; }
