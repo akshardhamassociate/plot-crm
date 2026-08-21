@@ -18,6 +18,15 @@ self.addEventListener('notificationclick', e => {
   e.waitUntil(clients.openWindow('https://akshardhamassociate.github.io/plot-crm/'));
 });
 
+// notification aane par app icon ka number update karo (app band ho tab bhi)
+self.addEventListener('push', e => {
+  try{
+    const p = e.data ? e.data.json() : {};
+    const b = +((p.data && p.data.badge) || p.badge || 0);
+    if(b && self.navigator.setAppBadge) e.waitUntil(self.navigator.setAppBadge(b));
+  }catch(_){}
+});
+
 // offline cache (network-first)
 const CACHE = 'plotcrm-v1';
 self.addEventListener('install', () => self.skipWaiting());

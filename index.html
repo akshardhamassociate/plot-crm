@@ -120,6 +120,11 @@
     letter-spacing:.03em;display:block;margin:0 0 5px}
   .field{margin-bottom:13px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .execchecks{display:flex;flex-wrap:wrap;gap:8px}
+  .chk{display:inline-flex;align-items:center;gap:7px;background:#f4f5f8;border:1px solid var(--line);
+    border-radius:9px;padding:8px 11px;font-size:.85rem;font-weight:600;cursor:pointer}
+  .chk input{width:auto;margin:0;accent-color:var(--brand)}
+  .chk:has(input:checked){background:#eef0fc;border-color:var(--brand);color:var(--brand)}
 
   .search-wrap{position:relative}
   .search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--faint)}
@@ -348,9 +353,11 @@ async function uploadFile(inputId){                // uploads to Cloudinary, ret
     fd.append('upload_preset', CLOUDINARY.preset);
     const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY.cloud}/auto/upload`, { method:'POST', body:fd });
     const data = await res.json();
-    if(!data.secure_url) console.warn('cloudinary', data);
-    return data.secure_url || fl.name;            // fallback to filename if not accepted
-  }catch(err){ console.warn('upload failed', err); return fl.name; }
+    if(data.secure_url) return data.secure_url;
+    // upload reject hua — reason dikhao (silent fallback ki jagah)
+    alert('⚠ File upload nahi hui:\n'+((data.error&&data.error.message)||'unknown')+'\n\nFile: '+fl.name+'\n(Sirf naam save hoga. Recording ko mp3/m4a/wav me try karo.)');
+    return fl.name;
+  }catch(err){ alert('⚠ Upload network error: '+err.message+'\n(Sirf naam save hoga — net check karo.)'); return fl.name; }
 }
 // (demo seed removed — data now lives in Firestore)
 
@@ -363,6 +370,8 @@ let page=1, pageSize=25, dragId=null;
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 const lastFU = L => L.followUps && L.followUps.length ? L.followUps[0] : null;
+const execsOf = L => (Array.isArray(L.execs)&&L.execs.length) ? L.execs : (L.exec ? [L.exec] : []);
+const execStr = L => execsOf(L).join(', ') || '—';
 function avatarColor(name){ let h=0; for(const c of name) h=c.charCodeAt(0)+((h<<5)-h);
   return `hsl(${Math.abs(h)%360},50%,42%)`; }
 const uniq = arr => [...new Set(arr.filter(Boolean))].sort();
@@ -371,13 +380,15 @@ function badge(k){ const s=stMap[k]||stMap.fresh;
 const dueDate = L => { const fu=lastFU(L); return (fu && OPEN.includes(L.status)) ? fu.nextDate : ''; };
 const isDue = L => { const d=dueDate(L); return d && d<=today(); };
 const isOverdue = L => { const d=dueDate(L); return d && d<today(); };
+const isNew = L => OPEN.includes(L.status) && !(L.followUps && L.followUps.length);   // assigned, abhi tak koi kaam nahi
+const needsAction = L => isNew(L) || isDue(L);                                        // pending = naya ya due
 function addDays(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 
 function filtered(){
   return leads.filter(L=>{
     if(f.status && L.status!==f.status) return false;
     if(f.colony && L.colony!==f.colony) return false;
-    if(f.exec && L.exec!==f.exec) return false;
+    if(f.exec && !execsOf(L).includes(f.exec)) return false;
     if(f.q){ const q=f.q.toLowerCase();
       if(!(L.name.toLowerCase().includes(q)||L.mobile.includes(f.q)||(L.plot||'').toLowerCase().includes(q))) return false; }
     const d = (lastFU(L)?.date)||L.createdAt||'';
@@ -391,6 +402,8 @@ function filtered(){
 function sideHTML(){
   const dueToday = leads.filter(L=>dueDate(L)===today()).length;
   const overdue = leads.filter(isOverdue).length;
+  const newC = leads.filter(isNew).length;
+  const pending = overdue + newC;   // reh gaya kaam: naye + overdue
   const hot = leads.filter(L=>L.status==='hot').length;
   const booked = leads.filter(L=>L.status==='booked').length;
   const stat = (n,t,onclick,cls='')=>`<div class="stat ${cls}" onclick="${onclick}"><div class="n">${n}</div><div class="t">${t}</div></div>`;
@@ -407,7 +420,7 @@ function sideHTML(){
     </div>
     <nav class="nav">
       <button class="nav-item ${route.view==='today'?'on':''}" onclick="tab('today')">${IC.cal} Today${dueToday?` <span class="dot" style="background:var(--brand)">${dueToday}</span>`:''}</button>
-      <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${overdue?` <span class="dot">${overdue}</span>`:''}</button>
+      <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
     </nav>
@@ -415,7 +428,7 @@ function sideHTML(){
       <div class="stats">
         ${stat(leads.length,'Total',"tab('list');clearFilters()")}
         ${stat(hot,'Hot',"tab('list');setStatus('hot')")}
-        ${stat(overdue,'Overdue',"tab('reminders')",overdue?'stat-alert':'')}
+        ${stat(pending,'Pending',"tab('reminders')",pending?'stat-alert':'')}
         ${stat(booked,'Booked',"tab('list');setStatus('booked')")}
       </div>
       <button class="btn side-add" onclick="openLeadForm()">${IC.add} Add Lead</button>
@@ -433,7 +446,7 @@ function sideHTML(){
 function listHTML(){
   const list = filtered();
   const colonies = uniq(leads.map(L=>L.colony));
-  const execs = uniq(leads.map(L=>L.exec));
+  const execs = uniq(leads.flatMap(execsOf));
   return `<div class="main-inner">
     <h2 class="page-title">All Leads</h2>
     <div class="page-sub">${leads.length} total · ${leads.filter(isDue).length} follow-up due</div>
@@ -505,7 +518,7 @@ function tableRow(L){
     <td>${badge(L.status)}</td>
     <td class="tiny">${fmtDate(L.createdAt)||'—'}</td>
     <td class="tiny" style="${od?'color:var(--danger);font-weight:600':''}">${fu&&fu.nextDate?fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):''):'—'}</td>
-    <td class="tiny">${esc(L.exec||'—')}</td>
+    <td class="tiny">${esc(execStr(L))}</td>
     <td onclick="event.stopPropagation()"><span style="display:inline-flex;gap:6px">
       <a class="plain" href="tel:${esc(L.mobile)}"><button class="tbtn tcall">${IC.phone}</button></a>
       <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="tbtn twa">${IC.wa}</button></a>
@@ -520,7 +533,7 @@ function leadCard(L){
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
-      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · ${esc(L.exec||'—')}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · ${esc(execStr(L))}</div>
       <div class="tiny ell" style="display:flex;align-items:center;gap:6px;${od?'color:var(--danger);font-weight:600':''}">
         ${od?'<span class="odot"></span>':''}${esc(next)}</div>
     </div>
@@ -558,6 +571,7 @@ function todayHTML(){
 
 // ── REMINDERS (overdue = urgent, + upcoming) ─────────────────────────────────
 function remindersHTML(){
+  const newLeads = leads.filter(isNew).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   const overdue = leads.filter(isOverdue).sort((a,b)=>dueDate(a).localeCompare(dueDate(b)));
   const upcoming = leads.filter(L=>{ const d=dueDate(L); return d && d>today() && d<=addDays(7); })
                         .sort((a,b)=>dueDate(a).localeCompare(dueDate(b)));
@@ -566,12 +580,13 @@ function remindersHTML(){
     <div class="leads">${arr.map(L=>todayCard(L,urgent)).join('')}</div>` : '';
   return `<div class="main-inner">
     <h2 class="page-title">Reminders</h2>
-    <div class="page-sub">Overdue &amp; upcoming follow-ups</div>
+    <div class="page-sub">Naye + overdue + upcoming — jab tak kaam na ho, pending rehte hain</div>
     ${overdue.length? `<div class="alert"><div class="a-ic">${IC.bell}</div>
       <div class="grow"><b>${overdue.length} overdue follow-up${overdue.length>1?'s':''}!</b>
       <div class="tiny">Inki date nikal chuki — abhi call karo.</div></div></div>` : ''}
-    ${!overdue.length&&!upcoming.length?
-      `<div class="card"><div class="empty">${IC.check}<div>No reminders.<br>Sab up to date hai. 👍</div></div></div>` : ''}
+    ${!newLeads.length&&!overdue.length&&!upcoming.length?
+      `<div class="card"><div class="empty">${IC.check}<div>Kuch pending nahi.<br>Sab up to date hai. 👍</div></div></div>` : ''}
+    ${grp('🆕 Naye — kaam shuru karo', newLeads, '#047857', false)}
     ${grp('⚠ Overdue', overdue, 'var(--danger)', true)}
     ${grp('Next 7 days', upcoming, 'var(--muted)', false)}
   </div>
@@ -583,8 +598,8 @@ function todayCard(L, urgent){
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow" onclick="go('detail','${L.id}')" style="cursor:pointer">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
-      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''}</div>
-      <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${urgent?'⚠ ':''}${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(execStr(L))}</div>
+      <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${fu && fu.nextDate ? (urgent?'⚠ ':'')+fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):'') : '🆕 Naya — kaam shuru karo'}</div>
     </div>
     <a class="plain" href="tel:${esc(L.mobile)}"><button class="iconbtn" style="background:var(--ok);border:none">${IC.phone}</button></a>
     <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="iconbtn" style="background:var(--wa);border:none">${IC.wa}</button></a>
@@ -619,7 +634,7 @@ function detailHTML(){
       <div class="card" style="padding:4px 15px">
         ${kv('Occupation',L.occupation)}${kv('City / Address',L.city)}${kv('Colony',L.colony)}
         ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
-        ${kv('Executive',L.exec)}${kv('Added on',fmtDate(L.createdAt))}
+        ${kv('Executive',execStr(L))}${kv('Added on',fmtDate(L.createdAt))}
       </div>
 
       <div class="sec"><span class="grow">Need analysis</span>
@@ -656,10 +671,10 @@ function fuCard(fu){
 
 // ── KANBAN BOARD ─────────────────────────────────────────────────────────────
 function kanbanHTML(){
-  const colonies=uniq(leads.map(L=>L.colony)); const execs=uniq(leads.map(L=>L.exec));
+  const colonies=uniq(leads.map(L=>L.colony)); const execs=uniq(leads.flatMap(execsOf));
   const base=leads.filter(L=>{
     if(f.colony && L.colony!==f.colony) return false;
-    if(f.exec && L.exec!==f.exec) return false;
+    if(f.exec && !execsOf(L).includes(f.exec)) return false;
     if(f.q){ const q=f.q.toLowerCase();
       if(!(L.name.toLowerCase().includes(q)||L.mobile.includes(f.q)||(L.plot||'').toLowerCase().includes(q))) return false; }
     return true;
@@ -722,7 +737,7 @@ const fileName = id => { const f=document.getElementById(id).files[0]; return f?
 // executive dropdown — list from existing leads + your own name + "add new"
 function execList(){
   const s = new Set(EXECS.map(x=>x.trim()).filter(Boolean));
-  leads.forEach(L=>{ const e=(L.exec||'').trim(); if(e) s.add(e); });
+  leads.forEach(L=>{ execsOf(L).forEach(e=>{ e=(e||'').trim(); if(e) s.add(e); }); });
   const mine = localStorage.getItem('myName'); if(mine) s.add(mine.trim());
   return [...s].sort();
 }
@@ -763,25 +778,35 @@ function openLeadForm(id){
       <div class="field"><label>Agent name</label><input id="l_agent" value="${esc(L.agent||'')}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>Executive</label>${execSelect('l_exec', L.exec || (id?'':(localStorage.getItem('myName')||'')))}</div>
-      <div class="field"><label>Status</label><select id="l_status">
-        ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
+      <div class="field"><label>Executive (main)</label>${execSelect('l_exec', (execsOf(L)[0]) || (id?'':(localStorage.getItem('myName')||'')))}</div>
+      <div class="field"><label>Lead date</label><input type="date" id="l_date" value="${esc(L.createdAt||today())}"></div>
     </div>
+    <div class="field"><label>Also assign to (inko bhi notification &amp; dikhega)</label>
+      <div class="execchecks">${execChecks(id?execsOf(L).slice(1):[])}</div></div>
+    <div class="field"><label>Status</label><select id="l_status">
+      ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
     <div class="row" style="gap:11px;margin-top:8px">
       <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
       <button class="btn grow" onclick="saveLead('${id||''}')">Save</button>
     </div>`);
 }
+function execChecks(selected){
+  return execList().map(n=>`<label class="chk"><input type="checkbox" class="l_extra" value="${esc(n)}" ${selected.includes(n)?'checked':''}>${esc(n)}</label>`).join('');
+}
 function saveLead(id){
   const name=val('l_name'), mobile=val('l_mobile');
   if(!name){ alert('Name is required'); return; }
   if(!mobile){ alert('Mobile is required'); return; }
+  const main = val('l_exec');
+  const extra = [...document.querySelectorAll('.l_extra:checked')].map(c=>c.value);
+  const execs = [...new Set([main, ...extra].filter(Boolean))];   // main + assigned executives
   const data={ name, mobile, occupation:val('l_occ'), city:val('l_city'),
     colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
-    agent:val('l_agent'), exec:val('l_exec'), status:val('l_status') };
+    agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
+    createdAt: val('l_date')||today() };
   let L;
   if(id){ L=leads.find(x=>x.id===id); Object.assign(L, data); }
-  else { L={ id:uid(), ...data, createdAt:today(), need:{}, followUps:[] }; leads.unshift(L); }
+  else { L={ id:uid(), ...data, need:{}, followUps:[] }; leads.unshift(L); }
   putLead(L); document.querySelector('.modal-bg').remove();
   if(!id){ go('detail', L.id); } else render();
 }
@@ -868,9 +893,9 @@ function exportCSV(){
     'FU Date','FU By','Purpose','Response','Next Date','Next Action','Prev','New','Recording','Photo']];
   leads.forEach(L=>{
     if(!L.followUps||!L.followUps.length){
-      rows.push([L.name,L.mobile,L.occupation,L.city,L.colony,L.plot,L.source,L.agent,L.exec,stMap[L.status]?.l,L.createdAt,'','','','','','','','','','']);
+      rows.push([L.name,L.mobile,L.occupation,L.city,L.colony,L.plot,L.source,L.agent,execsOf(L).join(' | '),stMap[L.status]?.l,L.createdAt,'','','','','','','','','','']);
     } else L.followUps.forEach(fu=>{
-      rows.push([L.name,L.mobile,L.occupation,L.city,L.colony,L.plot,L.source,L.agent,L.exec,stMap[L.status]?.l,L.createdAt,
+      rows.push([L.name,L.mobile,L.occupation,L.city,L.colony,L.plot,L.source,L.agent,execsOf(L).join(' | '),stMap[L.status]?.l,L.createdAt,
         fu.date,fu.by,fu.purpose,fu.response,fu.nextDate,fu.nextAction,stMap[fu.prev]?.l||'',stMap[fu.next]?.l||'',fu.rec,fu.photo]);
     });
   });
@@ -992,6 +1017,16 @@ async function confirmNotif(){
 // ── boot ─────────────────────────────────────────────────────────────────────
 let _t;
 function debouncedRender(){ clearTimeout(_t); _t=setTimeout(render,180); }
+// app-icon badge = mere pending leads (naye + due). Assign hote hi count me aa jaata hai.
+function updateBadge(){
+  try{
+    if(!('setAppBadge' in navigator)) return;
+    const mine=(localStorage.getItem('myName')||'').toLowerCase();
+    const rel = mine ? leads.filter(L=>execsOf(L).some(e=>(e||'').toLowerCase()===mine)) : leads;
+    const n = rel.filter(needsAction).length;
+    if(n>0) navigator.setAppBadge(n); else navigator.clearAppBadge();
+  }catch(_){}
+}
 function render(){
   if(!user){ renderLogin(); return; }
   const content = route.view==='detail' ? detailHTML() :
@@ -1008,7 +1043,7 @@ auth.onAuthStateChanged(u=>{
       unsub = col().onSnapshot(snap=>{
         leads = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
           if(!Array.isArray(L.followUps)) L.followUps=[]; if(!L.need) L.need={}; return L; });
-        render();
+        render(); updateBadge();
       }, err=>{ alert('Data load error: '+err.message); });
     }
   } else {
