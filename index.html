@@ -635,6 +635,7 @@ function detailHTML(){
         ${kv('Occupation',L.occupation)}${kv('City / Address',L.city)}${kv('Colony',L.colony)}
         ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
         ${kv('Executive',execStr(L))}${kv('Added on',fmtDate(L.createdAt))}
+        ${(L.rec||L.photo)?`<div style="padding:10px 0 6px">${attHTML(L.rec,IC.mic,'Recording')}${attHTML(L.photo,IC.cam,'Photo')}</div>`:''}
       </div>
 
       <div class="sec"><span class="grow">Need analysis</span>
@@ -653,13 +654,13 @@ function detailHTML(){
   </div></div>`;
 }
 const kv = (k,v)=> v?`<div class="kv"><b>${esc(k)}</b><span class="grow">${esc(v)}</span></div>`:'';
+const attHTML=(v,icon,label)=> !v?'' : (/^https?:/.test(v)
+  ? `<a class="att" href="${esc(v)}" target="_blank" rel="noopener">${icon} ${label}</a>`
+  : `<span class="att">${icon} ${esc(v)}</span>`);
 function fuCard(fu){
   const change = fu.prev&&fu.next&&fu.prev!==fu.next ?
     `${badge(fu.prev)} <span class="arrow">→</span> ${badge(fu.next)}` : (fu.next?badge(fu.next):'');
-  const att=(v,icon,label)=> !v?'' : (/^https?:/.test(v)
-    ? `<a class="att" href="${esc(v)}" target="_blank" rel="noopener">${icon} ${label}</a>`
-    : `<span class="att">${icon} ${esc(v)}</span>`);
-  const atts = att(fu.rec,IC.mic,'Recording') + att(fu.photo,IC.cam,'Photo');
+  const atts = attHTML(fu.rec,IC.mic,'Recording') + attHTML(fu.photo,IC.cam,'Photo');
   return `<div class="fu-card">
     <div class="top"><b class="tiny" style="color:var(--ink);font-size:.8rem">${fmtDate(fu.date)} · ${esc(fu.by||'—')}</b><span>${change}</span></div>
     ${fu.purpose?`<div class="fu-line"><b>Purpose:</b> ${esc(fu.purpose)}</div>`:''}
@@ -785,29 +786,39 @@ function openLeadForm(id){
       <div class="execchecks">${execChecks(id?execsOf(L).slice(1):[])}</div></div>
     <div class="field"><label>Status</label><select id="l_status">
       ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
+    <div class="grid2">
+      <div class="field"><label>Call recording</label><input type="file" id="l_rec" accept="audio/*"></div>
+      <div class="field"><label>Proof photo</label><input type="file" id="l_photo" accept="image/*"></div>
+    </div>
     <div class="row" style="gap:11px;margin-top:8px">
       <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
       <button class="btn grow" onclick="saveLead('${id||''}')">Save</button>
-    </div>`);
+    </div>
+    ${id?`<button class="btn danger wide" style="margin-top:10px" onclick="this.closest('.modal-bg').remove();delLead('${id}')">🗑 Delete lead</button>`:''}`);
 }
 function execChecks(selected){
   return execList().map(n=>`<label class="chk"><input type="checkbox" class="l_extra" value="${esc(n)}" ${selected.includes(n)?'checked':''}>${esc(n)}</label>`).join('');
 }
-function saveLead(id){
+async function saveLead(id){
   const name=val('l_name'), mobile=val('l_mobile');
   if(!name){ alert('Name is required'); return; }
   if(!mobile){ alert('Mobile is required'); return; }
   const main = val('l_exec');
   const extra = [...document.querySelectorAll('.l_extra:checked')].map(c=>c.value);
   const execs = [...new Set([main, ...extra].filter(Boolean))];   // main + assigned executives
+  document.querySelectorAll('.modal .btn').forEach(b=>{ b.disabled=true; });   // upload ke dauraan double-submit rokna
+  const rec = await uploadFile('l_rec');
+  const photo = await uploadFile('l_photo');
   const data={ name, mobile, occupation:val('l_occ'), city:val('l_city'),
     colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
     agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
     createdAt: val('l_date')||today() };
+  if(rec) data.rec = rec;       // nayi file pick hui to hi update
+  if(photo) data.photo = photo;
   let L;
   if(id){ L=leads.find(x=>x.id===id); Object.assign(L, data); }
   else { L={ id:uid(), ...data, need:{}, followUps:[] }; leads.unshift(L); }
-  putLead(L); document.querySelector('.modal-bg').remove();
+  await putLead(L); const m=document.querySelector('.modal-bg'); if(m) m.remove();
   if(!id){ go('detail', L.id); } else render();
 }
 
@@ -1027,6 +1038,15 @@ function updateBadge(){
     if(n>0) navigator.setAppBadge(n); else navigator.clearAppBadge();
   }catch(_){}
 }
+// foreground notification — app khula ho tab bhi notification dikhe (aur ye test bhi karega ki FCM device tak aa raha hai)
+try{
+  if(messaging) messaging.onMessage(async p=>{
+    const n=p.notification||{};
+    try{ const reg=swReg||await navigator.serviceWorker.ready; await reg.showNotification(n.title||'Plot CRM',{body:n.body||'',icon:'icon.svg'}); }
+    catch(_){ alert('🔔 '+(n.title||'Notification')+'\n'+(n.body||'')); }
+    updateBadge();
+  });
+}catch(_){}
 function render(){
   if(!user){ renderLogin(); return; }
   const content = route.view==='detail' ? detailHTML() :
