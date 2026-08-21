@@ -994,8 +994,30 @@ function doReset(){
 function doLogout(){ auth.signOut(); }
 
 // ── push notifications (reminders) ───────────────────────────────────────────
+// native app (Capacitor) ho to native FCM, warna web push
+const isNative = ()=>{ try{ return !!(window.Capacitor && (Capacitor.isNativePlatform ? Capacitor.isNativePlatform() : (Capacitor.getPlatform && Capacitor.getPlatform()!=='web'))); }catch(_){ return false; } };
+const pnPlugin = ()=> window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+async function regNative(name){
+  const PushNotifications = pnPlugin();
+  if(!PushNotifications){ alert('Push plugin nahi mila — naya (push wala) APK install karo.'); return; }
+  try{
+    const perm = await PushNotifications.requestPermissions();
+    if(perm.receive!=='granted'){ alert('Notification allow nahi hui. Phone settings me app ke notifications ON karo.'); return; }
+    if(!window._pnSetup){
+      window._pnSetup = true;
+      PushNotifications.addListener('registration', t=>{
+        const nm = localStorage.getItem('myName')||'';
+        db.collection('tokens').doc(t.value).set({ token:t.value, name:nm, nameKey:nm.toLowerCase(), email:user?user.email:'', platform:'android', ts:Date.now() });
+      });
+      PushNotifications.addListener('registrationError', e=>alert('Push error: '+JSON.stringify(e)));
+      PushNotifications.addListener('pushNotificationReceived', ()=>updateBadge());
+    }
+    await PushNotifications.register();
+    alert('Reminder notifications ON ✅ ('+name+')\nAb reliable notification aayega!');
+  }catch(e){ alert('Native push error: '+e.message); }
+}
 function enableNotifs(){
-  if(!messaging){ alert('Is browser/phone me notifications support nahi. (iPhone pe: app install karke, iOS 16.4+ chahiye.)'); return; }
+  if(!isNative() && !pnPlugin() && !messaging){ alert('Is browser/phone me notifications support nahi. (iPhone pe: app install karke, iOS 16.4+ chahiye.)'); return; }
   const cur = localStorage.getItem('myName')||'';
   modal(`
     <h2>Reminder notifications ON</h2>
@@ -1011,6 +1033,8 @@ async function confirmNotif(){
   if(!name){ alert('Pehle apna naam chuno'); return; }
   localStorage.setItem('myName', name);
   const m=document.querySelector('.modal-bg'); if(m) m.remove();
+  if(isNative() || pnPlugin()){ return regNative(name); }   // native app → native FCM
+  if(typeof Notification === 'undefined'){ alert('Yahan notifications support nahi. App me 🔔 dabao, ya browser (Chrome) me kholo.'); return; }
   try{
     const perm = await Notification.requestPermission();
     if(perm!=='granted'){ alert('Notification allow nahi hui. Phone settings me is site ke notifications ON karo.'); return; }
