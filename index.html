@@ -790,6 +790,14 @@ function openLeadForm(id){
       <div class="field"><label>Call recording</label><input type="file" id="l_rec" accept="audio/*"></div>
       <div class="field"><label>Proof photo</label><input type="file" id="l_photo" accept="image/*"></div>
     </div>
+    ${!id?`
+    <div class="sec" style="margin:6px 2px 4px">Pehli baat-cheet (optional)</div>
+    <div class="field"><label>Purpose (kis liye call)</label><input id="l_purpose" placeholder="e.g. Intro call"></div>
+    <div class="field"><label>Response (customer ne kya kaha)</label><textarea id="l_response" rows="2"></textarea></div>
+    <div class="grid2">
+      <div class="field"><label>Next date (reminder)</label><input type="date" id="l_ndate"></div>
+      <div class="field"><label>Next action</label><input id="l_naction" placeholder="e.g. Follow-up call"></div>
+    </div>`:''}
     <div class="row" style="gap:11px;margin-top:8px">
       <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
       <button class="btn grow" onclick="saveLead('${id||''}')">Save</button>
@@ -813,11 +821,20 @@ async function saveLead(id){
     colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
     agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
     createdAt: val('l_date')||today() };
-  if(rec) data.rec = rec;       // nayi file pick hui to hi update
-  if(photo) data.photo = photo;
   let L;
-  if(id){ L=leads.find(x=>x.id===id); Object.assign(L, data); }
-  else { L={ id:uid(), ...data, need:{}, followUps:[] }; leads.unshift(L); }
+  if(id){
+    if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
+    L=leads.find(x=>x.id===id); Object.assign(L, data);
+  } else {
+    L={ id:uid(), ...data, need:{}, followUps:[] }; leads.unshift(L);
+    // pehli baat-cheet ko first follow-up bana do (agar bhari ho)
+    const g=i=>document.getElementById(i)?document.getElementById(i).value.trim():'';
+    const p=g('l_purpose'), r=g('l_response'), nd=g('l_ndate'), na=g('l_naction');
+    if(p||r||nd||na||rec||photo){
+      L.followUps=[{ id:uid(), date:L.createdAt||today(), by:L.exec, purpose:p, response:r,
+        nextDate:nd, nextAction:na, prev:L.status, next:L.status, rec, photo }];
+    }
+  }
   await putLead(L); const m=document.querySelector('.modal-bg'); if(m) m.remove();
   if(!id){ go('detail', L.id); } else render();
 }
