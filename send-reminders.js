@@ -50,6 +50,7 @@ const istToday = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0,
       tokens,
       notification: { title: `🔔 ${names.length} lead pe kaam baaki`, body },
       data: { badge: String(names.length) },   // app icon ka number set karega
+      android: { priority: 'high', notification: { notificationCount: names.length } },   // icon pe number (badge count)
       webpush: { fcmOptions: { link: APP_URL } }
     });
     totalSent += res.successCount;
