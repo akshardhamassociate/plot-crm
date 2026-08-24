@@ -1131,6 +1131,11 @@ auth.onAuthStateChanged(u=>{
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').then(r=>{swReg=r;}).catch(()=>{}));
 }
+// native app: high-importance channel (sound + heads-up notification)
+window.addEventListener('load', ()=>{ setTimeout(()=>{ try{
+  const PN=pnPlugin();
+  if(PN) PN.createChannel({ id:'reminders', name:'Reminders', description:'Lead reminders', importance:5, sound:'default', vibration:true, visibility:1 });
+}catch(_){}}, 1500); });
 </script>
 </body>
 </html>
