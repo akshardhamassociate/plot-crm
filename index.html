@@ -340,6 +340,7 @@ const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsD
 let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
 let swReg = null;
 const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji'];   // executives — dropdown me pehle se dikhenge
+const NOTIFY_URL = 'https://plot-crm-notify.vercel.app/api/notify';   // instant-notification server (Vercel) — deploy ke baad apni URL daalna
 
 let leads = [], user = null, unsub = null;
 
@@ -836,7 +837,20 @@ async function saveLead(id){
     }
   }
   await putLead(L); const m=document.querySelector('.modal-bg'); if(m) m.remove();
-  if(!id){ go('detail', L.id); } else render();
+  if(!id){ notifyAssignees(L); go('detail', L.id); } else render();
+}
+// lead add hote hi assigned executives ko INSTANT notification (Vercel server ke through)
+async function notifyAssignees(L){
+  try{
+    const execs = execsOf(L);
+    if(!execs.length || !user) return;
+    const idToken = await user.getIdToken();
+    await fetch(NOTIFY_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+idToken },
+      body: JSON.stringify({ execs, leadName: L.name })
+    });
+  }catch(e){ console.warn('instant notify failed', e); }
 }
 
 function openNeed(id){
