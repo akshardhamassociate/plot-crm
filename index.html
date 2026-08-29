@@ -281,6 +281,25 @@
     border-radius:12px;font-weight:600;font-size:.88rem;box-shadow:var(--sh-lg);opacity:0;
     pointer-events:none;transition:.24s;z-index:60;max-width:88vw;text-align:center}
   #_toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* huddle cards */
+  .hud-card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);padding:16px 18px;margin-bottom:14px}
+  .hud-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .hud-name{font-weight:800;font-size:1rem;line-height:1.2}
+  .hud-blocks{display:grid;gap:10px}
+  @media(min-width:720px){ .hud-blocks{grid-template-columns:1fr 1fr 1fr} }
+  .hud-b{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .hud-b.amber{background:#fff7ed;border-color:#fed7aa}
+  .hud-b.empty{opacity:.45}
+  .hud-lbl{display:block;font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+  .hud-b.amber .hud-lbl{color:var(--amber)}
+  .hud-b .txt{font-size:.9rem;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .hud-fb{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .hud-fb-view{background:#eef0fc;border:1px solid #dfe3fb;border-radius:12px;padding:12px 14px}
+  .hud-fb-view .hud-lbl{color:var(--brand)}
+  /* huddle desktop: form left (sticky), board/history right */
+  .hud-wrap{display:grid;gap:18px}
+  @media(min-width:1000px){ .hud-wrap{grid-template-columns:370px 1fr;align-items:start} .hud-left{position:sticky;top:20px} }
 </style>
 </head>
 <body>
@@ -1136,17 +1155,20 @@ const NAME_BY_EMAIL = {
   'bhaveshakd3@gmail.com':'Bhavesh'
 };
 let hud = { date: today(), formDate: today(), items: [], mine: [] };
+// Huddle ka naam LOGGED-IN EMAIL se (device-shared myName se nahi) — taaki har user ko sirf apna kaam dikhe
+function hudMyName(){ const e=(user&&user.email||'').toLowerCase(); return NAME_BY_EMAIL[e] || localStorage.getItem('hudName_'+e) || ''; }
+function hudSetMyName(n){ const e=(user&&user.email||'').toLowerCase(); if(e) localStorage.setItem('hudName_'+e, n); }
 
 function toast(msg){ let t=document.getElementById('_toast');
   if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
   t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
-function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.formDate=today(); render(); hudLoad(); window.scrollTo(0,0); }
+function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.formDate=today(); hud.mine=[]; hud.items=[]; render(); hudLoad(); window.scrollTo(0,0); }
 function hudSetDate(d){ hud.date=d; hudLoad(); }
 function hudShiftDay(n){ const dt=new Date(hud.date+'T00:00'); dt.setDate(dt.getDate()+n); hud.date=dt.toISOString().slice(0,10); hudLoad(); }
 
 async function hudLoad(){
-  const mine=(localStorage.getItem('myName')||'').toLowerCase();
+  const mine=hudMyName().toLowerCase();
   try{
     if(mine){ const s=await db.collection('standups').where('nameKey','==',mine).get();
       hud.mine=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||'')); }
@@ -1159,15 +1181,15 @@ async function hudLoad(){
 
 function hudPickName(){
   modal(`<h2>Aapka naam</h2><div class="msub">Standup kis naam se save ho</div>
-    <div class="field">${execSelect('hud_name', localStorage.getItem('myName')||'')}</div>
+    <div class="field">${execSelect('hud_name', hudMyName())}</div>
     <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
     <button class="btn grow" onclick="hudSaveName()">Save</button></div>`);
 }
 function hudSaveName(){ const n=val('hud_name'); if(!n){ alert('Pehle naam chuno'); return; }
-  localStorage.setItem('myName',n); const m=document.querySelector('.modal-bg'); if(m) m.remove(); render(); hudLoad(); }
+  hudSetMyName(n); const m=document.querySelector('.modal-bg'); if(m) m.remove(); render(); hudLoad(); }
 
 function hudSaveStandup(){
-  const name=localStorage.getItem('myName')||'';
+  const name=hudMyName();
   if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
   const date=val('hud_date')||today();
   const y=(val('hud_y')||'').trim(), i=(val('hud_i')||'').trim(), t=(val('hud_t')||'').trim();
@@ -1186,40 +1208,41 @@ function hudFeedback(id){
     .catch(e=>alert(e.message));
 }
 
-function hudSecLine(label,text){ return text ? `<div class="fu-line"><b>${label}:</b> ${esc(text).replace(/\n/g,'<br>')}</div>` : ''; }
+function hudBlock(label, text, cls){
+  return `<div class="hud-b ${cls||''} ${text?'':'empty'}"><span class="hud-lbl">${label}</span><div class="txt">${text?esc(text):'—'}</div></div>`;
+}
 function hudCard(s, editable){
   const nm=s.name||'?';
-  return `<div class="card" style="padding:14px;margin-bottom:10px">
-    <div class="row" style="gap:10px">
+  return `<div class="hud-card">
+    <div class="hud-top">
       <div class="avatar" style="background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
-      <div class="grow"><b>${esc(nm)}</b><div class="tiny">${fmtDate(s.date)}</div></div>
+      <div class="grow"><div class="hud-name">${esc(nm)}</div><div class="tiny">${fmtDate(s.date)}</div></div>
     </div>
-    <div style="margin-top:8px">
-      ${hudSecLine('Last day', s.yesterday)}${hudSecLine('Issues', s.issues)}${hudSecLine('Today', s.today)}
+    <div class="hud-blocks">
+      ${hudBlock('Kal ke task', s.yesterday)}
+      ${hudBlock('Issues', s.issues, 'amber')}
+      ${hudBlock('Aaj ke task', s.today)}
     </div>
     ${editable
-      ? `<div class="field" style="margin:11px 0 7px"><label>Feedback</label><textarea id="fb_${esc(s.id)}" rows="2" placeholder="Sir ka feedback…">${esc(s.feedback||'')}</textarea></div>
-         <button class="btn sm" onclick="hudFeedback('${esc(s.id)}')">${IC.check} Save feedback</button>`
-      : (s.feedback ? `<div style="margin-top:10px;background:#eef0fc;border:1px solid #dfe3fb;border-radius:11px;padding:11px">
-           <div class="tiny" style="font-weight:800;color:var(--brand);text-transform:uppercase;letter-spacing:.04em">Sir's feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</div>
-           <div style="margin-top:3px">${esc(s.feedback).replace(/\n/g,'<br>')}</div></div>` : '')}
+      ? `<div class="hud-fb"><label>Feedback</label>
+          <textarea id="fb_${esc(s.id)}" rows="2" placeholder="Sir ka feedback…">${esc(s.feedback||'')}</textarea>
+          <button class="btn sm" style="margin-top:8px" onclick="hudFeedback('${esc(s.id)}')">${IC.check} Save feedback</button></div>`
+      : (s.feedback ? `<div class="hud-fb"><div class="hud-fb-view">
+          <span class="hud-lbl">Sir's feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</span>
+          <div class="txt">${esc(s.feedback)}</div></div></div>` : '')}
   </div>`;
 }
 
 function huddleHTML(){
   const admin=isAdmin();
-  const myName=localStorage.getItem('myName')||'';
+  const myName=hudMyName();
   const fd=hud.formDate||today();
   const mineToday=hud.mine.find(s=>s.date===fd)||{};
   const posted=new Set(hud.items.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
   const missing=EXECS.filter(n=>!posted.has(n.toLowerCase()));
-  return `<div class="main-inner">
-    <div class="page-title">Daily Huddle</div>
-    <div class="page-sub">Apna standup daalo${admin?' · aur poori team ka board dekho':''}.</div>
-
-    <div class="card" style="padding:16px;margin-bottom:18px">
+  const formCard=`<div class="card" style="padding:16px">
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
-        <b>${admin?'Aapka apna Standup (Sir)':'Aaj ka Standup'}</b>
+        <b>${admin?'Aapka apna Standup':'Aaj ka Standup'}</b>
         <button class="btn ghost sm" onclick="hudPickName()">${myName?esc(myName):'Naam chuno'}</button>
       </div>
       <div class="field" style="margin-top:12px"><label>Date</label>
@@ -1228,13 +1251,11 @@ function huddleHTML(){
       <div class="field"><label>Issues / Blockers</label><textarea id="hud_i" rows="2" placeholder="Koi problem? (optional)">${esc(mineToday.issues||'')}</textarea></div>
       <div class="field"><label>Aaj ke task</label><textarea id="hud_t" rows="2" placeholder="Aaj kya karna hai…">${esc(mineToday.today||'')}</textarea></div>
       <button class="btn wide" onclick="hudSaveStandup()">${IC.check} Save Standup</button>
-    </div>
-
-    <div class="sec">${IC.cal} Meri Standups</div>
-    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false)).join('') : '<div class="empty">Abhi koi standup nahi. Upar se pehli entry bharo.</div>'}
-
-    ${admin ? `
-      <div class="sec" style="margin-top:26px">${IC.users} Team Board</div>
+    </div>`;
+  const mineList=`<div class="sec">${IC.cal} Meri Standups</div>
+    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false)).join('') : '<div class="empty">Abhi koi standup nahi. Form se pehli entry bharo.</div>'}`;
+  const board=admin ? `
+      <div class="sec">${IC.users} Team Board</div>
       <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn ghost sm" onclick="hudShiftDay(-1)">${IC.back}</button>
         <input type="date" value="${hud.date}" onchange="hudSetDate(this.value)" style="width:auto">
@@ -1242,8 +1263,14 @@ function huddleHTML(){
         <button class="btn ghost sm" onclick="hudSetDate(today())">Today</button>
       </div>
       ${missing.length ? `<div class="alert"><div class="a-ic">${IC.bell}</div><div class="grow"><b>Standup pending</b><div class="tiny" style="color:var(--ink)">${missing.map(esc).join(', ')}</div></div></div>` : ''}
-      ${hud.items.length ? hud.items.map(s=>hudCard(s,true)).join('') : '<div class="empty">Is din kisi ne standup nahi bhara.</div>'}
-    ` : ''}
+      ${hud.items.length ? hud.items.map(s=>hudCard(s,true)).join('') : '<div class="empty">Is din kisi ne standup nahi bhara.</div>'}` : '';
+  return `<div class="main-inner">
+    <div class="page-title">Daily Huddle</div>
+    <div class="page-sub">Apna standup daalo${admin?' · aur poori team ka board dekho':''}.</div>
+    <div class="hud-wrap">
+      <div class="hud-left">${formCard}</div>
+      <div>${admin ? board + '<div style="height:22px"></div>' + mineList : mineList}</div>
+    </div>
   </div>`;
 }
 
@@ -1261,7 +1288,6 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
-    if(!localStorage.getItem('myName')){ const nm=NAME_BY_EMAIL[(u.email||'').toLowerCase()]; if(nm) localStorage.setItem('myName',nm); }
     if(isHuddleOnly()){ leads=[]; route.view='huddle'; render(); hudLoad(); return; }   // CRM data load hi na ho
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
