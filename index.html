@@ -432,10 +432,14 @@ function sideHTML(){
     <div class="brand">
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
       <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
-      <div class="hdr-actions"><button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button></div>
+      <div class="hdr-actions">
+        <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
+        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+      </div>
     </div>
     <nav class="nav"><button class="nav-item on">${IC.check} Huddle</button></nav>
     <div class="side-foot">
+      <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
       <button class="btn light logout-d" onclick="doLogout()">${IC.logout} Log out${user&&user.email?' · '+esc(user.email.split('@')[0]):''}</button>
     </div>
   </aside>`;
