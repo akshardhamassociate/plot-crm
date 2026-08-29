@@ -409,6 +409,17 @@ function filtered(){
 
 // ── SIDEBAR (mobile header / desktop sidebar) ────────────────────────────────
 function sideHTML(){
+  if(isHuddleOnly()) return `<aside class="side">
+    <div class="brand">
+      <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
+      <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
+      <div class="hdr-actions"><button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button></div>
+    </div>
+    <nav class="nav"><button class="nav-item on">${IC.check} Huddle</button></nav>
+    <div class="side-foot">
+      <button class="btn light logout-d" onclick="doLogout()">${IC.logout} Log out${user&&user.email?' · '+esc(user.email.split('@')[0]):''}</button>
+    </div>
+  </aside>`;
   const dueToday = leads.filter(L=>dueDate(L)===today()).length;
   const overdue = leads.filter(isOverdue).length;
   const newC = leads.filter(isNew).length;
@@ -1114,6 +1125,9 @@ try{
 // ── DAILY HUDDLE ──────────────────────────────────────────────────────────────
 const ADMIN_EMAILS = ['krishan.sr1974@gmail.com'];        // sir — board + feedback (baaki sab: apna standup)
 const isAdmin = () => !!(user && ADMIN_EMAILS.includes((user.email||'').toLowerCase()));
+// huddle-only logins: SIRF Huddle dikhega, CRM (leads/board) nahi. (Firebase rules bhi inhe leads se rokti hain.)
+const HUDDLE_ONLY_EMAILS = ['akdpankaj@gmail.com','bhaveshakd3@gmail.com','techakshardham@gmail.com'];
+const isHuddleOnly = () => !!(user && HUDDLE_ONLY_EMAILS.includes((user.email||'').toLowerCase()));
 let hud = { date: today(), formDate: today(), items: [], mine: [] };
 
 function toast(msg){ let t=document.getElementById('_toast');
@@ -1228,6 +1242,7 @@ function huddleHTML(){
 
 function render(){
   if(!user){ renderLogin(); return; }
+  if(isHuddleOnly()) route.view='huddle';   // huddle-only logins ko sirf Huddle
   const content = route.view==='detail' ? detailHTML() :
                   route.view==='huddle' ? huddleHTML() :
                   route.view==='kanban' ? kanbanHTML() :
@@ -1239,6 +1254,7 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
+    if(isHuddleOnly()){ leads=[]; route.view='huddle'; render(); hudLoad(); return; }   // CRM data load hi na ho
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
         leads = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
