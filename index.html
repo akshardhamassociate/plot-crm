@@ -273,6 +273,14 @@
     margin:20px 2px 9px;display:flex;align-items:center;gap:7px}
   a.plain{text-decoration:none;color:inherit;display:block}
   hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+
+  /* huddle: fit 5 tabs on mobile + toast */
+  @media(max-width:999px){ .nav-item{padding:9px 5px;font-size:.8rem;gap:4px} }
+  #_toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(18px);background:#111827;color:#fff;padding:11px 18px;
+    border-radius:12px;font-weight:600;font-size:.88rem;box-shadow:var(--sh-lg);opacity:0;
+    pointer-events:none;transition:.24s;z-index:60;max-width:88vw;text-align:center}
+  #_toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -424,6 +432,7 @@ function sideHTML(){
       <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
+      <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.check} Huddle</button>
     </nav>
     <div class="side-foot">
       <div class="stats">
@@ -1102,9 +1111,125 @@ try{
     updateBadge();
   });
 }catch(_){}
+// ── DAILY HUDDLE ──────────────────────────────────────────────────────────────
+const ADMIN_EMAILS = ['krishan.sr1974@gmail.com'];        // sir — board + feedback (baaki sab: apna standup)
+const isAdmin = () => !!(user && ADMIN_EMAILS.includes((user.email||'').toLowerCase()));
+let hud = { date: today(), formDate: today(), items: [], mine: [] };
+
+function toast(msg){ let t=document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
+
+function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.formDate=today(); render(); hudLoad(); window.scrollTo(0,0); }
+function hudSetDate(d){ hud.date=d; hudLoad(); }
+function hudShiftDay(n){ const dt=new Date(hud.date+'T00:00'); dt.setDate(dt.getDate()+n); hud.date=dt.toISOString().slice(0,10); hudLoad(); }
+
+async function hudLoad(){
+  const mine=(localStorage.getItem('myName')||'').toLowerCase();
+  try{
+    if(mine){ const s=await db.collection('standups').where('nameKey','==',mine).get();
+      hud.mine=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||'')); }
+    else hud.mine=[];
+    if(isAdmin()){ const s=await db.collection('standups').where('date','==',hud.date).get();
+      hud.items=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'')); }
+  }catch(e){ alert('Huddle load error: '+e.message); }
+  if(route.view==='huddle') render();
+}
+
+function hudPickName(){
+  modal(`<h2>Aapka naam</h2><div class="msub">Standup kis naam se save ho</div>
+    <div class="field">${execSelect('hud_name', localStorage.getItem('myName')||'')}</div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    <button class="btn grow" onclick="hudSaveName()">Save</button></div>`);
+}
+function hudSaveName(){ const n=val('hud_name'); if(!n){ alert('Pehle naam chuno'); return; }
+  localStorage.setItem('myName',n); const m=document.querySelector('.modal-bg'); if(m) m.remove(); render(); hudLoad(); }
+
+function hudSaveStandup(){
+  const name=localStorage.getItem('myName')||'';
+  if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
+  const date=val('hud_date')||today();
+  const y=(val('hud_y')||'').trim(), i=(val('hud_i')||'').trim(), t=(val('hud_t')||'').trim();
+  if(!y&&!i&&!t){ alert('Kuch to bharo — kal ke task, issue ya aaj ke task'); return; }
+  const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  db.collection('standups').doc(id).set({ date, name, nameKey:name.toLowerCase(),
+      yesterday:y, issues:i, today:t, ts:Date.now() }, {merge:true})
+    .then(()=>{ toast('Standup saved ✓'); hudLoad(); })
+    .catch(e=>alert('Save failed: '+e.message));
+}
+function hudFeedback(id){
+  const el=document.getElementById('fb_'+id); if(!el) return;
+  db.collection('standups').doc(id).set({ feedback:(el.value||'').trim(),
+      feedbackBy:(user&&user.email?user.email.split('@')[0]:''), feedbackTs:Date.now() }, {merge:true})
+    .then(()=>{ toast('Feedback saved ✓'); hudLoad(); })
+    .catch(e=>alert(e.message));
+}
+
+function hudSecLine(label,text){ return text ? `<div class="fu-line"><b>${label}:</b> ${esc(text).replace(/\n/g,'<br>')}</div>` : ''; }
+function hudCard(s, editable){
+  const nm=s.name||'?';
+  return `<div class="card" style="padding:14px;margin-bottom:10px">
+    <div class="row" style="gap:10px">
+      <div class="avatar" style="background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
+      <div class="grow"><b>${esc(nm)}</b><div class="tiny">${fmtDate(s.date)}</div></div>
+    </div>
+    <div style="margin-top:8px">
+      ${hudSecLine('Last day', s.yesterday)}${hudSecLine('Issues', s.issues)}${hudSecLine('Today', s.today)}
+    </div>
+    ${editable
+      ? `<div class="field" style="margin:11px 0 7px"><label>Feedback</label><textarea id="fb_${esc(s.id)}" rows="2" placeholder="Sir ka feedback…">${esc(s.feedback||'')}</textarea></div>
+         <button class="btn sm" onclick="hudFeedback('${esc(s.id)}')">${IC.check} Save feedback</button>`
+      : (s.feedback ? `<div style="margin-top:10px;background:#eef0fc;border:1px solid #dfe3fb;border-radius:11px;padding:11px">
+           <div class="tiny" style="font-weight:800;color:var(--brand);text-transform:uppercase;letter-spacing:.04em">Sir's feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</div>
+           <div style="margin-top:3px">${esc(s.feedback).replace(/\n/g,'<br>')}</div></div>` : '')}
+  </div>`;
+}
+
+function huddleHTML(){
+  const admin=isAdmin();
+  const myName=localStorage.getItem('myName')||'';
+  const fd=hud.formDate||today();
+  const mineToday=hud.mine.find(s=>s.date===fd)||{};
+  const posted=new Set(hud.items.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
+  const missing=EXECS.filter(n=>!posted.has(n.toLowerCase()));
+  return `<div class="main-inner">
+    <div class="page-title">Daily Huddle</div>
+    <div class="page-sub">Apna standup daalo${admin?' · aur poori team ka board dekho':''}.</div>
+
+    <div class="card" style="padding:16px;margin-bottom:18px">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
+        <b>${admin?'Aapka apna Standup (Sir)':'Aaj ka Standup'}</b>
+        <button class="btn ghost sm" onclick="hudPickName()">${myName?esc(myName):'Naam chuno'}</button>
+      </div>
+      <div class="field" style="margin-top:12px"><label>Date</label>
+        <input id="hud_date" type="date" value="${fd}" onchange="hud.formDate=this.value;render()"></div>
+      <div class="field"><label>Last day ke task</label><textarea id="hud_y" rows="2" placeholder="Kal kya kiya…">${esc(mineToday.yesterday||'')}</textarea></div>
+      <div class="field"><label>Issues / Blockers</label><textarea id="hud_i" rows="2" placeholder="Koi problem? (optional)">${esc(mineToday.issues||'')}</textarea></div>
+      <div class="field"><label>Aaj ke task</label><textarea id="hud_t" rows="2" placeholder="Aaj kya karna hai…">${esc(mineToday.today||'')}</textarea></div>
+      <button class="btn wide" onclick="hudSaveStandup()">${IC.check} Save Standup</button>
+    </div>
+
+    <div class="sec">${IC.cal} Meri Standups</div>
+    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false)).join('') : '<div class="empty">Abhi koi standup nahi. Upar se pehli entry bharo.</div>'}
+
+    ${admin ? `
+      <div class="sec" style="margin-top:26px">${IC.users} Team Board</div>
+      <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="hudShiftDay(-1)">${IC.back}</button>
+        <input type="date" value="${hud.date}" onchange="hudSetDate(this.value)" style="width:auto">
+        <button class="btn ghost sm" onclick="hudShiftDay(1)">${IC.chev}</button>
+        <button class="btn ghost sm" onclick="hudSetDate(today())">Today</button>
+      </div>
+      ${missing.length ? `<div class="alert"><div class="a-ic">${IC.bell}</div><div class="grow"><b>Standup pending</b><div class="tiny" style="color:var(--ink)">${missing.map(esc).join(', ')}</div></div></div>` : ''}
+      ${hud.items.length ? hud.items.map(s=>hudCard(s,true)).join('') : '<div class="empty">Is din kisi ne standup nahi bhara.</div>'}
+    ` : ''}
+  </div>`;
+}
+
 function render(){
   if(!user){ renderLogin(); return; }
   const content = route.view==='detail' ? detailHTML() :
+                  route.view==='huddle' ? huddleHTML() :
                   route.view==='kanban' ? kanbanHTML() :
                   route.view==='reminders' ? remindersHTML() :
                   route.view==='today' ? todayHTML() : listHTML();
