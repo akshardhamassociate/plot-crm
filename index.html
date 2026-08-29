@@ -347,7 +347,7 @@ const CLOUDINARY = { cloud:'dlcxawjii', preset:'plot_crm_unsigned' };   // owner
 const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsDemRTi4vBqgRTGiI6mlKWow';
 let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
 let swReg = null;
-const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji'];   // executives — dropdown me pehle se dikhenge
+const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh'];   // executives — dropdown me pehle se dikhenge
 const NOTIFY_URL = 'https://plot-crm-notify.vercel.app/api/notify';   // instant-notification server (Vercel) — deploy ke baad apni URL daalna
 
 let leads = [], user = null, unsub = null;
@@ -1128,6 +1128,13 @@ const isAdmin = () => !!(user && ADMIN_EMAILS.includes((user.email||'').toLowerC
 // huddle-only logins: SIRF Huddle dikhega, CRM (leads/board) nahi. (Firebase rules bhi inhe leads se rokti hain.)
 const HUDDLE_ONLY_EMAILS = ['akdpankaj@gmail.com','bhaveshakd3@gmail.com','techakshardham@gmail.com'];
 const isHuddleOnly = () => !!(user && HUDDLE_ONLY_EMAILS.includes((user.email||'').toLowerCase()));
+// login pe standup ka naam apne aap set — member ko manually na chunna pade
+const NAME_BY_EMAIL = {
+  'krishan.sr1974@gmail.com':'Krishan Ji',
+  'techakshardham@gmail.com':'Shaffat Ji',
+  'akdpankaj@gmail.com':'Rahul',
+  'bhaveshakd3@gmail.com':'Bhavesh'
+};
 let hud = { date: today(), formDate: today(), items: [], mine: [] };
 
 function toast(msg){ let t=document.getElementById('_toast');
@@ -1254,6 +1261,7 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
+    if(!localStorage.getItem('myName')){ const nm=NAME_BY_EMAIL[(u.email||'').toLowerCase()]; if(nm) localStorage.setItem('myName',nm); }
     if(isHuddleOnly()){ leads=[]; route.view='huddle'; render(); hudLoad(); return; }   // CRM data load hi na ho
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
