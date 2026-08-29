@@ -1,0 +1,21 @@
+name: Daily standup reminder
+
+on:
+  schedule:
+    # 10:00 AM IST (UTC 04:30). GitHub thoda late chala sakta hai — 10:00–10:20 ke beech aa jayega.
+    # Time badalna ho: IST se 5:30 ghatao. Mon–Sat only chahiye to end me: * * 1-6
+    - cron: '30 4 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm init -y && npm install firebase-admin
+      - run: node standup-reminder.js
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
