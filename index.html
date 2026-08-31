@@ -1346,11 +1346,23 @@ function distM(la1,lo1,la2,lo2){ const R=6371000, r=x=>x*Math.PI/180;
   const dLa=r(la2-la1), dLo=r(lo2-lo1);
   const x=Math.sin(dLa/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
   return 2*R*Math.asin(Math.sqrt(x)); }
-function getPos(){ return new Promise((res,rej)=>{
-  if(!navigator.geolocation) return rej(new Error('Is device me GPS support nahi'));
-  navigator.geolocation.getCurrentPosition(p=>res(p.coords),
-    e=>rej(new Error(e.code===1?'Location permission deni hogi — "Allow" karo':(e.message||'Location nahi mili'))),
-    {enableHighAccuracy:true, timeout:15000, maximumAge:0}); }); }
+function getPos(){
+  const G = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation;
+  if(isNative() && G){                        // APK: native Geolocation plugin (sahi runtime permission)
+    return (async ()=>{
+      const perm = await G.requestPermissions().catch(()=>null);
+      if(perm && perm.location==='denied') throw new Error('Location "Allow" karo — Settings → Apps → Plot CRM → Permissions → Location');
+      const p = await G.getCurrentPosition({ enableHighAccuracy:true, timeout:15000 });
+      return { latitude:p.coords.latitude, longitude:p.coords.longitude, accuracy:p.coords.accuracy };
+    })();
+  }
+  return new Promise((res,rej)=>{             // browser (Chrome): web geolocation
+    if(!navigator.geolocation) return rej(new Error('Is device me GPS support nahi'));
+    navigator.geolocation.getCurrentPosition(p=>res(p.coords),
+      e=>rej(new Error(e.code===1?'Location permission deni hogi — "Allow" karo':(e.message||'Location nahi mili'))),
+      {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+  });
+}
 
 function openAtt(){ route.view='att'; route.id=null; att.date=today(); att.mineToday=null; att.mine=[]; att.items=[]; render(); attLoad(); window.scrollTo(0,0); }
 function attSetDate(d){ att.date=d; attLoad(); }
