@@ -274,8 +274,8 @@
   a.plain{text-decoration:none;color:inherit;display:block}
   hr{border:none;border-top:1px solid var(--line);margin:14px 0}
 
-  /* huddle: fit 5 tabs on mobile + toast */
-  @media(max-width:999px){ .nav-item{padding:9px 5px;font-size:.8rem;gap:4px} }
+  /* many tabs: mobile nav scrolls sideways */
+  @media(max-width:999px){ .nav{overflow-x:auto} .nav::-webkit-scrollbar{display:none} .nav-item{flex:0 0 auto;white-space:nowrap;padding:9px 13px;font-size:.83rem} }
   #_toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
     transform:translateX(-50%) translateY(18px);background:#111827;color:#fff;padding:11px 18px;
     border-radius:12px;font-weight:600;font-size:.88rem;box-shadow:var(--sh-lg);opacity:0;
@@ -300,6 +300,21 @@
   /* huddle desktop: form left (sticky), board/history right */
   .hud-wrap{display:grid;gap:18px}
   @media(min-width:1000px){ .hud-wrap{grid-template-columns:370px 1fr;align-items:start} .hud-left{position:sticky;top:20px} }
+
+  /* attendance */
+  .att-status{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;margin-bottom:14px;border:1px solid var(--line);background:#f7f8fa}
+  .att-status.in{background:#ecfdf5;border-color:#a7f3d0}
+  .att-ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .att-big{font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+  .att-punch{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .att-punch .btn{padding:15px}
+  .btn.green{background:#16a34a}
+  .att-row{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
+  .att-time{font-variant-numeric:tabular-nums;font-weight:700;font-size:.9rem;white-space:nowrap}
+  .badge.late{background:#fef3c7;color:#b45309}
+  .badge.ontime{background:#d1fae5;color:#047857}
+  .badge.absent{background:#f3f4f6;color:#9ca3af}
+  .off-set{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
 </style>
 </head>
 <body>
@@ -366,7 +381,7 @@ const CLOUDINARY = { cloud:'dlcxawjii', preset:'plot_crm_unsigned' };   // owner
 const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsDemRTi4vBqgRTGiI6mlKWow';
 let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
 let swReg = null;
-const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh'];   // executives — dropdown me pehle se dikhenge
+const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];   // executives — dropdown me pehle se dikhenge
 const NOTIFY_URL = 'https://plot-crm-notify.vercel.app/api/notify';   // instant-notification server (Vercel) — deploy ke baad apni URL daalna
 
 let leads = [], user = null, unsub = null;
@@ -437,7 +452,10 @@ function sideHTML(){
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
     </div>
-    <nav class="nav"><button class="nav-item on">${IC.check} Huddle</button></nav>
+    <nav class="nav">
+      <button class="nav-item ${route.view==='att'?'':'on'}" onclick="openHuddle()">${IC.check} Huddle</button>
+      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.cal} Attendance</button>
+    </nav>
     <div class="side-foot">
       <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
       <button class="btn light logout-d" onclick="doLogout()">${IC.logout} Log out${user&&user.email?' · '+esc(user.email.split('@')[0]):''}</button>
@@ -467,6 +485,7 @@ function sideHTML(){
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.check} Huddle</button>
+      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.cal} Attendance</button>
     </nav>
     <div class="side-foot">
       <div class="stats">
@@ -1156,9 +1175,10 @@ const NAME_BY_EMAIL = {
   'krishan.sr1974@gmail.com':'Krishan Ji',
   'techakshardham@gmail.com':'Shaffat Ji',
   'akdpankaj@gmail.com':'Rahul',
-  'bhaveshakd3@gmail.com':'Bhavesh'
+  'bhaveshakd3@gmail.com':'Bhavesh',
+  'shanu.akshardham@gmail.com':'Rashid Ji'   // CRM + Huddle dono (huddle-only NAHI)
 };
-let hud = { date: today(), formDate: today(), items: [], mine: [] };
+let hud = { date: today(), items: [], mine: [], draft:{date:today(),yesterday:'',issues:'',today:''}, editing:false };
 // Huddle ka naam LOGGED-IN EMAIL se (device-shared myName se nahi) — taaki har user ko sirf apna kaam dikhe
 function hudMyName(){ const e=(user&&user.email||'').toLowerCase(); return NAME_BY_EMAIL[e] || localStorage.getItem('hudName_'+e) || ''; }
 function hudSetMyName(n){ const e=(user&&user.email||'').toLowerCase(); if(e) localStorage.setItem('hudName_'+e, n); }
@@ -1167,7 +1187,13 @@ function toast(msg){ let t=document.getElementById('_toast');
   if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
   t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
-function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.formDate=today(); hud.mine=[]; hud.items=[]; render(); hudLoad(); window.scrollTo(0,0); }
+function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; render(); hudLoad(); window.scrollTo(0,0); }
+function hudEdit(id){ const s=hud.mine.find(x=>x.id===id); if(!s) return;
+  hud.draft={date:s.date, yesterday:s.yesterday||'', issues:s.issues||'', today:s.today||''}; hud.editing=true; render();
+  const f=document.getElementById('hud_date'); if(f) f.scrollIntoView({behavior:'smooth',block:'center'}); }
+function hudCancelEdit(){ hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; render(); }
+function hudDelete(id){ if(!confirm('Ye standup delete karna hai?')) return;
+  db.collection('standups').doc(id).delete().then(()=>{ toast('Deleted'); hudLoad(); }).catch(e=>alert(e.message)); }
 function hudSetDate(d){ hud.date=d; hudLoad(); }
 function hudShiftDay(n){ const dt=new Date(hud.date+'T00:00'); dt.setDate(dt.getDate()+n); hud.date=dt.toISOString().slice(0,10); hudLoad(); }
 
@@ -1201,7 +1227,7 @@ function hudSaveStandup(){
   const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
   db.collection('standups').doc(id).set({ date, name, nameKey:name.toLowerCase(),
       yesterday:y, issues:i, today:t, ts:Date.now() }, {merge:true})
-    .then(()=>{ toast('Standup saved ✓'); hudLoad(); })
+    .then(()=>{ toast(hud.editing?'Standup updated ✓':'Standup saved ✓'); hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; hudLoad(); })
     .catch(e=>alert('Save failed: '+e.message));
 }
 function hudFeedback(id){
@@ -1215,12 +1241,13 @@ function hudFeedback(id){
 function hudBlock(label, text, cls){
   return `<div class="hud-b ${cls||''} ${text?'':'empty'}"><span class="hud-lbl">${label}</span><div class="txt">${text?esc(text):'—'}</div></div>`;
 }
-function hudCard(s, editable){
+function hudCard(s, editable, own){
   const nm=s.name||'?';
   return `<div class="hud-card">
     <div class="hud-top">
       <div class="avatar" style="background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
       <div class="grow"><div class="hud-name">${esc(nm)}</div><div class="tiny">${fmtDate(s.date)}</div></div>
+      ${own?`<button class="btn ghost sm" onclick="hudEdit('${esc(s.id)}')">${IC.edit} Edit</button>`:''}
     </div>
     <div class="hud-blocks">
       ${hudBlock('Kal ke task', s.yesterday)}
@@ -1234,30 +1261,33 @@ function hudCard(s, editable){
       : (s.feedback ? `<div class="hud-fb"><div class="hud-fb-view">
           <span class="hud-lbl">Sir's feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</span>
           <div class="txt">${esc(s.feedback)}</div></div></div>` : '')}
+    ${own?`<div style="margin-top:10px;text-align:right"><a href="#" onclick="hudDelete('${esc(s.id)}');return false" style="color:#dc2626;font-size:.78rem;font-weight:700">Delete</a></div>`:''}
   </div>`;
 }
 
 function huddleHTML(){
   const admin=isAdmin();
   const myName=hudMyName();
-  const fd=hud.formDate||today();
-  const mineToday=hud.mine.find(s=>s.date===fd)||{};
+  const d=hud.draft;
   const posted=new Set(hud.items.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
   const missing=EXECS.filter(n=>!posted.has(n.toLowerCase()));
   const formCard=`<div class="card" style="padding:16px">
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
-        <b>${admin?'Aapka apna Standup':'Aaj ka Standup'}</b>
+        <b>${hud.editing?('Edit — '+fmtDate(d.date)):(admin?'Aapka apna Standup':'Aaj ka Standup')}</b>
         <button class="btn ghost sm" onclick="hudPickName()">${myName?esc(myName):'Naam chuno'}</button>
       </div>
       <div class="field" style="margin-top:12px"><label>Date</label>
-        <input id="hud_date" type="date" value="${fd}" onchange="hud.formDate=this.value;render()"></div>
-      <div class="field"><label>Last day ke task</label><textarea id="hud_y" rows="2" placeholder="Kal kya kiya…">${esc(mineToday.yesterday||'')}</textarea></div>
-      <div class="field"><label>Issues / Blockers</label><textarea id="hud_i" rows="2" placeholder="Koi problem? (optional)">${esc(mineToday.issues||'')}</textarea></div>
-      <div class="field"><label>Aaj ke task</label><textarea id="hud_t" rows="2" placeholder="Aaj kya karna hai…">${esc(mineToday.today||'')}</textarea></div>
-      <button class="btn wide" onclick="hudSaveStandup()">${IC.check} Save Standup</button>
+        <input id="hud_date" type="date" value="${d.date}" onchange="hud.draft.date=this.value"></div>
+      <div class="field"><label>Last day ke task</label><textarea id="hud_y" rows="2" placeholder="Kal kya kiya…">${esc(d.yesterday)}</textarea></div>
+      <div class="field"><label>Issues / Blockers</label><textarea id="hud_i" rows="2" placeholder="Koi problem? (optional)">${esc(d.issues)}</textarea></div>
+      <div class="field"><label>Aaj ke task</label><textarea id="hud_t" rows="2" placeholder="Aaj kya karna hai…">${esc(d.today)}</textarea></div>
+      <div class="row" style="gap:9px">
+        ${hud.editing?`<button class="btn ghost grow" onclick="hudCancelEdit()">Cancel</button>`:''}
+        <button class="btn ${hud.editing?'grow':'wide'}" onclick="hudSaveStandup()">${IC.check} ${hud.editing?'Update':'Save Standup'}</button>
+      </div>
     </div>`;
   const mineList=`<div class="sec">${IC.cal} Meri Standups</div>
-    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false)).join('') : '<div class="empty">Abhi koi standup nahi. Form se pehli entry bharo.</div>'}`;
+    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false,true)).join('') : '<div class="empty">Abhi koi standup nahi. Form se pehli entry bharo.</div>'}`;
   const board=admin ? `
       <div class="sec">${IC.users} Team Board</div>
       <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -1278,10 +1308,158 @@ function huddleHTML(){
   </div>`;
 }
 
+// ── ATTENDANCE ────────────────────────────────────────────────────────────────
+const OFFICES = [ {id:'kota',name:'Kota'}, {id:'jhalawar',name:'Jhalawar'}, {id:'khanpur',name:'Khanpur'} ];
+const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster)
+  kota:['Rahul','Luv','Sunil Pankaj Ji','Krishan Ji','Kamana ji','Rashid Ji','Shaffat Ji','Bhavesh'],
+  jhalawar:['Sunil Meghwal Ji','Raghavendra Ji'],
+  khanpur:['Rupesh Ji','Leeladhar ji']
+};
+const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
+const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
+let att = { date: today(), offices:{}, mineToday:null, mine:[], items:[] };
+const istTime = () => new Date(Date.now()+5.5*3600e3).toISOString().slice(11,16);   // HH:MM IST
+const attId = (date,name) => date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+function officeOf(name){ const k=(name||'').toLowerCase();
+  for(const oid of Object.keys(OFFICE_STAFF)) if(OFFICE_STAFF[oid].some(n=>n.toLowerCase()===k)) return oid;
+  return null; }
+function distM(la1,lo1,la2,lo2){ const R=6371000, r=x=>x*Math.PI/180;
+  const dLa=r(la2-la1), dLo=r(lo2-lo1);
+  const x=Math.sin(dLa/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x)); }
+function getPos(){ return new Promise((res,rej)=>{
+  if(!navigator.geolocation) return rej(new Error('Is device me GPS support nahi'));
+  navigator.geolocation.getCurrentPosition(p=>res(p.coords),
+    e=>rej(new Error(e.code===1?'Location permission deni hogi — "Allow" karo':(e.message||'Location nahi mili'))),
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}); }); }
+
+function openAtt(){ route.view='att'; route.id=null; att.date=today(); att.mineToday=null; att.mine=[]; att.items=[]; render(); attLoad(); window.scrollTo(0,0); }
+function attSetDate(d){ att.date=d; attLoad(); }
+function attShiftDay(n){ const dt=new Date(att.date+'T00:00'); dt.setDate(dt.getDate()+n); att.date=dt.toISOString().slice(0,10); attLoad(); }
+
+async function attLoadOffices(){ try{ const d=await db.collection('config').doc('offices').get(); att.offices=d.exists?(d.data()||{}):{}; }catch(e){ att.offices={}; } }
+async function attLoad(){
+  const mine=hudMyName().toLowerCase();
+  try{
+    if(!Object.keys(att.offices).length) await attLoadOffices();
+    if(mine){
+      const d=await db.collection('attendance').doc(attId(today(),mine)).get();
+      att.mineToday=d.exists?{id:d.id,...d.data()}:null;
+      const s=await db.collection('attendance').where('nameKey','==',mine).get();
+      att.mine=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    }
+    if(isAdmin()){ const s=await db.collection('attendance').where('date','==',att.date).get();
+      att.items=s.docs.map(x=>({id:x.id,...x.data()})); }
+  }catch(e){ alert('Attendance load error: '+e.message); }
+  if(route.view==='att') render();
+}
+
+async function attCapture(oid, oname){
+  if(att.offices[oid] && att.offices[oid].lat!=null){
+    if(!confirm(oname+' ki location pehle se set hai. Change karni hai? (Normally nahi karni chahiye)')) return;
+  }
+  let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message); return; }
+  try{
+    await db.collection('config').doc('offices').set({ [oid]:{ name:oname, lat:c.latitude, lng:c.longitude,
+      acc:Math.round(c.accuracy||0), setBy:(user&&user.email||''), setAt:Date.now() } }, {merge:true});
+    await attLoadOffices(); toast(oname+' location set ✓'); render();
+  }catch(e){ alert('Save error (sirf sir set kar sakte hain): '+e.message); }
+}
+
+async function attPunchIn(){
+  const name=hudMyName(); if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
+  if(!Object.keys(att.offices).length) await attLoadOffices();
+  const oid=officeOf(name);
+  const targets = (oid ? OFFICES.filter(o=>o.id===oid) : OFFICES)   // apna office; assign nahi to koi bhi
+    .map(o=>({o, cfg:att.offices[o.id]})).filter(x=>x.cfg && x.cfg.lat!=null);
+  if(!targets.length){ alert('Aapke office ki location abhi set nahi hui.\nSir ko bolo office pe jaake "Set location" dabaye.'); return; }
+  let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message+'\n\nPhone me location/GPS ON karo aur is site ko "Allow" karo.'); return; }
+  let best=null;
+  for(const {o,cfg} of targets){ const d=distM(c.latitude,c.longitude,cfg.lat,cfg.lng); if(!best||d<best.d) best={o,d}; }
+  if(best.d>OFFICE_RADIUS){ alert(`Aap ${best.o.name} office se ~${Math.round(best.d)}m door ho.\nPunch-in sirf office pahunch ke hoga.`); return; }
+  const t=istTime(), late=t>LATE_AFTER, date=today();
+  try{
+    await db.collection('attendance').doc(attId(date,name)).set({ date, name, nameKey:name.toLowerCase(),
+      office:best.o.id, officeName:best.o.name, inTime:t, inLat:c.latitude, inLng:c.longitude,
+      inDist:Math.round(best.d), late, ts:Date.now() }, {merge:true});
+    toast(late?('Punch-in ✓ '+t+' (Late)') : ('Punch-in ✓ '+t)); attLoad();
+  }catch(e){ alert('Save error: '+e.message); }
+}
+async function attPunchOut(){
+  const name=hudMyName(); if(!name){ alert('Pehle naam chuno'); return; }
+  if(!att.mineToday||!att.mineToday.inTime){ alert('Pehle Punch-in karo'); return; }
+  try{ await db.collection('attendance').doc(attId(today(),name)).set({ outTime:istTime() },{merge:true});
+    toast('Punch-out ✓ '+istTime()); attLoad(); }catch(e){ alert(e.message); }
+}
+
+function attView(){
+  const admin=isAdmin();
+  const myName=hudMyName();
+  const rec=att.mineToday, inDone=rec&&rec.inTime, outDone=rec&&rec.outTime;
+  const status = inDone
+    ? `<div class="att-status in"><div class="att-ic" style="background:#16a34a">${IC.check}</div>
+        <div class="grow"><div class="att-big">Present ${rec.late?'<span class="badge late">Late</span>':'<span class="badge ontime">On time</span>'}</div>
+        <div class="tiny">In: ${esc(rec.inTime)}${rec.officeName?' · '+esc(rec.officeName):''}${outDone?' · Out: '+esc(rec.outTime):''}</div></div></div>`
+    : `<div class="att-status"><div class="att-ic" style="background:#9ca3af">${IC.cal}</div>
+        <div class="grow"><div class="att-big">Not punched in</div><div class="tiny">Office pahunch ke Punch In karo</div></div></div>`;
+  const punch = `<div class="att-punch">
+      <button class="btn green" onclick="attPunchIn()" ${inDone?'disabled style="opacity:.45"':''}>${IC.check} Punch In</button>
+      <button class="btn" onclick="attPunchOut()" ${(!inDone||outDone)?'disabled style="opacity:.45"':''}>${IC.logout} Punch Out</button>
+    </div>
+    <div class="tiny">Naam: <b>${myName?esc(myName):'—'}</b> · <a href="#" onclick="hudPickName();return false" style="color:var(--brand);font-weight:700">badlo</a></div>`;
+  const mineList = `<div class="sec" style="margin-top:20px">${IC.cal} Meri Attendance</div>
+    ${att.mine.length? att.mine.map(a=>`<div class="att-row">
+        <div class="grow"><b>${fmtDate(a.date)}</b> ${a.late?'<span class="badge late">Late</span>':''}<div class="tiny">${esc(a.officeName||'')}</div></div>
+        <div class="att-time">${esc(a.inTime||'—')}${a.outTime?' → '+esc(a.outTime):''}</div>
+      </div>`).join('') : '<div class="empty">Abhi koi attendance nahi.</div>'}`;
+
+  let adminPart='';
+  if(admin){
+    const offRows = OFFICES.map(o=>{ const c=att.offices[o.id]; const set=c&&c.lat!=null;
+      return `<div class="off-set"><div class="grow"><b>${esc(o.name)}</b>
+        <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location set nahi'}</div></div>
+        <button class="btn ${set?'ghost ':''}sm" onclick="attCapture('${o.id}','${esc(o.name)}')">${set?'Re-set':'Set location'}</button></div>`;
+    }).join('');
+    const byKey={}; att.items.forEach(a=>{ byKey[(a.nameKey||'').toLowerCase()]=a; });
+    const attRow=(nm,a)=>`<div class="att-row">
+        <div class="avatar" style="width:36px;height:36px;font-size:.85rem;background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
+        <div class="grow"><b>${esc(nm)}</b> ${a?(a.late?'<span class="badge late">Late</span>':'<span class="badge ontime">On&nbsp;time</span>'):'<span class="badge absent">Absent</span>'}</div>
+        <div class="att-time">${a?esc(a.inTime)+(a.outTime?' → '+esc(a.outTime):''):'—'}</div></div>`;
+    const groups = OFFICES.map(o=>{ const staff=OFFICE_STAFF[o.id]||[]; if(!staff.length) return '';
+      const present=staff.filter(nm=>byKey[nm.toLowerCase()]).length;
+      return `<div class="sec" style="margin-top:16px">${esc(o.name)} — ${present}/${staff.length} present</div>
+        ${staff.map(nm=>attRow(nm, byKey[nm.toLowerCase()])).join('')}`;
+    }).join('');
+    const rosterKeys=new Set(Object.values(OFFICE_STAFF).flat().map(n=>n.toLowerCase()));
+    const others=att.items.filter(a=>!rosterKeys.has((a.nameKey||'').toLowerCase()));
+    const othersHTML = others.length?`<div class="sec" style="margin-top:16px">Other</div>${others.map(a=>attRow(a.name||'?',a)).join('')}`:'';
+    adminPart = `
+      <div class="sec">📍 Office Locations <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">(ek baar set — sir only)</span></div>
+      <div class="tiny" style="margin:-4px 2px 10px">Har office me jaake ek baar "Set location" dabao. Uske baad punch-in sirf wahin ~${OFFICE_RADIUS}m ke andar hoga.</div>
+      ${offRows}
+      <div class="sec" style="margin-top:24px">${IC.users} Attendance Board</div>
+      <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="attShiftDay(-1)">${IC.back}</button>
+        <input type="date" value="${att.date}" onchange="attSetDate(this.value)" style="width:auto">
+        <button class="btn ghost sm" onclick="attShiftDay(1)">${IC.chev}</button>
+        <button class="btn ghost sm" onclick="attSetDate(today())">Today</button>
+      </div>
+      ${groups}${othersHTML}`;
+  }
+  return `<div class="main-inner">
+    <div class="page-title">Attendance</div>
+    <div class="page-sub">Office pahunch ke Punch In karo${admin?' · aur team ki attendance dekho':''}.</div>
+    ${admin
+      ? `<div class="hud-wrap"><div class="hud-left"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div><div>${adminPart}</div></div>`
+      : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div>`}
+  </div>`;
+}
+
 function render(){
   if(!user){ renderLogin(); return; }
-  if(isHuddleOnly()) route.view='huddle';   // huddle-only logins ko sirf Huddle
+  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att') route.view='huddle';   // huddle-only: sirf Huddle + Attendance
   const content = route.view==='detail' ? detailHTML() :
+                  route.view==='att' ? attView() :
                   route.view==='huddle' ? huddleHTML() :
                   route.view==='kanban' ? kanbanHTML() :
                   route.view==='reminders' ? remindersHTML() :
@@ -1292,7 +1470,8 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
-    if(isHuddleOnly()){ leads=[]; route.view='huddle'; render(); hudLoad(); return; }   // CRM data load hi na ho
+    if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
+    attLoadOffices();
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
         leads = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
