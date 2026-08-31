@@ -274,8 +274,8 @@
   a.plain{text-decoration:none;color:inherit;display:block}
   hr{border:none;border-top:1px solid var(--line);margin:14px 0}
 
-  /* many tabs: mobile nav scrolls sideways */
-  @media(max-width:999px){ .nav{overflow-x:auto} .nav::-webkit-scrollbar{display:none} .nav-item{flex:0 0 auto;white-space:nowrap;padding:9px 13px;font-size:.83rem} }
+  /* many tabs: mobile nav wraps to 2 rows (3 per row) — sab tabs dikhein, koi clip nahi */
+  @media(max-width:999px){ .nav{flex-wrap:wrap;gap:4px} .nav-item{flex:1 1 28%;min-width:0;padding:9px 4px;font-size:.8rem;white-space:nowrap} }
   #_toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
     transform:translateX(-50%) translateY(18px);background:#111827;color:#fff;padding:11px 18px;
     border-radius:12px;font-weight:600;font-size:.88rem;box-shadow:var(--sh-lg);opacity:0;
@@ -315,6 +315,24 @@
   .badge.ontime{background:#d1fae5;color:#047857}
   .badge.absent{background:#f3f4f6;color:#9ca3af}
   .off-set{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
+
+  /* mobile bottom navigation bar (app-jaisa) */
+  .bottomnav{display:none}
+  @media(max-width:999px){
+    .side .nav{display:none}   /* tabs neeche chali gayi — upar sirf brand */
+    .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;
+      border-top:1px solid var(--line);box-shadow:0 -2px 16px rgba(17,24,39,.08);
+      padding:6px 2px calc(6px + env(safe-area-inset-bottom))}
+    .bn-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;
+      border:none;padding:5px 1px;color:var(--muted);font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;position:relative}
+    .bn-item svg{width:22px;height:22px}
+    .bn-item span{white-space:nowrap}
+    .bn-item:active{transform:scale(.92)}
+    .bn-item.on{color:var(--brand)}
+    .bn-item .bdot{position:absolute;top:0;left:52%;background:var(--danger);color:#fff;font-size:.54rem;font-weight:800;
+      min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+    .fab{bottom:calc(78px + env(safe-area-inset-bottom))!important}
+  }
 </style>
 </head>
 <body>
@@ -453,8 +471,8 @@ function sideHTML(){
       </div>
     </div>
     <nav class="nav">
-      <button class="nav-item ${route.view==='att'?'':'on'}" onclick="openHuddle()">${IC.check} Huddle</button>
-      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.cal} Attendance</button>
+      <button class="nav-item ${route.view==='att'?'':'on'}" onclick="openHuddle()">${IC.inbox} Huddle</button>
+      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
     </nav>
     <div class="side-foot">
       <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
@@ -468,13 +486,14 @@ function sideHTML(){
   const hot = leads.filter(L=>L.status==='hot').length;
   const booked = leads.filter(L=>L.status==='booked').length;
   const stat = (n,t,onclick,cls='')=>`<div class="stat ${cls}" onclick="${onclick}"><div class="n">${n}</div><div class="t">${t}</div></div>`;
+  const crm = route.view!=='huddle' && route.view!=='att';   // CRM stats/tools sirf CRM tabs pe (Huddle/Attendance saaf rahein)
   return `<aside class="side">
     <div class="brand">
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
-      <div class="grow"><h1>Plot CRM</h1><div class="sub">${leads.length} leads${overdue?` · ${overdue} overdue`:''}</div></div>
+      <div class="grow"><h1>Plot CRM</h1><div class="sub">${crm?`${leads.length} leads${overdue?` · ${overdue} overdue`:''}`:(route.view==='att'?'Attendance':'Daily Huddle')}</div></div>
       <div class="hdr-actions">
-        <button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
-        <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>
+        ${crm?`<button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
+        <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>`:''}
         <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
@@ -484,11 +503,11 @@ function sideHTML(){
       <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
-      <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.check} Huddle</button>
-      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.cal} Attendance</button>
+      <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
+      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
     </nav>
     <div class="side-foot">
-      <div class="stats">
+      <div class="stats"${crm?'':' style="display:none"'}>
         ${stat(leads.length,'Total',"tab('list');clearFilters()")}
         ${stat(hot,'Hot',"tab('list');setStatus('hot')")}
         ${stat(pending,'Pending',"tab('reminders')",pending?'stat-alert':'')}
@@ -1455,6 +1474,26 @@ function attView(){
   </div>`;
 }
 
+// mobile bottom nav — top tabs neeche fixed bar me
+function bottomNavHTML(){
+  if(!user) return '';
+  const it=(v,icon,label,onclick,badge)=>`<button class="bn-item ${route.view===v?'on':''}" onclick="${onclick}">${badge?`<span class="bdot">${badge}</span>`:''}${icon}<span>${label}</span></button>`;
+  if(isHuddleOnly()) return `<nav class="bottomnav">
+    ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
+    ${it('att',IC.check,'Attend.','openAtt()','')}
+  </nav>`;
+  const dueToday=leads.filter(L=>dueDate(L)===today()).length;
+  const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
+  return `<nav class="bottomnav">
+    ${it('today',IC.cal,'Today',"tab('today')",dueToday||'')}
+    ${it('reminders',IC.bell,'Alerts',"tab('reminders')",pending||'')}
+    ${it('list',IC.users,'Leads',"tab('list')",'')}
+    ${it('kanban',IC.board,'Board',"tab('kanban')",'')}
+    ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
+    ${it('att',IC.check,'Attend.','openAtt()','')}
+  </nav>`;
+}
+
 function render(){
   if(!user){ renderLogin(); return; }
   if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att') route.view='huddle';   // huddle-only: sirf Huddle + Attendance
@@ -1464,7 +1503,7 @@ function render(){
                   route.view==='kanban' ? kanbanHTML() :
                   route.view==='reminders' ? remindersHTML() :
                   route.view==='today' ? todayHTML() : listHTML();
-  document.getElementById('app').innerHTML = `<div class="shell">${sideHTML()}<main class="main">${content}</main></div>`;
+  document.getElementById('app').innerHTML = `<div class="shell">${sideHTML()}<main class="main">${content}</main></div>${bottomNavHTML()}`;
 }
 document.getElementById('app').innerHTML = '<div class="login"><div class="login-card">Loading…</div></div>';
 auth.onAuthStateChanged(u=>{
