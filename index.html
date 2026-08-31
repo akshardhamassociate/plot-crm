@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plot CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js"></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111827">
+<link rel="apple-touch-icon" href="logo.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Plot CRM">
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --ink:#111827; --muted:#6b7280; --faint:#9ca3af;
+    --line:#e7e9ee; --brand:#4f46e5; --brand2:#6366f1; --accent:#4f46e5;
+    --side1:#111827; --side2:#1f2937;
+    --ok:#16a34a; --wa:#22c55e; --danger:#dc2626; --amber:#d97706;
+    --sh:0 1px 2px rgba(17,24,39,.04),0 4px 16px rgba(17,24,39,.06);
+    --sh-lg:0 10px 34px rgba(17,24,39,.12);
+    --r:14px; --side:272px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Inter',-apple-system,'Segoe UI',system-ui,Roboto,sans-serif;
+    -webkit-tap-highlight-color:transparent;font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+  svg{width:20px;height:20px;flex-shrink:0}
+
+  /* ── responsive shell ── */
+  .shell{display:flex;flex-direction:column;min-height:100dvh}
+
+  /* SIDE (mobile = top header, desktop = left sidebar) */
+  .side{background:linear-gradient(165deg,var(--side1),var(--side2));color:#fff;
+    position:sticky;top:0;z-index:20;padding:14px 16px 16px;box-shadow:0 4px 20px rgba(17,24,39,.25)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.16);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;
+    border:1px solid rgba(255,255,255,.25)}
+  .brand-logo{height:42px;width:auto;max-width:150px;background:#fff;border-radius:10px;padding:5px 9px;flex-shrink:0}
+  .brand h1{margin:0;font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+  .brand .sub{font-size:.75rem;opacity:.82;margin-top:1px}
+  .iconbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+    color:#fff;border-radius:10px;padding:8px;display:flex;cursor:pointer;transition:.12s}
+  .iconbtn:active{transform:scale(.94)}
+
+  .nav{display:flex;background:rgba(255,255,255,.12);border-radius:12px;padding:4px;margin-top:14px}
+  .nav-item{flex:1;border:none;background:none;padding:9px;border-radius:9px;font-weight:700;
+    font-size:.88rem;color:rgba(255,255,255,.85);cursor:pointer;display:flex;align-items:center;
+    justify-content:center;gap:6px;transition:.15s}
+  .nav-item.on{background:#fff;color:var(--brand);box-shadow:var(--sh)}
+  .nav-item .dot{background:var(--danger);color:#fff;font-size:.66rem;font-weight:800;
+    min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+
+  .side-foot{margin-top:14px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .stat{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+    border-radius:12px;padding:9px 8px;text-align:center;cursor:pointer;transition:background .15s}
+  .stat:active{background:rgba(255,255,255,.24)}
+  .stat .n{font-size:1.35rem;font-weight:800;line-height:1.1}
+  .stat .t{font-size:.66rem;opacity:.85;margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+  .side .side-add,.side .import-d,.side .export-d,.side .logout-d{display:none}
+  .hdr-actions{margin-left:auto;display:flex;gap:8px}
+
+  /* login screen */
+  .login{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:linear-gradient(165deg,var(--side1),var(--side2))}
+  .login-card{background:#fff;border-radius:18px;box-shadow:var(--sh-lg);padding:30px 26px;width:100%;max-width:380px;text-align:center}
+  .login-card .logo-lg{width:56px;height:56px;border-radius:15px;background:var(--brand);color:#fff;
+    font-weight:800;font-size:1.6rem;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+  .login-logo{width:230px;max-width:80%;height:auto;display:block;margin:0 auto 18px}
+  .login-card h1{margin:0 0 2px;font-size:1.3rem;font-weight:800}
+  .login-card>p{color:var(--muted);font-size:.86rem;margin:0 0 20px}
+  .login-card .field{text-align:left}
+  .lg-err{color:var(--danger);font-size:.8rem;min-height:18px;margin:2px 0 8px;text-align:left}
+
+  /* MAIN */
+  .main{flex:1;min-width:0}
+  .main-inner{max-width:1120px;margin:0 auto;padding:16px 18px calc(100px + env(safe-area-inset-bottom))}
+  .page-title{display:none}
+
+  @media(min-width:1000px){
+    body{font-size:15px}
+    .shell{flex-direction:row}
+    .side{width:var(--side);height:100dvh;padding:22px 16px;display:flex;flex-direction:column;
+      overflow-y:auto;box-shadow:2px 0 24px rgba(18,50,91,.12)}
+    .brand h1{font-size:1.25rem}
+    .nav{flex-direction:column;background:none;padding:0;gap:4px;margin-top:22px}
+    .nav-item{justify-content:flex-start;padding:12px 14px;border-radius:11px;font-size:.95rem}
+    .nav-item.on{background:var(--brand);color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.45)}
+    .nav .nav-item svg{display:inline-block}   /* desktop sidebar shows icons */
+    .side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+    .stats{grid-template-columns:1fr 1fr}
+    .side .hdr-actions{display:none}
+    .side .side-add{display:flex;width:100%}
+    .side .import-d,.side .export-d{display:flex}
+    .side .logout-d{display:flex;width:100%}
+    .main-inner{padding:26px 34px 60px}
+    .page-title{display:block;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+    .page-sub{display:block;color:var(--muted);font-size:.9rem;margin-bottom:18px}
+    .fab{display:none!important}
+  }
+
+  /* ── form controls ── */
+  input,select,textarea,button{font-family:inherit;font-size:.92rem}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);
+    border-radius:11px;background:#fff;color:var(--ink)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(37,99,235,.13)}
+  ::placeholder{color:var(--faint)}
+  label{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.03em;display:block;margin:0 0 5px}
+  .field{margin-bottom:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .execchecks{display:flex;flex-wrap:wrap;gap:8px}
+  .chk{display:inline-flex;align-items:center;gap:7px;background:#f4f5f8;border:1px solid var(--line);
+    border-radius:9px;padding:8px 11px;font-size:.85rem;font-weight:600;cursor:pointer}
+  .chk input{width:auto;margin:0;accent-color:var(--brand)}
+  .chk:has(input:checked){background:#eef0fc;border-color:var(--brand);color:var(--brand)}
+
+  .search-wrap{position:relative}
+  .search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--faint)}
+  .search-wrap input{padding-left:40px}
+
+  .btn{border:none;border-radius:11px;padding:12px 16px;font-weight:700;cursor:pointer;
+    background:var(--brand);color:#fff;transition:.15s;display:inline-flex;align-items:center;
+    justify-content:center;gap:7px}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:#fff;color:var(--brand);border:1.5px solid var(--line)}
+  .btn.light{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  .btn.sm{padding:9px 13px;font-size:.83rem}
+  .btn.wide{width:100%}
+  .btn.call{background:var(--ok)} .btn.wa{background:var(--wa)}
+  .btn.danger{background:#fff;color:var(--danger);border:1.5px solid #fca5a5}
+
+  .row{display:flex;gap:9px;align-items:center}
+  .grow{flex:1;min-width:0}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+  .tiny{font-size:.74rem;color:var(--muted)}
+  .ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--line)}
+
+  /* reminder banner */
+  .rem{display:flex;align-items:center;gap:13px;background:linear-gradient(100deg,#fff7ed,#fff);
+    border:1px solid #fed7aa;border-left:4px solid var(--amber);border-radius:var(--r);
+    padding:13px 15px;margin-bottom:16px;cursor:pointer;box-shadow:var(--sh)}
+  .rem:active{transform:scale(.995)}
+  .rem-ic{width:40px;height:40px;border-radius:11px;background:#fef3c7;color:var(--amber);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .rem b{font-size:.95rem} .rem .go{color:var(--amber);font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:3px}
+
+  /* urgent reminders */
+  .alert{display:flex;align-items:center;gap:12px;background:#fef2f2;border:1px solid #fecaca;
+    border-left:4px solid var(--danger);border-radius:14px;padding:14px 16px;margin-bottom:16px}
+  .alert .a-ic{width:40px;height:40px;border-radius:11px;background:#fee2e2;color:var(--danger);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .alert b{color:var(--danger);font-size:.98rem}
+  .lead.urgent{border-color:#fecaca;border-left:4px solid var(--danger);background:#fff7f7}
+  .stat.stat-alert{background:rgba(220,38,38,.24);border-color:rgba(248,113,113,.55)}
+  .stat.stat-alert .n{color:#fca5a5}
+  .nav .nav-item svg{display:none}   /* mobile nav = text only, fits 4 tabs */
+
+  /* leads list -> grid on desktop */
+  .leads{display:flex;flex-direction:column;gap:9px}
+  @media(min-width:1000px){ .leads{display:grid;grid-template-columns:1fr 1fr;gap:12px} }
+  .lead{display:flex;align-items:center;gap:12px;padding:13px 15px;cursor:pointer;transition:.12s}
+  .lead:active{background:#f8fafc}
+  @media(min-width:1000px){ .lead:hover{box-shadow:var(--sh-lg);transform:translateY(-1px)} }
+
+  /* table (desktop list view) */
+  .leads-table{display:none;width:100%;border-collapse:separate;border-spacing:0;background:#fff;
+    border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+  @media(min-width:1000px){ .leads-cards{display:none} .leads-table{display:table} }
+  .leads-table th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);font-weight:700;padding:12px 14px;border-bottom:1px solid var(--line);background:#fafbfc}
+  .leads-table td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:.87rem}
+  .leads-table tbody tr{cursor:pointer;transition:.1s}
+  .leads-table tbody tr:hover{background:#f8fafc}
+  .leads-table tbody tr:last-child td{border-bottom:none}
+  .tbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px;display:inline-flex;cursor:pointer;color:var(--muted)}
+  .tbtn svg{width:17px;height:17px}
+  .tbtn.tcall{color:var(--ok)} .tbtn.twa{color:var(--wa)}
+  .tbtn:active{transform:scale(.94)}
+
+  /* pagination */
+  .pager{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .psize,.pnav{display:flex;align-items:center;gap:6px}
+  .pbtn{min-width:34px;height:34px;padding:0 9px;border:1px solid var(--line);background:#fff;
+    border-radius:9px;font-weight:700;font-size:.82rem;color:var(--muted);cursor:pointer}
+  .pbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .pbtn:disabled{opacity:.4;cursor:default}
+
+  /* kanban board */
+  .kfilters{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+  .kfilters .search-wrap{flex:1;min-width:170px}
+  .kfilters select{width:auto;min-width:140px}
+  .kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px}
+  .kanban::-webkit-scrollbar{height:8px}
+  .kanban::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+  .kcol{flex:0 0 270px;background:#eef1f5;border-radius:14px;padding:10px}
+  .kcol.drop{outline:2px dashed var(--brand);outline-offset:-2px;background:#e6eafc}
+  .kcol-h{display:flex;align-items:center;gap:8px;font-weight:800;font-size:.9rem;padding:4px 6px 12px}
+  .kcol-h .cnt{margin-left:auto;background:#fff;color:var(--muted);font-size:.72rem;font-weight:800;
+    padding:2px 9px;border-radius:20px;border:1px solid var(--line)}
+  .dotc{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .kcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px;box-shadow:var(--sh)}
+  .kcard .kn{font-weight:700;font-size:.9rem;margin-bottom:2px}
+  .kcard[draggable=true]{cursor:grab}
+  .kcard.dragging{opacity:.4}
+  .avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:1rem}
+  .chev{color:var(--faint)}
+  .badge{font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:8px;white-space:nowrap}
+  .odot{width:7px;height:7px;border-radius:50%;background:var(--danger);flex-shrink:0;
+    box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+
+  .scroll-x{display:flex;gap:8px;overflow-x:auto;padding:2px 0}
+  .scroll-x::-webkit-scrollbar{display:none}
+  .chip{font-size:.78rem;font-weight:700;padding:7px 13px;border-radius:20px;border:1.5px solid var(--line);
+    background:#fff;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+  .fab{position:fixed;bottom:calc(22px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:30;
+    background:var(--brand);color:#fff;border:none;border-radius:50px;padding:14px 24px;
+    font-weight:800;font-size:.92rem;box-shadow:0 8px 24px rgba(79,70,229,.42);cursor:pointer;
+    display:flex;align-items:center;gap:8px}
+  .fab:active{transform:translateX(-50%) scale(.96)}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:40;display:flex;
+    align-items:flex-end;justify-content:center;animation:fade .18s ease}
+  .modal{background:#fff;width:100%;max-width:560px;max-height:93dvh;overflow-y:auto;
+    border-radius:20px 20px 0 0;padding:8px 18px 28px;animation:up .22s cubic-bezier(.2,.8,.2,1)}
+  @media(min-width:1000px){ .modal-bg{align-items:center} .modal{border-radius:20px;max-height:88dvh} }
+  @keyframes fade{from{opacity:0}} @keyframes up{from{transform:translateY(24px)}}
+  .grab{width:38px;height:4px;background:var(--line);border-radius:3px;margin:8px auto 14px}
+  @media(min-width:1000px){ .grab{display:none} .modal{padding-top:20px} }
+  .modal h2{margin:0 0 4px;font-size:1.08rem;font-weight:800}
+  .modal .msub{font-size:.78rem;color:var(--muted);margin-bottom:16px}
+
+  .detail-head{background:linear-gradient(135deg,var(--side1),var(--side2));color:#fff;
+    padding:14px 18px;position:sticky;top:0;z-index:20;box-shadow:0 4px 20px rgba(17,24,39,.25)}
+  .detail-head h1{margin:0;font-size:1.1rem;font-weight:800}
+  .detail-head .sub{font-size:.75rem;opacity:.82}
+  @media(min-width:1000px){
+    .detail-head{background:#fff;color:var(--ink);box-shadow:inset 0 -1px 0 var(--line);position:static;padding:0 0 18px}
+    .detail-head .iconbtn{background:#f1f5f9;border-color:var(--line);color:var(--ink)}
+  }
+  .detail-inner{max-width:820px;margin:0 auto}
+  .sec{font-size:.72rem;font-weight:800;color:var(--faint);text-transform:uppercase;
+    letter-spacing:.05em;margin:20px 2px 9px;display:flex;align-items:center;gap:8px}
+  .kv{display:flex;gap:10px;font-size:.88rem;padding:8px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:none}
+  .kv b{color:var(--muted);font-weight:600;min-width:120px;font-size:.82rem}
+  .fu-card{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px;background:#fff;box-shadow:var(--sh)}
+  .fu-card .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+  .fu-line{font-size:.86rem;margin:4px 0}
+  .fu-line b{color:var(--muted);font-weight:600}
+  .att{display:inline-flex;align-items:center;gap:5px;background:#eef4ff;color:#1e40af;
+    font-size:.72rem;font-weight:700;padding:4px 9px;border-radius:8px;margin:5px 5px 0 0}
+  .arrow{color:var(--faint);font-weight:700}
+  .empty{text-align:center;color:var(--muted);padding:52px 24px;font-size:.9rem}
+  .empty svg{width:40px;height:40px;color:var(--faint);margin-bottom:10px}
+  .grp-label{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+    margin:20px 2px 9px;display:flex;align-items:center;gap:7px}
+  a.plain{text-decoration:none;color:inherit;display:block}
+  hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+
+  /* many tabs: mobile nav wraps to 2 rows (3 per row) — sab tabs dikhein, koi clip nahi */
+  @media(max-width:999px){ .nav{flex-wrap:wrap;gap:4px} .nav-item{flex:1 1 28%;min-width:0;padding:9px 4px;font-size:.8rem;white-space:nowrap} }
+  #_toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(18px);background:#111827;color:#fff;padding:11px 18px;
+    border-radius:12px;font-weight:600;font-size:.88rem;box-shadow:var(--sh-lg);opacity:0;
+    pointer-events:none;transition:.24s;z-index:60;max-width:88vw;text-align:center}
+  #_toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* huddle cards */
+  .hud-card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);padding:16px 18px;margin-bottom:14px}
+  .hud-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .hud-name{font-weight:800;font-size:1rem;line-height:1.2}
+  .hud-blocks{display:grid;gap:10px}
+  @media(min-width:720px){ .hud-blocks{grid-template-columns:1fr 1fr 1fr} }
+  .hud-b{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .hud-b.amber{background:#fff7ed;border-color:#fed7aa}
+  .hud-b.empty{opacity:.45}
+  .hud-lbl{display:block;font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+  .hud-b.amber .hud-lbl{color:var(--amber)}
+  .hud-b .txt{font-size:.9rem;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .hud-fb{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .hud-fb-view{background:#eef0fc;border:1px solid #dfe3fb;border-radius:12px;padding:12px 14px}
+  .hud-fb-view .hud-lbl{color:var(--brand)}
+  /* huddle desktop: form left (sticky), board/history right */
+  .hud-wrap{display:grid;gap:18px}
+  @media(min-width:1000px){ .hud-wrap{grid-template-columns:370px 1fr;align-items:start} .hud-left{position:sticky;top:20px} }
+
+  /* attendance */
+  .att-status{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;margin-bottom:14px;border:1px solid var(--line);background:#f7f8fa}
+  .att-status.in{background:#ecfdf5;border-color:#a7f3d0}
+  .att-ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .att-big{font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+  .att-punch{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .att-punch .btn{padding:15px}
+  .btn.green{background:#16a34a}
+  .att-row{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
+  .att-time{font-variant-numeric:tabular-nums;font-weight:700;font-size:.9rem;white-space:nowrap}
+  .badge.late{background:#fef3c7;color:#b45309}
+  .badge.ontime{background:#d1fae5;color:#047857}
+  .badge.absent{background:#f3f4f6;color:#9ca3af}
+  .off-set{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
+
+  /* mobile bottom navigation bar (app-jaisa) */
+  .bottomnav{display:none}
+  @media(max-width:999px){
+    .side .nav{display:none}   /* tabs neeche chali gayi — upar sirf brand */
+    .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;
+      border-top:1px solid var(--line);box-shadow:0 -2px 16px rgba(17,24,39,.08);
+      padding:6px 2px calc(6px + env(safe-area-inset-bottom))}
+    .bn-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;
+      border:none;padding:5px 1px;color:var(--muted);font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;position:relative}
+    .bn-item svg{width:22px;height:22px}
+    .bn-item span{white-space:nowrap}
+    .bn-item:active{transform:scale(.92)}
+    .bn-item.on{color:var(--brand)}
+    .bn-item .bdot{position:absolute;top:0;left:52%;background:var(--danger);color:#fff;font-size:.54rem;font-weight:800;
+      min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+    .fab{bottom:calc(78px + env(safe-area-inset-bottom))!important}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+"use strict";
+// ── icons (inline SVG, currentColor) ─────────────────────────────────────────
+const IC = {
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.8 12.8 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.8 12.8 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  wa:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.17L2 22l4.95-1.3A9.9 9.9 0 1 0 12.04 2zm0 1.8a8.1 8.1 0 0 1 6.86 12.42l-.2.32.66 2.42-2.48-.65-.3.18a8.1 8.1 0 1 1-4.54-14.9zm-3.2 4.3c-.16 0-.42.06-.64.3-.22.24-.85.83-.85 2.02 0 1.2.87 2.35.99 2.51.12.16 1.7 2.6 4.12 3.55 2.02.8 2.43.64 2.87.6.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19-.71-.63-1.19-1.42-1.33-1.66-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.53-1.3-.73-1.78-.19-.46-.39-.4-.54-.4z"/></svg>',
+  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5-5 5 5M12 4v12"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  board:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="5" height="13" rx="1"/></svg>',
+  logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
+};
+
+// ── config ────────────────────────────────────────────────────────────────
+const STATUSES = [
+  {k:'fresh', l:'Fresh',      c:'#475569', bg:'#eef2f7'},
+  {k:'warm',  l:'Warm',       c:'#b45309', bg:'#fef3c7'},
+  {k:'hot',   l:'Hot',        c:'#dc2626', bg:'#fee2e2'},
+  {k:'visit', l:'Site Visit', c:'#6d28d9', bg:'#ede9fe'},
+  {k:'booked',l:'Booked',     c:'#047857', bg:'#d1fae5'},
+  {k:'lost',  l:'Lost',       c:'#475569', bg:'#e5e7eb'},
+];
+const stMap = Object.fromEntries(STATUSES.map(s=>[s.k,s]));
+const OPEN = ['fresh','warm','hot','visit'];
+const SOURCES = ['Walk-in','Telecaller','Agent','Reference','Hoarding/Ad','Other'];
+const KEY = 'plot_crm_v1';
+const uid = () => 'id'+Date.now()+Math.random().toString(36).slice(2,7);
+const today = () => new Date().toISOString().slice(0,10);
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const digits = s => (s||'').replace(/\D/g,'');
+const fmtDate = d => d ? new Date(d+'T00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '';
+
+// ── state / persistence ─────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCZ_kgx4ErVZjw0YYPyJiCT70DFyE0HUTA",
+  authDomain: "plot-crm.firebaseapp.com",
+  projectId: "plot-crm",
+  storageBucket: "plot-crm.firebasestorage.app",
+  messagingSenderId: "795511910978",
+  appId: "1:795511910978:web:04483a426fe865c96c73db"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});   // offline cache
+const col = () => db.collection('leads');
+const CLOUDINARY = { cloud:'dlcxawjii', preset:'plot_crm_unsigned' };   // owner's Cloudinary — unsigned upload
+const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsDemRTi4vBqgRTGiI6mlKWow';
+let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
+let swReg = null;
+const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];   // executives — dropdown me pehle se dikhenge
+const NOTIFY_URL = 'https://plot-crm-notify.vercel.app/api/notify';   // instant-notification server (Vercel) — deploy ke baad apni URL daalna
+
+let leads = [], user = null, unsub = null;
+
+function putLead(L){ return col().doc(L.id).set(L).catch(e=>alert('Save failed: '+e.message)); }
+async function uploadFile(inputId){                // uploads to Cloudinary, returns a playable URL
+  const fl = document.getElementById(inputId).files[0];
+  if(!fl) return '';
+  try{
+    const fd = new FormData();
+    fd.append('file', fl);
+    fd.append('upload_preset', CLOUDINARY.preset);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY.cloud}/auto/upload`, { method:'POST', body:fd });
+    const data = await res.json();
+    if(data.secure_url) return data.secure_url;
+    // upload reject hua — reason dikhao (silent fallback ki jagah)
+    alert('⚠ File upload nahi hui:\n'+((data.error&&data.error.message)||'unknown')+'\n\nFile: '+fl.name+'\n(Sirf naam save hoga. Recording ko mp3/m4a/wav me try karo.)');
+    return fl.name;
+  }catch(err){ alert('⚠ Upload network error: '+err.message+'\n(Sirf naam save hoga — net check karo.)'); return fl.name; }
+}
+// (demo seed removed — data now lives in Firestore)
+
+// ── routing / filters ────────────────────────────────────────────────────────
+let route = {view:'today', id:null};
+const go = (view,id=null)=>{ route={view,id}; render(); window.scrollTo(0,0); };
+function tab(v){ route.view=v; route.id=null; render(); window.scrollTo(0,0); }
+let f = {q:'', status:'', colony:'', exec:'', from:'', to:''};
+let page=1, pageSize=25, dragId=null;
+
+// ── helpers ─────────────────────────────────────────────────────────────────
+const lastFU = L => L.followUps && L.followUps.length ? L.followUps[0] : null;
+const execsOf = L => (Array.isArray(L.execs)&&L.execs.length) ? L.execs : (L.exec ? [L.exec] : []);
+const execStr = L => execsOf(L).join(', ') || '—';
+function avatarColor(name){ let h=0; for(const c of name) h=c.charCodeAt(0)+((h<<5)-h);
+  return `hsl(${Math.abs(h)%360},50%,42%)`; }
+const uniq = arr => [...new Set(arr.filter(Boolean))].sort();
+function badge(k){ const s=stMap[k]||stMap.fresh;
+  return `<span class="badge" style="background:${s.bg};color:${s.c}">${s.l}</span>`; }
+const dueDate = L => { const fu=lastFU(L); return (fu && OPEN.includes(L.status)) ? fu.nextDate : ''; };
+const isDue = L => { const d=dueDate(L); return d && d<=today(); };
+const isOverdue = L => { const d=dueDate(L); return d && d<today(); };
+const isNew = L => OPEN.includes(L.status) && !(L.followUps && L.followUps.length);   // assigned, abhi tak koi kaam nahi
+const needsAction = L => isNew(L) || isDue(L);                                        // pending = naya ya due
+function addDays(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+
+function filtered(){
+  return leads.filter(L=>{
+    if(f.status && L.status!==f.status) return false;
+    if(f.colony && L.colony!==f.colony) return false;
+    if(f.exec && !execsOf(L).includes(f.exec)) return false;
+    if(f.q){ const q=f.q.toLowerCase();
+      if(!(L.name.toLowerCase().includes(q)||L.mobile.includes(f.q)||(L.plot||'').toLowerCase().includes(q))) return false; }
+    const d = (lastFU(L)?.date)||L.createdAt||'';
+    if(f.from && d < f.from) return false;
+    if(f.to && d > f.to) return false;
+    return true;
+  }).sort((a,b)=>((lastFU(b)?.date)||b.createdAt||'').localeCompare((lastFU(a)?.date)||a.createdAt||''));
+}
+
+// ── SIDEBAR (mobile header / desktop sidebar) ────────────────────────────────
+function sideHTML(){
+  if(isHuddleOnly()) return `<aside class="side">
+    <div class="brand">
+      <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
+      <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
+      <div class="hdr-actions">
+        <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
+        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item ${route.view==='att'?'':'on'}" onclick="openHuddle()">${IC.inbox} Huddle</button>
+      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
+    </nav>
+    <div class="side-foot">
+      <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
+      <button class="btn light logout-d" onclick="doLogout()">${IC.logout} Log out${user&&user.email?' · '+esc(user.email.split('@')[0]):''}</button>
+    </div>
+  </aside>`;
+  const dueToday = leads.filter(L=>dueDate(L)===today()).length;
+  const overdue = leads.filter(isOverdue).length;
+  const newC = leads.filter(isNew).length;
+  const pending = overdue + newC;   // reh gaya kaam: naye + overdue
+  const hot = leads.filter(L=>L.status==='hot').length;
+  const booked = leads.filter(L=>L.status==='booked').length;
+  const stat = (n,t,onclick,cls='')=>`<div class="stat ${cls}" onclick="${onclick}"><div class="n">${n}</div><div class="t">${t}</div></div>`;
+  const crm = route.view!=='huddle' && route.view!=='att';   // CRM stats/tools sirf CRM tabs pe (Huddle/Attendance saaf rahein)
+  return `<aside class="side">
+    <div class="brand">
+      <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
+      <div class="grow"><h1>Plot CRM</h1><div class="sub">${crm?`${leads.length} leads${overdue?` · ${overdue} overdue`:''}`:(route.view==='att'?'Attendance':'Daily Huddle')}</div></div>
+      <div class="hdr-actions">
+        ${crm?`<button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
+        <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>`:''}
+        <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
+        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item ${route.view==='today'?'on':''}" onclick="tab('today')">${IC.cal} Today${dueToday?` <span class="dot" style="background:var(--brand)">${dueToday}</span>`:''}</button>
+      <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
+      <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
+      <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
+      <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
+      <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
+    </nav>
+    <div class="side-foot">
+      <div class="stats"${crm?'':' style="display:none"'}>
+        ${stat(leads.length,'Total',"tab('list');clearFilters()")}
+        ${stat(hot,'Hot',"tab('list');setStatus('hot')")}
+        ${stat(pending,'Pending',"tab('reminders')",pending?'stat-alert':'')}
+        ${stat(booked,'Booked',"tab('list');setStatus('booked')")}
+      </div>
+      <button class="btn side-add" onclick="openLeadForm()">${IC.add} Add Lead</button>
+      <div class="row" style="gap:8px">
+        <button class="btn light import-d" onclick="importCSV()" style="flex:1">${IC.upload} Import</button>
+        <button class="btn light export-d" onclick="exportCSV()" style="flex:1">${IC.download} Export</button>
+      </div>
+      <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
+      <button class="btn light logout-d" onclick="doLogout()">${IC.logout} Log out${user&&user.email?' · '+esc(user.email.split('@')[0]):''}</button>
+    </div>
+  </aside>`;
+}
+
+// ── LIST ─────────────────────────────────────────────────────────────────────
+function listHTML(){
+  const list = filtered();
+  const colonies = uniq(leads.map(L=>L.colony));
+  const execs = uniq(leads.flatMap(execsOf));
+  return `<div class="main-inner">
+    <h2 class="page-title">All Leads</h2>
+    <div class="page-sub">${leads.length} total · ${leads.filter(isDue).length} follow-up due</div>
+    ${reminderBanner()}
+    <div class="search-wrap">${IC.search}
+      <input placeholder="Search by name, mobile or plot…" value="${esc(f.q)}" oninput="f.q=this.value;page=1;debouncedRender()">
+    </div>
+    <div class="scroll-x" style="margin-top:12px">
+      <span class="chip ${f.status===''?'on':''}" onclick="setStatus('')">All</span>
+      ${STATUSES.map(s=>`<span class="chip ${f.status===s.k?'on':''}" onclick="setStatus('${s.k}')">${s.l}</span>`).join('')}
+    </div>
+    <div class="grid2" style="margin-top:11px">
+      <select onchange="f.colony=this.value;page=1;render()">
+        <option value="">All colonies</option>
+        ${colonies.map(c=>`<option ${f.colony===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <select onchange="f.exec=this.value;page=1;render()">
+        <option value="">All executives</option>
+        ${execs.map(c=>`<option ${f.exec===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <div><label>From</label><input type="date" value="${f.from}" onchange="f.from=this.value;page=1;render()"></div>
+      <div><label>To</label><input type="date" value="${f.to}" onchange="f.to=this.value;page=1;render()"></div>
+    </div>
+    ${(f.status||f.colony||f.exec||f.from||f.to||f.q)?
+      `<button class="btn ghost sm" style="margin-top:11px" onclick="clearFilters()">✕ Clear filters</button>`:''}
+    <div class="tiny" style="margin:16px 2px 9px">Total ${list.length} lead${list.length!==1?'s':''}</div>
+    ${list.length? `
+      <div class="leads leads-cards">${pageSlice(list).map(leadCard).join('')}</div>
+      <table class="leads-table">${tableHTML(pageSlice(list))}</table>
+      ${pagerHTML(list.length)}` :
+      `<div class="card"><div class="empty">${IC.inbox}<div>No leads found.<br>Click <b>Add Lead</b> to get started.</div></div></div>`}
+  </div>
+  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+}
+function pageSlice(arr){
+  const pages=Math.max(1,Math.ceil(arr.length/pageSize));
+  if(page>pages) page=pages; if(page<1) page=1;
+  return arr.slice((page-1)*pageSize, page*pageSize);
+}
+function pagerHTML(total){
+  const pages=Math.max(1,Math.ceil(total/pageSize));
+  const sz=[10,25,50,100].map(n=>`<button class="pbtn ${pageSize===n?'on':''}" onclick="setSize(${n})">${n}</button>`).join('');
+  return `<div class="pager">
+    <div class="psize">${sz}<span class="tiny" style="margin-left:6px">/ page</span></div>
+    <div class="pnav">
+      <button class="pbtn" ${page<=1?'disabled':''} onclick="goPage(1)">«</button>
+      <button class="pbtn" ${page<=1?'disabled':''} onclick="goPage(${page-1})">‹</button>
+      <span class="tiny" style="margin:0 6px">Page ${page} / ${pages}</span>
+      <button class="pbtn" ${page>=pages?'disabled':''} onclick="goPage(${page+1})">›</button>
+      <button class="pbtn" ${page>=pages?'disabled':''} onclick="goPage(${pages})">»</button>
+    </div>
+  </div>`;
+}
+function setSize(n){ pageSize=n; page=1; render(); }
+function goPage(n){ page=n; render(); }
+// desktop table rows
+function tableHTML(items){
+  return `<thead><tr>
+    <th>Contact</th><th>Business</th><th>Colony / Plot</th><th>Status</th>
+    <th>Received</th><th>Next action</th><th>Executive</th><th></th></tr></thead>
+    <tbody>${items.map(tableRow).join('')}</tbody>`;
+}
+function tableRow(L){
+  const fu=lastFU(L); const wa=digits(L.mobile), waNo=wa.length===10?'91'+wa:wa; const od=isOverdue(L);
+  return `<tr onclick="go('detail','${L.id}')">
+    <td><b>${esc(L.name)}</b><div class="tiny">${esc(L.mobile)}</div></td>
+    <td class="tiny">${esc(L.occupation||'—')}</td>
+    <td class="tiny">${esc(L.colony||'—')}${L.plot?' · '+esc(L.plot):''}</td>
+    <td>${badge(L.status)}</td>
+    <td class="tiny">${fmtDate(L.createdAt)||'—'}</td>
+    <td class="tiny" style="${od?'color:var(--danger);font-weight:600':''}">${fu&&fu.nextDate?fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):''):'—'}</td>
+    <td class="tiny">${esc(execStr(L))}</td>
+    <td onclick="event.stopPropagation()"><span style="display:inline-flex;gap:6px">
+      <a class="plain" href="tel:${esc(L.mobile)}"><button class="tbtn tcall">${IC.phone}</button></a>
+      <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="tbtn twa">${IC.wa}</button></a>
+    </span></td>
+  </tr>`;
+}
+function leadCard(L){
+  const fu = lastFU(L); const od = isOverdue(L);
+  const next = fu&&fu.nextDate ? `Next: ${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}` :
+    (fu?'Follow-up done':'No follow-up yet');
+  return `<div class="card lead" onclick="go('detail','${L.id}')">
+    <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
+    <div class="grow">
+      <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · ${esc(execStr(L))}</div>
+      <div class="tiny ell" style="display:flex;align-items:center;gap:6px;${od?'color:var(--danger);font-weight:600':''}">
+        ${od?'<span class="odot"></span>':''}${esc(next)}</div>
+    </div>
+    <span class="chev">${IC.chev}</span>
+  </div>`;
+}
+
+// ── reminder banner ──────────────────────────────────────────────────────────
+function reminderBanner(){
+  const overdue = leads.filter(isOverdue).length;
+  const dueToday = leads.filter(L=>dueDate(L)===today()).length;
+  if(!overdue && !dueToday) return '';
+  const parts=[];
+  if(dueToday) parts.push(`<b>${dueToday}</b> due today`);
+  if(overdue)  parts.push(`<b style="color:var(--danger)">${overdue}</b> overdue`);
+  return `<div class="rem" onclick="tab('reminders')">
+    <div class="rem-ic">${IC.bell}</div>
+    <div class="grow"><b>Reminders</b><div class="tiny" style="margin-top:1px">${parts.join(' · ')}</div></div>
+    <span class="go">View ${IC.chev}</span>
+  </div>`;
+}
+
+// ── TODAY (aaj ke calls only) ─────────────────────────────────────────────────
+function todayHTML(){
+  const dueToday = leads.filter(L=>dueDate(L)===today()).sort((a,b)=>dueDate(a).localeCompare(dueDate(b)));
+  const dstr = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  return `<div class="main-inner">
+    <h2 class="page-title">Today</h2>
+    <div class="page-sub">${dstr} · aaj ke calls &amp; follow-ups</div>
+    ${dueToday.length? `<div class="leads">${dueToday.map(L=>todayCard(L)).join('')}</div>` :
+      `<div class="card"><div class="empty">${IC.check}<div>Aaj koi follow-up due nahi.<br>You're all caught up. 👍</div></div></div>`}
+  </div>
+  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+}
+
+// ── REMINDERS (overdue = urgent, + upcoming) ─────────────────────────────────
+function remindersHTML(){
+  const newLeads = leads.filter(isNew).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const overdue = leads.filter(isOverdue).sort((a,b)=>dueDate(a).localeCompare(dueDate(b)));
+  const upcoming = leads.filter(L=>{ const d=dueDate(L); return d && d>today() && d<=addDays(7); })
+                        .sort((a,b)=>dueDate(a).localeCompare(dueDate(b)));
+  const grp = (title,arr,color,urgent)=> arr.length? `
+    <div class="grp-label" style="color:${color}">${title} <span class="faint">(${arr.length})</span></div>
+    <div class="leads">${arr.map(L=>todayCard(L,urgent)).join('')}</div>` : '';
+  return `<div class="main-inner">
+    <h2 class="page-title">Reminders</h2>
+    <div class="page-sub">Naye + overdue + upcoming — jab tak kaam na ho, pending rehte hain</div>
+    ${overdue.length? `<div class="alert"><div class="a-ic">${IC.bell}</div>
+      <div class="grow"><b>${overdue.length} overdue follow-up${overdue.length>1?'s':''}!</b>
+      <div class="tiny">Inki date nikal chuki — abhi call karo.</div></div></div>` : ''}
+    ${!newLeads.length&&!overdue.length&&!upcoming.length?
+      `<div class="card"><div class="empty">${IC.check}<div>Kuch pending nahi.<br>Sab up to date hai. 👍</div></div></div>` : ''}
+    ${grp('🆕 Naye — kaam shuru karo', newLeads, '#047857', false)}
+    ${grp('⚠ Overdue', overdue, 'var(--danger)', true)}
+    ${grp('Next 7 days', upcoming, 'var(--muted)', false)}
+  </div>
+  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+}
+function todayCard(L, urgent){
+  const fu = lastFU(L); const wa=digits(L.mobile); const waNo=wa.length===10?'91'+wa:wa;
+  return `<div class="card lead${urgent?' urgent':''}">
+    <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
+    <div class="grow" onclick="go('detail','${L.id}')" style="cursor:pointer">
+      <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(execStr(L))}</div>
+      <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${fu && fu.nextDate ? (urgent?'⚠ ':'')+fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):'') : '🆕 Naya — kaam shuru karo'}</div>
+    </div>
+    <a class="plain" href="tel:${esc(L.mobile)}"><button class="iconbtn" style="background:var(--ok);border:none">${IC.phone}</button></a>
+    <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="iconbtn" style="background:var(--wa);border:none">${IC.wa}</button></a>
+  </div>`;
+}
+
+// ── DETAIL ───────────────────────────────────────────────────────────────────
+function detailHTML(){
+  const L = leads.find(x=>x.id===route.id);
+  if(!L){ route.view='list'; return listHTML(); }
+  const wa = digits(L.mobile); const waNo = wa.length===10 ? '91'+wa : wa;
+  const n = L.need||{};
+  const needRows = [['Timeline',n.timeline],['Budget',n.budget],['Purpose',n.purpose],
+    ['Funding',n.ready],['Remarks',n.remarks]].filter(r=>r[1]);
+  return `<div class="main-inner"><div class="detail-inner">
+    <div class="detail-head">
+      <div class="row">
+        <button class="iconbtn" onclick="tab('list')">${IC.back}</button>
+        <div class="grow" style="text-align:center">
+          <h1>${esc(L.name)}</h1><div class="sub">${esc(L.mobile)}</div>
+        </div>
+        <button class="iconbtn" onclick="openLeadForm('${L.id}')">${IC.edit}</button>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="row" style="gap:11px">
+        <a class="plain grow" href="tel:${esc(L.mobile)}"><button class="btn call wide">${IC.phone} Call</button></a>
+        <a class="plain grow" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="btn wa wide">${IC.wa} WhatsApp</button></a>
+      </div>
+
+      <div class="sec">Lead details ${badge(L.status)}</div>
+      <div class="card" style="padding:4px 15px">
+        ${kv('Occupation',L.occupation)}${kv('City / Address',L.city)}${kv('Colony',L.colony)}
+        ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
+        ${kv('Executive',execStr(L))}${kv('Added on',fmtDate(L.createdAt))}
+        ${(L.rec||L.photo)?`<div style="padding:10px 0 6px">${attHTML(L.rec,IC.mic,'Recording')}${attHTML(L.photo,IC.cam,'Photo')}</div>`:''}
+      </div>
+
+      <div class="sec"><span class="grow">Need analysis</span>
+        <button class="btn ghost sm" onclick="openNeed('${L.id}')">${needRows.length?'Edit':'Fill'}</button></div>
+      <div class="card" style="padding:4px 15px">
+        ${needRows.length? needRows.map(r=>kv(r[0],r[1])).join('') :
+          `<div class="tiny" style="padding:14px 0">Not filled yet — complete it on the site visit.</div>`}
+      </div>
+
+      <div class="sec">Follow-up history (${(L.followUps||[]).length})</div>
+      ${(L.followUps||[]).length? L.followUps.map(fuCard).join('') :
+        `<div class="tiny" style="margin-bottom:11px">No follow-ups yet. Add one below.</div>`}
+      <button class="btn wide" onclick="openFU('${L.id}')">${IC.add} Add Follow-up</button>
+      <button class="btn danger wide" style="margin-top:11px" onclick="delLead('${L.id}')">Delete lead</button>
+    </div>
+  </div></div>`;
+}
+const kv = (k,v)=> v?`<div class="kv"><b>${esc(k)}</b><span class="grow">${esc(v)}</span></div>`:'';
+const attHTML=(v,icon,label)=> !v?'' : (/^https?:/.test(v)
+  ? `<a class="att" href="${esc(v)}" target="_blank" rel="noopener">${icon} ${label}</a>`
+  : `<span class="att">${icon} ${esc(v)}</span>`);
+function fuCard(fu){
+  const change = fu.prev&&fu.next&&fu.prev!==fu.next ?
+    `${badge(fu.prev)} <span class="arrow">→</span> ${badge(fu.next)}` : (fu.next?badge(fu.next):'');
+  const atts = attHTML(fu.rec,IC.mic,'Recording') + attHTML(fu.photo,IC.cam,'Photo');
+  return `<div class="fu-card">
+    <div class="top"><b class="tiny" style="color:var(--ink);font-size:.8rem">${fmtDate(fu.date)} · ${esc(fu.by||'—')}</b><span>${change}</span></div>
+    ${fu.purpose?`<div class="fu-line"><b>Purpose:</b> ${esc(fu.purpose)}</div>`:''}
+    ${fu.response?`<div class="fu-line"><b>Response:</b> ${esc(fu.response)}</div>`:''}
+    ${fu.nextDate?`<div class="fu-line"><b>Next:</b> ${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}</div>`:''}
+    ${atts?`<div>${atts}</div>`:''}
+  </div>`;
+}
+
+// ── KANBAN BOARD ─────────────────────────────────────────────────────────────
+function kanbanHTML(){
+  const colonies=uniq(leads.map(L=>L.colony)); const execs=uniq(leads.flatMap(execsOf));
+  const base=leads.filter(L=>{
+    if(f.colony && L.colony!==f.colony) return false;
+    if(f.exec && !execsOf(L).includes(f.exec)) return false;
+    if(f.q){ const q=f.q.toLowerCase();
+      if(!(L.name.toLowerCase().includes(q)||L.mobile.includes(f.q)||(L.plot||'').toLowerCase().includes(q))) return false; }
+    return true;
+  });
+  const cols = STATUSES.map(s=>{
+    const items = base.filter(L=>L.status===s.k);
+    return `<div class="kcol" ondragover="kallow(event,this)" ondragleave="this.classList.remove('drop')" ondrop="kdrop(event,'${s.k}')">
+      <div class="kcol-h"><span class="dotc" style="background:${s.c}"></span>${s.l}<span class="cnt">${items.length}</span></div>
+      ${items.map(kcard).join('')||'<div class="tiny" style="padding:6px">No leads.</div>'}
+    </div>`;
+  }).join('');
+  return `<div class="main-inner">
+    <h2 class="page-title">Pipeline</h2>
+    <div class="page-sub">Drag a card to change its stage · ${base.length} leads</div>
+    <div class="kfilters">
+      <div class="search-wrap">${IC.search}<input placeholder="Search…" value="${esc(f.q)}" oninput="f.q=this.value;debouncedRender()"></div>
+      <select onchange="f.colony=this.value;render()"><option value="">All colonies</option>${colonies.map(c=>`<option ${f.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+      <select onchange="f.exec=this.value;render()"><option value="">All executives</option>${execs.map(c=>`<option ${f.exec===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    </div>
+    <div class="kanban">${cols}</div>
+  </div>
+  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+}
+function kcard(L){
+  const fu=lastFU(L); const wa=digits(L.mobile), waNo=wa.length===10?'91'+wa:wa; const od=isOverdue(L);
+  return `<div class="kcard" draggable="true" ondragstart="kdrag(event,'${L.id}',this)" ondragend="this.classList.remove('dragging')">
+    <div onclick="go('detail','${L.id}')">
+      <div class="kn ell">${esc(L.name)}</div>
+      <div class="tiny ell">${esc(L.occupation||L.mobile)}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · '+esc(L.plot):''}</div>
+      <div class="tiny" style="margin-top:4px;${od?'color:var(--danger);font-weight:600':''}">Next: ${fu&&fu.nextDate?fmtDate(fu.nextDate):'—'}</div>
+    </div>
+    <div class="row" style="gap:6px;margin-top:8px" onclick="event.stopPropagation()">
+      <a class="plain" href="tel:${esc(L.mobile)}"><button class="tbtn tcall">${IC.phone}</button></a>
+      <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="tbtn twa">${IC.wa}</button></a>
+    </div>
+  </div>`;
+}
+function kdrag(e,id,el){ dragId=id; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move';
+  try{ e.dataTransfer.setData('text/plain',id); }catch(_){}}
+function kallow(e,col){ e.preventDefault(); col.classList.add('drop'); }
+function kdrop(e,st){
+  e.preventDefault();
+  const id = dragId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
+  const L = leads.find(x=>x.id===id);
+  if(L && L.status!==st){ L.status=st; putLead(L); }   // ponytail: bare stage move; detailed change logs history via follow-up
+  dragId=null; render();
+}
+
+// ── modals ───────────────────────────────────────────────────────────────────
+function modal(html){
+  const bg=document.createElement('div'); bg.className='modal-bg';
+  bg.innerHTML=`<div class="modal" onclick="event.stopPropagation()"><div class="grab"></div>${html}</div>`;
+  bg.onclick=()=>bg.remove();
+  document.body.appendChild(bg);
+}
+const val = id => document.getElementById(id).value.trim();
+const fileName = id => { const f=document.getElementById(id).files[0]; return f?f.name:''; };
+
+// executive dropdown — list from existing leads + your own name + "add new"
+function execList(){
+  const s = new Set(EXECS.map(x=>x.trim()).filter(Boolean));
+  leads.forEach(L=>{ execsOf(L).forEach(e=>{ e=(e||'').trim(); if(e) s.add(e); }); });
+  const mine = localStorage.getItem('myName'); if(mine) s.add(mine.trim());
+  return [...s].sort();
+}
+function execSelect(id, selected){
+  selected = (selected||'').trim();
+  const opts = execList();
+  if(selected && !opts.includes(selected)) opts.unshift(selected);
+  return `<select id="${id}" onchange="execPick(this)">
+    <option value="">— Choose executive —</option>
+    ${opts.map(o=>`<option ${o===selected?'selected':''}>${esc(o)}</option>`).join('')}
+    <option value="__new__">＋ New executive…</option>
+  </select>`;
+}
+function execPick(sel){
+  if(sel.value!=='__new__') return;
+  const n=(prompt('Naye executive ka naam')||'').trim();
+  if(n){ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.insertBefore(o, sel.lastElementChild); sel.value=n; }
+  else { sel.value=''; }
+}
+
+function openLeadForm(id){
+  const L = id? leads.find(x=>x.id===id) : {};
+  const opt = (arr,sel)=>arr.map(o=>`<option ${o===sel?'selected':''}>${esc(o)}</option>`).join('');
+  modal(`
+    <h2>${id?'Edit lead':'Add lead'}</h2><div class="msub">Add only after the lead is qualified</div>
+    <div class="field"><label>Name *</label><input id="l_name" value="${esc(L.name||'')}"></div>
+    <div class="grid2">
+      <div class="field"><label>Mobile *</label><input id="l_mobile" inputmode="tel" value="${esc(L.mobile||'')}"></div>
+      <div class="field"><label>Occupation</label><input id="l_occ" value="${esc(L.occupation||'')}"></div>
+    </div>
+    <div class="field"><label>City / Address</label><input id="l_city" value="${esc(L.city||'')}"></div>
+    <div class="grid2">
+      <div class="field"><label>Colony</label><input id="l_colony" value="${esc(L.colony||'')}"></div>
+      <div class="field"><label>Preferred plot</label><input id="l_plot" value="${esc(L.plot||'')}"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Lead source</label><select id="l_source">${opt(SOURCES,L.source)}</select></div>
+      <div class="field"><label>Agent name</label><input id="l_agent" value="${esc(L.agent||'')}"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Executive (main)</label>${execSelect('l_exec', (execsOf(L)[0]) || (id?'':(localStorage.getItem('myName')||'')))}</div>
+      <div class="field"><label>Lead date</label><input type="date" id="l_date" value="${esc(L.createdAt||today())}"></div>
+    </div>
+    <div class="field"><label>Also assign to (inko bhi notification &amp; dikhega)</label>
+      <div class="execchecks">${execChecks(id?execsOf(L).slice(1):[])}</div></div>
+    <div class="field"><label>Status</label><select id="l_status">
+      ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
+    <div class="grid2">
+      <div class="field"><label>Call recording</label><input type="file" id="l_rec" accept="audio/*"></div>
+      <div class="field"><label>Proof photo</label><input type="file" id="l_photo" accept="image/*"></div>
+    </div>
+    ${!id?`
+    <div class="sec" style="margin:6px 2px 4px">Pehli baat-cheet (optional)</div>
+    <div class="field"><label>Purpose (kis liye call)</label><input id="l_purpose" placeholder="e.g. Intro call"></div>
+    <div class="field"><label>Response (customer ne kya kaha)</label><textarea id="l_response" rows="2"></textarea></div>
+    <div class="grid2">
+      <div class="field"><label>Next date (reminder)</label><input type="date" id="l_ndate"></div>
+      <div class="field"><label>Next action</label><input id="l_naction" placeholder="e.g. Follow-up call"></div>
+    </div>`:''}
+    <div class="row" style="gap:11px;margin-top:8px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="saveLead('${id||''}')">Save</button>
+    </div>
+    ${id?`<button class="btn danger wide" style="margin-top:10px" onclick="this.closest('.modal-bg').remove();delLead('${id}')">🗑 Delete lead</button>`:''}`);
+}
+function execChecks(selected){
+  return execList().map(n=>`<label class="chk"><input type="checkbox" class="l_extra" value="${esc(n)}" ${selected.includes(n)?'checked':''}>${esc(n)}</label>`).join('');
+}
+async function saveLead(id){
+  const name=val('l_name'), mobile=val('l_mobile');
+  if(!name){ alert('Name is required'); return; }
+  if(!mobile){ alert('Mobile is required'); return; }
+  const main = val('l_exec');
+  const extra = [...document.querySelectorAll('.l_extra:checked')].map(c=>c.value);
+  const execs = [...new Set([main, ...extra].filter(Boolean))];   // main + assigned executives
+  document.querySelectorAll('.modal .btn').forEach(b=>{ b.disabled=true; });   // upload ke dauraan double-submit rokna
+  const rec = await uploadFile('l_rec');
+  const photo = await uploadFile('l_photo');
+  const data={ name, mobile, occupation:val('l_occ'), city:val('l_city'),
+    colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
+    agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
+    createdAt: val('l_date')||today() };
+  let L;
+  if(id){
+    if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
+    L=leads.find(x=>x.id===id); Object.assign(L, data);
+  } else {
+    L={ id:uid(), ...data, need:{}, followUps:[] }; leads.unshift(L);
+    // pehli baat-cheet ko first follow-up bana do (agar bhari ho)
+    const g=i=>document.getElementById(i)?document.getElementById(i).value.trim():'';
+    const p=g('l_purpose'), r=g('l_response'), nd=g('l_ndate'), na=g('l_naction');
+    if(p||r||nd||na||rec||photo){
+      L.followUps=[{ id:uid(), date:L.createdAt||today(), by:L.exec, purpose:p, response:r,
+        nextDate:nd, nextAction:na, prev:L.status, next:L.status, rec, photo }];
+    }
+  }
+  await putLead(L); const m=document.querySelector('.modal-bg'); if(m) m.remove();
+  if(!id){ notifyAssignees(L); go('detail', L.id); } else render();
+}
+// lead add hote hi assigned executives ko INSTANT notification (Vercel server ke through)
+async function notifyAssignees(L){
+  try{
+    const execs = execsOf(L);
+    if(!execs.length || !user) return;
+    const idToken = await user.getIdToken();
+    await fetch(NOTIFY_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+idToken },
+      body: JSON.stringify({ execs, leadName: L.name })
+    });
+  }catch(e){ console.warn('instant notify failed', e); }
+}
+
+function openNeed(id){
+  const n = (leads.find(x=>x.id===id).need)||{};
+  modal(`
+    <h2>Need analysis</h2><div class="msub">Fill in after a site visit or a strong conversation</div>
+    <div class="field"><label>Timeline (when will they buy)</label><input id="n_time" value="${esc(n.timeline||'')}"></div>
+    <div class="field"><label>Budget</label><input id="n_budget" value="${esc(n.budget||'')}"></div>
+    <div class="grid2">
+      <div class="field"><label>Purpose</label><select id="n_purpose">
+        ${['','Investment','Self-use','Resale'].map(o=>`<option ${o===n.purpose?'selected':''}>${o}</option>`).join('')}</select></div>
+      <div class="field"><label>Funding</label><select id="n_ready">
+        ${['','Cash','Loan','Part-payment'].map(o=>`<option ${o===n.ready?'selected':''}>${o}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Remarks</label><textarea id="n_remarks" rows="2">${esc(n.remarks||'')}</textarea></div>
+    <div class="row" style="gap:11px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="saveNeed('${id}')">Save</button>
+    </div>`);
+}
+function saveNeed(id){
+  const L=leads.find(x=>x.id===id);
+  L.need = { timeline:val('n_time'), budget:val('n_budget'),
+    purpose:val('n_purpose'), ready:val('n_ready'), remarks:val('n_remarks') };
+  putLead(L); document.querySelector('.modal-bg').remove(); render();
+}
+
+function openFU(id){
+  const L = leads.find(x=>x.id===id);
+  modal(`
+    <h2>Add follow-up</h2><div class="msub">${esc(L.name)} · ${esc(L.mobile)}</div>
+    <div class="grid2">
+      <div class="field"><label>Date</label><input type="date" id="fu_date" value="${today()}"></div>
+      <div class="field"><label>By (executive)</label>${execSelect('fu_by', localStorage.getItem('myName') || L.exec || '')}</div>
+    </div>
+    <div class="field"><label>Purpose</label><input id="fu_purpose" placeholder="e.g. Site visit follow-up"></div>
+    <div class="field"><label>Response</label><textarea id="fu_response" rows="2" placeholder="What did the customer say…"></textarea></div>
+    <div class="grid2">
+      <div class="field"><label>Next date (reminder)</label><input type="date" id="fu_ndate"></div>
+      <div class="field"><label>Next action</label><input id="fu_naction" placeholder="e.g. Booking amount"></div>
+    </div>
+    <div class="field"><label>New status</label><select id="fu_status">
+      ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
+    <div class="grid2">
+      <div class="field"><label>Call recording</label><input type="file" id="fu_rec" accept="audio/*"></div>
+      <div class="field"><label>Proof photo</label><input type="file" id="fu_photo" accept="image/*"></div>
+    </div>
+    <div class="tiny" style="margin:-4px 0 12px">Set a next date and it appears in Today / reminders. Recording &amp; photo upload to cloud — tap the chip later to play/view.</div>
+    <div class="row" style="gap:11px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="saveFU('${id}')">Save follow-up</button>
+    </div>`);
+}
+async function saveFU(id){
+  const L = leads.find(x=>x.id===id);
+  const next = val('fu_status');
+  document.querySelectorAll('.modal .btn').forEach(b=>{ b.disabled=true; });   // prevent double submit during upload
+  const rec = await uploadFile('fu_rec');
+  const photo = await uploadFile('fu_photo');
+  L.followUps.unshift({ id:uid(), date:val('fu_date')||today(), by:val('fu_by'),
+    purpose:val('fu_purpose'), response:val('fu_response'),
+    nextDate:val('fu_ndate'), nextAction:val('fu_naction'),
+    prev:L.status, next, rec, photo });
+  L.status = next;
+  await putLead(L);
+  const m=document.querySelector('.modal-bg'); if(m) m.remove();
+  render();
+}
+
+// ── actions ──────────────────────────────────────────────────────────────────
+function delLead(id){
+  if(!confirm('Delete this lead?')) return;
+  leads = leads.filter(x=>x.id!==id);
+  col().doc(id).delete().catch(e=>alert('Delete failed: '+e.message));
+  tab('list');
+}
+function setStatus(k){ f.status=k; page=1; render(); }
+function clearFilters(){ f={q:'',status:'',colony:'',exec:'',from:'',to:''}; page=1; render(); }
+
+function exportCSV(){
+  const rows=[['Name','Mobile','Occupation','City','Colony','Plot','Source','Agent','Executive','Status','Added',
+    'FU Date','FU By','Purpose','Response','Next Date','Next Action','Prev','New','Recording','Photo']];
+  leads.forEach(L=>{
+    if(!L.followUps||!L.followUps.length){
+      rows.push([L.name,L.mobile,L.occupation,L.city,L.colony,L.plot,L.source,L.agent,execsOf(L).join(' | '),stMap[L.status]?.l,L.createdAt,'','','','','','','','','','']);
+    } else L.followUps.forEach(fu=>{
+      rows.push([L.name,L.mobile,L.occupation,L.city,L.colony,L.plot,L.source,L.agent,execsOf(L).join(' | '),stMap[L.status]?.l,L.createdAt,
+        fu.date,fu.by,fu.purpose,fu.response,fu.nextDate,fu.nextAction,stMap[fu.prev]?.l||'',stMap[fu.next]?.l||'',fu.rec,fu.photo]);
+    });
+  });
+  const csv = rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'}));
+  a.download='plot_crm_'+today()+'.csv'; a.click();
+}
+
+// ── IMPORT (bulk add from CSV) ───────────────────────────────────────────────
+function importCSV(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.csv,text/csv';
+  inp.onchange=()=>{ const file=inp.files[0]; if(!file) return;
+    const r=new FileReader(); r.onload=()=>parseImport(String(r.result)); r.readAsText(file); };
+  inp.click();
+}
+function parseCSV(text){                         // handles quoted fields, commas, newlines
+  const rows=[]; let field='',row=[],inQ=false; text=text.replace(/\r\n?/g,'\n');
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(inQ){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; } else field+=c; }
+    else if(c==='"') inQ=true;
+    else if(c===',') { row.push(field); field=''; }
+    else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+    else field+=c;
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+function parseImport(text){
+  const rows=parseCSV(text).filter(r=>r.some(c=>c.trim()!==''));
+  if(rows.length<2){ alert('CSV is empty or has no data rows.'); return; }
+  const head=rows[0].map(h=>h.trim().toLowerCase());
+  const col=(...names)=>{ for(const n of names){ const i=head.indexOf(n); if(i>=0) return i; } return -1; };
+  const ci={ name:col('name','contact'), mobile:col('mobile','phone','mobile number'),
+    occupation:col('occupation','business'), city:col('city','city / address','address'),
+    colony:col('colony','colony / plot'), plot:col('plot','preferred plot'),
+    source:col('source','lead source'), agent:col('agent','agent name'),
+    exec:col('executive','exec'), status:col('status') };
+  if(ci.name<0||ci.mobile<0){ alert('CSV needs at least "Name" and "Mobile" columns.\nTip: use an Export file as your template.'); return; }
+  const stByLabel=Object.fromEntries(STATUSES.map(s=>[s.l.toLowerCase(),s.k]));
+  const seen=new Set(leads.map(L=>digits(L.mobile)));   // dedupe by mobile
+  const batch=db.batch();                               // ponytail: single batch (Firestore limit 500 rows/import)
+  let added=0, skipped=0;
+  rows.slice(1).forEach(r=>{
+    const g=i=>i>=0?(r[i]||'').trim():'';
+    const name=g(ci.name), mob=g(ci.mobile);
+    if(!name||!mob){ skipped++; return; }
+    if(seen.has(digits(mob))){ skipped++; return; }
+    seen.add(digits(mob));
+    const L={ id:uid(), name, mobile:mob, occupation:g(ci.occupation), city:g(ci.city),
+      colony:g(ci.colony), plot:g(ci.plot), source:g(ci.source)||'Other', agent:g(ci.agent),
+      exec:g(ci.exec), status:stByLabel[g(ci.status).toLowerCase()]||'fresh',
+      createdAt:today(), need:{}, followUps:[] };
+    leads.unshift(L); batch.set(col().doc(L.id), L); added++;
+  });
+  batch.commit().catch(e=>alert('Import save failed: '+e.message));
+  page=1; render();
+  alert(`Import complete — ${added} added, ${skipped} skipped (missing name/mobile or duplicate).`);
+}
+
+// ── auth / login ─────────────────────────────────────────────────────────────
+function renderLogin(){
+  document.getElementById('app').innerHTML = `<div class="login"><div class="login-card">
+    <img src="logo.png" class="login-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
+    <h1>Plot CRM</h1>
+    <p>Sign in to continue</p>
+    <div class="field"><label>Email</label><input id="lg_email" type="email" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="field"><label>Password</label><input id="lg_pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="lg-err" id="lg_err"></div>
+    <button class="btn wide" onclick="doLogin()">Sign in</button>
+    <button class="btn ghost wide" style="margin-top:8px" onclick="doReset()">Forgot password?</button>
+  </div></div>`;
+}
+function lgErr(m){ const e=document.getElementById('lg_err'); if(e) e.textContent=m; }
+function doLogin(){
+  const e=val('lg_email'), p=document.getElementById('lg_pass').value;
+  if(!e||!p){ lgErr('Enter email and password'); return; }
+  auth.signInWithEmailAndPassword(e,p).catch(err=>lgErr(err.message.replace('Firebase: ','')));
+}
+function doReset(){
+  const e=val('lg_email');
+  if(!e){ lgErr('Enter your email first, then tap Forgot password'); return; }
+  auth.sendPasswordResetEmail(e).then(()=>lgErr('Reset link sent to '+e)).catch(err=>lgErr(err.message.replace('Firebase: ','')));
+}
+function doLogout(){ auth.signOut(); }
+
+// ── push notifications (reminders) ───────────────────────────────────────────
+// native app (Capacitor) ho to native FCM, warna web push
+const isNative = ()=>{ try{ return !!(window.Capacitor && (Capacitor.isNativePlatform ? Capacitor.isNativePlatform() : (Capacitor.getPlatform && Capacitor.getPlatform()!=='web'))); }catch(_){ return false; } };
+const pnPlugin = ()=> window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+async function regNative(name){
+  const PushNotifications = pnPlugin();
+  if(!PushNotifications){ alert('Push plugin nahi mila — naya (push wala) APK install karo.'); return; }
+  try{
+    const perm = await PushNotifications.requestPermissions();
+    if(perm.receive!=='granted'){ alert('Notification allow nahi hui. Phone settings me app ke notifications ON karo.'); return; }
+    if(!window._pnSetup){
+      window._pnSetup = true;
+      PushNotifications.addListener('registration', t=>{
+        const nm = localStorage.getItem('myName')||'';
+        db.collection('tokens').doc(t.value).set({ token:t.value, name:nm, nameKey:nm.toLowerCase(), email:user?user.email:'', platform:'android', ts:Date.now() });
+      });
+      PushNotifications.addListener('registrationError', e=>alert('Push error: '+JSON.stringify(e)));
+      PushNotifications.addListener('pushNotificationReceived', ()=>updateBadge());
+    }
+    await PushNotifications.register();
+    alert('Reminder notifications ON ✅ ('+name+')\nAb reliable notification aayega!');
+  }catch(e){ alert('Native push error: '+e.message); }
+}
+function enableNotifs(){
+  if(!isNative() && !pnPlugin() && !messaging){ alert('Is browser/phone me notifications support nahi. (iPhone pe: app install karke, iOS 16.4+ chahiye.)'); return; }
+  const cur = localStorage.getItem('myName')||'';
+  modal(`
+    <h2>Reminder notifications ON</h2>
+    <div class="msub">Apna naam chuno — isi se aapke due follow-up ka notification aayega</div>
+    <div class="field"><label>Aapka naam</label>${execSelect('notif_name', cur)}</div>
+    <div class="row" style="gap:11px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="confirmNotif()">Enable</button>
+    </div>`);
+}
+async function confirmNotif(){
+  const name = val('notif_name');
+  if(!name){ alert('Pehle apna naam chuno'); return; }
+  localStorage.setItem('myName', name);
+  const m=document.querySelector('.modal-bg'); if(m) m.remove();
+  if(isNative() || pnPlugin()){ return regNative(name); }   // native app → native FCM
+  if(typeof Notification === 'undefined'){ alert('Yahan notifications support nahi. App me 🔔 dabao, ya browser (Chrome) me kholo.'); return; }
+  try{
+    const perm = await Notification.requestPermission();
+    if(perm!=='granted'){ alert('Notification allow nahi hui. Phone settings me is site ke notifications ON karo.'); return; }
+    const reg = swReg || await navigator.serviceWorker.ready;
+    const token = await messaging.getToken({ vapidKey: VAPID, serviceWorkerRegistration: reg });
+    if(!token){ alert('Token nahi mila — dobara try karo.'); return; }
+    await db.collection('tokens').doc(token).set({
+      token, name, nameKey: name.toLowerCase(),
+      email: user ? user.email : '', ts: Date.now()
+    });
+    alert('Reminder notifications ON ✅\nAb roz subah aapke due follow-ups ka notification aayega, '+name+'!');
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+// ── boot ─────────────────────────────────────────────────────────────────────
+let _t;
+function debouncedRender(){ clearTimeout(_t); _t=setTimeout(render,180); }
+// app-icon badge = mere pending leads (naye + due). Assign hote hi count me aa jaata hai.
+function updateBadge(){
+  try{
+    if(!('setAppBadge' in navigator)) return;
+    const mine=(localStorage.getItem('myName')||'').toLowerCase();
+    const rel = mine ? leads.filter(L=>execsOf(L).some(e=>(e||'').toLowerCase()===mine)) : leads;
+    const n = rel.filter(needsAction).length;
+    if(n>0) navigator.setAppBadge(n); else navigator.clearAppBadge();
+  }catch(_){}
+}
+// foreground notification — app khula ho tab bhi notification dikhe (aur ye test bhi karega ki FCM device tak aa raha hai)
+try{
+  if(messaging) messaging.onMessage(async p=>{
+    const n=p.notification||{};
+    try{ const reg=swReg||await navigator.serviceWorker.ready; await reg.showNotification(n.title||'Plot CRM',{body:n.body||'',icon:'icon.svg'}); }
+    catch(_){ alert('🔔 '+(n.title||'Notification')+'\n'+(n.body||'')); }
+    updateBadge();
+  });
+}catch(_){}
+// ── DAILY HUDDLE ──────────────────────────────────────────────────────────────
+const ADMIN_EMAILS = ['krishan.sr1974@gmail.com'];        // sir — board + feedback (baaki sab: apna standup)
+const isAdmin = () => !!(user && ADMIN_EMAILS.includes((user.email||'').toLowerCase()));
+// huddle-only logins: SIRF Huddle dikhega, CRM (leads/board) nahi. (Firebase rules bhi inhe leads se rokti hain.)
+const HUDDLE_ONLY_EMAILS = ['akdpankaj@gmail.com','bhaveshakd3@gmail.com','techakshardham@gmail.com'];
+const isHuddleOnly = () => !!(user && HUDDLE_ONLY_EMAILS.includes((user.email||'').toLowerCase()));
+// login pe standup ka naam apne aap set — member ko manually na chunna pade
+const NAME_BY_EMAIL = {
+  'krishan.sr1974@gmail.com':'Krishan Ji',
+  'techakshardham@gmail.com':'Shaffat Ji',
+  'akdpankaj@gmail.com':'Rahul',
+  'bhaveshakd3@gmail.com':'Bhavesh',
+  'shanu.akshardham@gmail.com':'Rashid Ji'   // CRM + Huddle dono (huddle-only NAHI)
+};
+let hud = { date: today(), items: [], mine: [], draft:{date:today(),yesterday:'',issues:'',today:''}, editing:false };
+// Huddle ka naam LOGGED-IN EMAIL se (device-shared myName se nahi) — taaki har user ko sirf apna kaam dikhe
+function hudMyName(){ const e=(user&&user.email||'').toLowerCase(); return NAME_BY_EMAIL[e] || localStorage.getItem('hudName_'+e) || ''; }
+function hudSetMyName(n){ const e=(user&&user.email||'').toLowerCase(); if(e) localStorage.setItem('hudName_'+e, n); }
+
+function toast(msg){ let t=document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
+
+function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; render(); hudLoad(); window.scrollTo(0,0); }
+function hudEdit(id){ const s=hud.mine.find(x=>x.id===id); if(!s) return;
+  hud.draft={date:s.date, yesterday:s.yesterday||'', issues:s.issues||'', today:s.today||''}; hud.editing=true; render();
+  const f=document.getElementById('hud_date'); if(f) f.scrollIntoView({behavior:'smooth',block:'center'}); }
+function hudCancelEdit(){ hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; render(); }
+function hudDelete(id){ if(!confirm('Ye standup delete karna hai?')) return;
+  db.collection('standups').doc(id).delete().then(()=>{ toast('Deleted'); hudLoad(); }).catch(e=>alert(e.message)); }
+function hudSetDate(d){ hud.date=d; hudLoad(); }
+function hudShiftDay(n){ const dt=new Date(hud.date+'T00:00'); dt.setDate(dt.getDate()+n); hud.date=dt.toISOString().slice(0,10); hudLoad(); }
+
+async function hudLoad(){
+  const mine=hudMyName().toLowerCase();
+  try{
+    if(mine){ const s=await db.collection('standups').where('nameKey','==',mine).get();
+      hud.mine=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||'')); }
+    else hud.mine=[];
+    if(isAdmin()){ const s=await db.collection('standups').where('date','==',hud.date).get();
+      hud.items=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'')); }
+  }catch(e){ alert('Huddle load error: '+e.message); }
+  if(route.view==='huddle') render();
+}
+
+function hudPickName(){
+  modal(`<h2>Aapka naam</h2><div class="msub">Standup kis naam se save ho</div>
+    <div class="field">${execSelect('hud_name', hudMyName())}</div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    <button class="btn grow" onclick="hudSaveName()">Save</button></div>`);
+}
+function hudSaveName(){ const n=val('hud_name'); if(!n){ alert('Pehle naam chuno'); return; }
+  hudSetMyName(n); const m=document.querySelector('.modal-bg'); if(m) m.remove(); render(); hudLoad(); }
+
+function hudSaveStandup(){
+  const name=hudMyName();
+  if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
+  const date=val('hud_date')||today();
+  const y=(val('hud_y')||'').trim(), i=(val('hud_i')||'').trim(), t=(val('hud_t')||'').trim();
+  if(!y&&!i&&!t){ alert('Kuch to bharo — kal ke task, issue ya aaj ke task'); return; }
+  const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  db.collection('standups').doc(id).set({ date, name, nameKey:name.toLowerCase(),
+      yesterday:y, issues:i, today:t, ts:Date.now() }, {merge:true})
+    .then(()=>{ toast(hud.editing?'Standup updated ✓':'Standup saved ✓'); hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; hudLoad(); })
+    .catch(e=>alert('Save failed: '+e.message));
+}
+function hudFeedback(id){
+  const el=document.getElementById('fb_'+id); if(!el) return;
+  db.collection('standups').doc(id).set({ feedback:(el.value||'').trim(),
+      feedbackBy:(user&&user.email?user.email.split('@')[0]:''), feedbackTs:Date.now() }, {merge:true})
+    .then(()=>{ toast('Feedback saved ✓'); hudLoad(); })
+    .catch(e=>alert(e.message));
+}
+
+function hudBlock(label, text, cls){
+  return `<div class="hud-b ${cls||''} ${text?'':'empty'}"><span class="hud-lbl">${label}</span><div class="txt">${text?esc(text):'—'}</div></div>`;
+}
+function hudCard(s, editable, own){
+  const nm=s.name||'?';
+  return `<div class="hud-card">
+    <div class="hud-top">
+      <div class="avatar" style="background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
+      <div class="grow"><div class="hud-name">${esc(nm)}</div><div class="tiny">${fmtDate(s.date)}</div></div>
+      ${own?`<button class="btn ghost sm" onclick="hudEdit('${esc(s.id)}')">${IC.edit} Edit</button>`:''}
+    </div>
+    <div class="hud-blocks">
+      ${hudBlock('Kal ke task', s.yesterday)}
+      ${hudBlock('Issues', s.issues, 'amber')}
+      ${hudBlock('Aaj ke task', s.today)}
+    </div>
+    ${editable
+      ? `<div class="hud-fb"><label>Feedback</label>
+          <textarea id="fb_${esc(s.id)}" rows="2" placeholder="Sir ka feedback…">${esc(s.feedback||'')}</textarea>
+          <button class="btn sm" style="margin-top:8px" onclick="hudFeedback('${esc(s.id)}')">${IC.check} Save feedback</button></div>`
+      : (s.feedback ? `<div class="hud-fb"><div class="hud-fb-view">
+          <span class="hud-lbl">Sir's feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</span>
+          <div class="txt">${esc(s.feedback)}</div></div></div>` : '')}
+    ${own?`<div style="margin-top:10px;text-align:right"><a href="#" onclick="hudDelete('${esc(s.id)}');return false" style="color:#dc2626;font-size:.78rem;font-weight:700">Delete</a></div>`:''}
+  </div>`;
+}
+
+function huddleHTML(){
+  const admin=isAdmin();
+  const myName=hudMyName();
+  const d=hud.draft;
+  const posted=new Set(hud.items.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
+  const missing=EXECS.filter(n=>!posted.has(n.toLowerCase()));
+  const formCard=`<div class="card" style="padding:16px">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
+        <b>${hud.editing?('Edit — '+fmtDate(d.date)):(admin?'Aapka apna Standup':'Aaj ka Standup')}</b>
+        <button class="btn ghost sm" onclick="hudPickName()">${myName?esc(myName):'Naam chuno'}</button>
+      </div>
+      <div class="field" style="margin-top:12px"><label>Date</label>
+        <input id="hud_date" type="date" value="${d.date}" onchange="hud.draft.date=this.value"></div>
+      <div class="field"><label>Last day ke task</label><textarea id="hud_y" rows="2" placeholder="Kal kya kiya…">${esc(d.yesterday)}</textarea></div>
+      <div class="field"><label>Issues / Blockers</label><textarea id="hud_i" rows="2" placeholder="Koi problem? (optional)">${esc(d.issues)}</textarea></div>
+      <div class="field"><label>Aaj ke task</label><textarea id="hud_t" rows="2" placeholder="Aaj kya karna hai…">${esc(d.today)}</textarea></div>
+      <div class="row" style="gap:9px">
+        ${hud.editing?`<button class="btn ghost grow" onclick="hudCancelEdit()">Cancel</button>`:''}
+        <button class="btn ${hud.editing?'grow':'wide'}" onclick="hudSaveStandup()">${IC.check} ${hud.editing?'Update':'Save Standup'}</button>
+      </div>
+    </div>`;
+  const mineList=`<div class="sec">${IC.cal} Meri Standups</div>
+    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false,true)).join('') : '<div class="empty">Abhi koi standup nahi. Form se pehli entry bharo.</div>'}`;
+  const board=admin ? `
+      <div class="sec">${IC.users} Team Board</div>
+      <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="hudShiftDay(-1)">${IC.back}</button>
+        <input type="date" value="${hud.date}" onchange="hudSetDate(this.value)" style="width:auto">
+        <button class="btn ghost sm" onclick="hudShiftDay(1)">${IC.chev}</button>
+        <button class="btn ghost sm" onclick="hudSetDate(today())">Today</button>
+      </div>
+      ${missing.length ? `<div class="alert"><div class="a-ic">${IC.bell}</div><div class="grow"><b>Standup pending</b><div class="tiny" style="color:var(--ink)">${missing.map(esc).join(', ')}</div></div></div>` : ''}
+      ${hud.items.length ? hud.items.map(s=>hudCard(s,true)).join('') : '<div class="empty">Is din kisi ne standup nahi bhara.</div>'}` : '';
+  return `<div class="main-inner">
+    <div class="page-title">Daily Huddle</div>
+    <div class="page-sub">Apna standup daalo${admin?' · aur poori team ka board dekho':''}.</div>
+    <div class="hud-wrap">
+      <div class="hud-left">${formCard}</div>
+      <div>${admin ? board + '<div style="height:22px"></div>' + mineList : mineList}</div>
+    </div>
+  </div>`;
+}
+
+// ── ATTENDANCE ────────────────────────────────────────────────────────────────
+const OFFICES = [ {id:'kota',name:'Kota'}, {id:'jhalawar',name:'Jhalawar'}, {id:'khanpur',name:'Khanpur'} ];
+const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster)
+  kota:['Rahul','Luv','Sunil Pankaj Ji','Krishan Ji','Kamana ji','Rashid Ji','Shaffat Ji','Bhavesh'],
+  jhalawar:['Sunil Meghwal Ji','Raghavendra Ji'],
+  khanpur:['Rupesh Ji','Leeladhar ji']
+};
+const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
+const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
+let att = { date: today(), offices:{}, mineToday:null, mine:[], items:[] };
+const istTime = () => new Date(Date.now()+5.5*3600e3).toISOString().slice(11,16);   // HH:MM IST
+const attId = (date,name) => date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+function officeOf(name){ const k=(name||'').toLowerCase();
+  for(const oid of Object.keys(OFFICE_STAFF)) if(OFFICE_STAFF[oid].some(n=>n.toLowerCase()===k)) return oid;
+  return null; }
+function distM(la1,lo1,la2,lo2){ const R=6371000, r=x=>x*Math.PI/180;
+  const dLa=r(la2-la1), dLo=r(lo2-lo1);
+  const x=Math.sin(dLa/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x)); }
+function getPos(){ return new Promise((res,rej)=>{
+  if(!navigator.geolocation) return rej(new Error('Is device me GPS support nahi'));
+  navigator.geolocation.getCurrentPosition(p=>res(p.coords),
+    e=>rej(new Error(e.code===1?'Location permission deni hogi — "Allow" karo':(e.message||'Location nahi mili'))),
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}); }); }
+
+function openAtt(){ route.view='att'; route.id=null; att.date=today(); att.mineToday=null; att.mine=[]; att.items=[]; render(); attLoad(); window.scrollTo(0,0); }
+function attSetDate(d){ att.date=d; attLoad(); }
+function attShiftDay(n){ const dt=new Date(att.date+'T00:00'); dt.setDate(dt.getDate()+n); att.date=dt.toISOString().slice(0,10); attLoad(); }
+
+async function attLoadOffices(){ try{ const d=await db.collection('config').doc('offices').get(); att.offices=d.exists?(d.data()||{}):{}; }catch(e){ att.offices={}; } }
+async function attLoad(){
+  const mine=hudMyName().toLowerCase();
+  try{
+    if(!Object.keys(att.offices).length) await attLoadOffices();
+    if(mine){
+      const d=await db.collection('attendance').doc(attId(today(),mine)).get();
+      att.mineToday=d.exists?{id:d.id,...d.data()}:null;
+      const s=await db.collection('attendance').where('nameKey','==',mine).get();
+      att.mine=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    }
+    if(isAdmin()){ const s=await db.collection('attendance').where('date','==',att.date).get();
+      att.items=s.docs.map(x=>({id:x.id,...x.data()})); }
+  }catch(e){ alert('Attendance load error: '+e.message); }
+  if(route.view==='att') render();
+}
+
+async function attCapture(oid, oname){
+  if(att.offices[oid] && att.offices[oid].lat!=null){
+    if(!confirm(oname+' ki location pehle se set hai. Change karni hai? (Normally nahi karni chahiye)')) return;
+  }
+  let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message); return; }
+  try{
+    await db.collection('config').doc('offices').set({ [oid]:{ name:oname, lat:c.latitude, lng:c.longitude,
+      acc:Math.round(c.accuracy||0), setBy:(user&&user.email||''), setAt:Date.now() } }, {merge:true});
+    await attLoadOffices(); toast(oname+' location set ✓'); render();
+  }catch(e){ alert('Save error (sirf sir set kar sakte hain): '+e.message); }
+}
+
+async function attPunchIn(){
+  const name=hudMyName(); if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
+  if(!Object.keys(att.offices).length) await attLoadOffices();
+  const oid=officeOf(name);
+  const targets = (oid ? OFFICES.filter(o=>o.id===oid) : OFFICES)   // apna office; assign nahi to koi bhi
+    .map(o=>({o, cfg:att.offices[o.id]})).filter(x=>x.cfg && x.cfg.lat!=null);
+  if(!targets.length){ alert('Aapke office ki location abhi set nahi hui.\nSir ko bolo office pe jaake "Set location" dabaye.'); return; }
+  let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message+'\n\nPhone me location/GPS ON karo aur is site ko "Allow" karo.'); return; }
+  let best=null;
+  for(const {o,cfg} of targets){ const d=distM(c.latitude,c.longitude,cfg.lat,cfg.lng); if(!best||d<best.d) best={o,d}; }
+  if(best.d>OFFICE_RADIUS){ alert(`Aap ${best.o.name} office se ~${Math.round(best.d)}m door ho.\nPunch-in sirf office pahunch ke hoga.`); return; }
+  const t=istTime(), late=t>LATE_AFTER, date=today();
+  try{
+    await db.collection('attendance').doc(attId(date,name)).set({ date, name, nameKey:name.toLowerCase(),
+      office:best.o.id, officeName:best.o.name, inTime:t, inLat:c.latitude, inLng:c.longitude,
+      inDist:Math.round(best.d), late, ts:Date.now() }, {merge:true});
+    toast(late?('Punch-in ✓ '+t+' (Late)') : ('Punch-in ✓ '+t)); attLoad();
+  }catch(e){ alert('Save error: '+e.message); }
+}
+async function attPunchOut(){
+  const name=hudMyName(); if(!name){ alert('Pehle naam chuno'); return; }
+  if(!att.mineToday||!att.mineToday.inTime){ alert('Pehle Punch-in karo'); return; }
+  try{ await db.collection('attendance').doc(attId(today(),name)).set({ outTime:istTime() },{merge:true});
+    toast('Punch-out ✓ '+istTime()); attLoad(); }catch(e){ alert(e.message); }
+}
+
+function attView(){
+  const admin=isAdmin();
+  const myName=hudMyName();
+  const rec=att.mineToday, inDone=rec&&rec.inTime, outDone=rec&&rec.outTime;
+  const status = inDone
+    ? `<div class="att-status in"><div class="att-ic" style="background:#16a34a">${IC.check}</div>
+        <div class="grow"><div class="att-big">Present ${rec.late?'<span class="badge late">Late</span>':'<span class="badge ontime">On time</span>'}</div>
+        <div class="tiny">In: ${esc(rec.inTime)}${rec.officeName?' · '+esc(rec.officeName):''}${outDone?' · Out: '+esc(rec.outTime):''}</div></div></div>`
+    : `<div class="att-status"><div class="att-ic" style="background:#9ca3af">${IC.cal}</div>
+        <div class="grow"><div class="att-big">Not punched in</div><div class="tiny">Office pahunch ke Punch In karo</div></div></div>`;
+  const punch = `<div class="att-punch">
+      <button class="btn green" onclick="attPunchIn()" ${inDone?'disabled style="opacity:.45"':''}>${IC.check} Punch In</button>
+      <button class="btn" onclick="attPunchOut()" ${(!inDone||outDone)?'disabled style="opacity:.45"':''}>${IC.logout} Punch Out</button>
+    </div>
+    <div class="tiny">Naam: <b>${myName?esc(myName):'—'}</b> · <a href="#" onclick="hudPickName();return false" style="color:var(--brand);font-weight:700">badlo</a></div>`;
+  const mineList = `<div class="sec" style="margin-top:20px">${IC.cal} Meri Attendance</div>
+    ${att.mine.length? att.mine.map(a=>`<div class="att-row">
+        <div class="grow"><b>${fmtDate(a.date)}</b> ${a.late?'<span class="badge late">Late</span>':''}<div class="tiny">${esc(a.officeName||'')}</div></div>
+        <div class="att-time">${esc(a.inTime||'—')}${a.outTime?' → '+esc(a.outTime):''}</div>
+      </div>`).join('') : '<div class="empty">Abhi koi attendance nahi.</div>'}`;
+
+  let adminPart='';
+  if(admin){
+    const offRows = OFFICES.map(o=>{ const c=att.offices[o.id]; const set=c&&c.lat!=null;
+      return `<div class="off-set"><div class="grow"><b>${esc(o.name)}</b>
+        <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location set nahi'}</div></div>
+        <button class="btn ${set?'ghost ':''}sm" onclick="attCapture('${o.id}','${esc(o.name)}')">${set?'Re-set':'Set location'}</button></div>`;
+    }).join('');
+    const byKey={}; att.items.forEach(a=>{ byKey[(a.nameKey||'').toLowerCase()]=a; });
+    const attRow=(nm,a)=>`<div class="att-row">
+        <div class="avatar" style="width:36px;height:36px;font-size:.85rem;background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
+        <div class="grow"><b>${esc(nm)}</b> ${a?(a.late?'<span class="badge late">Late</span>':'<span class="badge ontime">On&nbsp;time</span>'):'<span class="badge absent">Absent</span>'}</div>
+        <div class="att-time">${a?esc(a.inTime)+(a.outTime?' → '+esc(a.outTime):''):'—'}</div></div>`;
+    const groups = OFFICES.map(o=>{ const staff=OFFICE_STAFF[o.id]||[]; if(!staff.length) return '';
+      const present=staff.filter(nm=>byKey[nm.toLowerCase()]).length;
+      return `<div class="sec" style="margin-top:16px">${esc(o.name)} — ${present}/${staff.length} present</div>
+        ${staff.map(nm=>attRow(nm, byKey[nm.toLowerCase()])).join('')}`;
+    }).join('');
+    const rosterKeys=new Set(Object.values(OFFICE_STAFF).flat().map(n=>n.toLowerCase()));
+    const others=att.items.filter(a=>!rosterKeys.has((a.nameKey||'').toLowerCase()));
+    const othersHTML = others.length?`<div class="sec" style="margin-top:16px">Other</div>${others.map(a=>attRow(a.name||'?',a)).join('')}`:'';
+    adminPart = `
+      <div class="sec">📍 Office Locations <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">(ek baar set — sir only)</span></div>
+      <div class="tiny" style="margin:-4px 2px 10px">Har office me jaake ek baar "Set location" dabao. Uske baad punch-in sirf wahin ~${OFFICE_RADIUS}m ke andar hoga.</div>
+      ${offRows}
+      <div class="sec" style="margin-top:24px">${IC.users} Attendance Board</div>
+      <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="attShiftDay(-1)">${IC.back}</button>
+        <input type="date" value="${att.date}" onchange="attSetDate(this.value)" style="width:auto">
+        <button class="btn ghost sm" onclick="attShiftDay(1)">${IC.chev}</button>
+        <button class="btn ghost sm" onclick="attSetDate(today())">Today</button>
+      </div>
+      ${groups}${othersHTML}`;
+  }
+  return `<div class="main-inner">
+    <div class="page-title">Attendance</div>
+    <div class="page-sub">Office pahunch ke Punch In karo${admin?' · aur team ki attendance dekho':''}.</div>
+    ${admin
+      ? `<div class="hud-wrap"><div class="hud-left"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div><div>${adminPart}</div></div>`
+      : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div>`}
+  </div>`;
+}
+
+// mobile bottom nav — top tabs neeche fixed bar me
+function bottomNavHTML(){
+  if(!user) return '';
+  const it=(v,icon,label,onclick,badge)=>`<button class="bn-item ${route.view===v?'on':''}" onclick="${onclick}">${badge?`<span class="bdot">${badge}</span>`:''}${icon}<span>${label}</span></button>`;
+  if(isHuddleOnly()) return `<nav class="bottomnav">
+    ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
+    ${it('att',IC.check,'Attend.','openAtt()','')}
+  </nav>`;
+  const dueToday=leads.filter(L=>dueDate(L)===today()).length;
+  const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
+  return `<nav class="bottomnav">
+    ${it('today',IC.cal,'Today',"tab('today')",dueToday||'')}
+    ${it('reminders',IC.bell,'Alerts',"tab('reminders')",pending||'')}
+    ${it('list',IC.users,'Leads',"tab('list')",'')}
+    ${it('kanban',IC.board,'Board',"tab('kanban')",'')}
+    ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
+    ${it('att',IC.check,'Attend.','openAtt()','')}
+  </nav>`;
+}
+
+function render(){
+  if(!user){ renderLogin(); return; }
+  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att') route.view='huddle';   // huddle-only: sirf Huddle + Attendance
+  const content = route.view==='detail' ? detailHTML() :
+                  route.view==='att' ? attView() :
+                  route.view==='huddle' ? huddleHTML() :
+                  route.view==='kanban' ? kanbanHTML() :
+                  route.view==='reminders' ? remindersHTML() :
+                  route.view==='today' ? todayHTML() : listHTML();
+  document.getElementById('app').innerHTML = `<div class="shell">${sideHTML()}<main class="main">${content}</main></div>${bottomNavHTML()}`;
+}
+document.getElementById('app').innerHTML = '<div class="login"><div class="login-card">Loading…</div></div>';
+auth.onAuthStateChanged(u=>{
+  user=u;
+  if(u){
+    if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
+    attLoadOffices();
+    if(!unsub){
+      unsub = col().onSnapshot(snap=>{
+        leads = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
+          if(!Array.isArray(L.followUps)) L.followUps=[]; if(!L.need) L.need={}; return L; });
+        render(); updateBadge();
+      }, err=>{ alert('Data load error: '+err.message); });
+    }
+  } else {
+    if(unsub){ unsub(); unsub=null; }
+    leads=[]; renderLogin();
+  }
+});
+
+// PWA — register service worker (offline + installable)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').then(r=>{swReg=r;}).catch(()=>{}));
+}
+// native app: high-importance channel (sound + heads-up notification)
+window.addEventListener('load', ()=>{ setTimeout(()=>{ try{
+  const PN=pnPlugin();
+  if(PN) PN.createChannel({ id:'reminders', name:'Reminders', description:'Lead reminders', importance:5, sound:'default', vibration:true, visibility:1 });
+}catch(_){}}, 1500); });
+</script>
+</body>
+</html>
