@@ -86,7 +86,7 @@
 
   /* MAIN */
   .main{flex:1;min-width:0}
-  .main-inner{max-width:1120px;margin:0 auto;padding:16px 18px calc(100px + env(safe-area-inset-bottom))}
+  .main-inner{max-width:1120px;margin:0 auto;padding:16px 18px calc(148px + env(safe-area-inset-bottom))}
   .page-title{display:none}
 
   @media(min-width:1000px){
@@ -1200,7 +1200,7 @@ const NAME_BY_EMAIL = {
   'shanu.akshardham@gmail.com':'Rashid Ji',  // CRM + Huddle dono (huddle-only NAHI)
   'trainer.akshardham@gmail.com':'Luv'       // Lov — backup admin
 };
-let hud = { date: today(), items: [], mine: [], draft:{date:today(),yesterday:'',issues:'',today:''}, editing:false };
+let hud = { date: today(), items: [], mine: [], draft:{date:today(),yesterday:'',issues:'',today:''}, editing:false, execFilter:'' };
 // Huddle ka naam LOGGED-IN EMAIL se (device-shared myName se nahi) — taaki har user ko sirf apna kaam dikhe
 function hudMyName(){ const e=(user&&user.email||'').toLowerCase(); return NAME_BY_EMAIL[e] || localStorage.getItem('hudName_'+e) || ''; }
 function hudSetMyName(n){ const e=(user&&user.email||'').toLowerCase(); if(e) localStorage.setItem('hudName_'+e, n); }
@@ -1209,7 +1209,7 @@ function toast(msg){ let t=document.getElementById('_toast');
   if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
   t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
-function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; render(); hudLoad(); window.scrollTo(0,0); }
+function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft={date:today(),yesterday:'',issues:'',today:''}; hud.editing=false; hud.execFilter=''; render(); hudLoad(); window.scrollTo(0,0); }
 function hudEdit(id){ const s=hud.mine.find(x=>x.id===id); if(!s) return;
   hud.draft={date:s.date, yesterday:s.yesterday||'', issues:s.issues||'', today:s.today||''}; hud.editing=true; render();
   const f=document.getElementById('hud_date'); if(f) f.scrollIntoView({behavior:'smooth',block:'center'}); }
@@ -1310,22 +1310,29 @@ function huddleHTML(){
     </div>`;
   const mineList=`<div class="sec">${IC.cal} Meri Standups</div>
     ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false,true)).join('') : '<div class="empty">Abhi koi standup nahi. Form se pehli entry bharo.</div>'}`;
+  const fitems = hud.execFilter ? hud.items.filter(x=>(x.nameKey||'')===hud.execFilter) : hud.items;
   const board=admin ? `
-      <div class="sec">${IC.users} Team Board</div>
-      <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="sec">${IC.users} Team Board — ${fmtDate(hud.date)}</div>
+      <div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <button class="btn ghost sm" onclick="hudShiftDay(-1)">${IC.back}</button>
         <input type="date" value="${hud.date}" onchange="hudSetDate(this.value)" style="width:auto">
         <button class="btn ghost sm" onclick="hudShiftDay(1)">${IC.chev}</button>
         <button class="btn ghost sm" onclick="hudSetDate(today())">Today</button>
       </div>
-      ${missing.length ? `<div class="alert"><div class="a-ic">${IC.bell}</div><div class="grow"><b>Standup pending</b><div class="tiny" style="color:var(--ink)">${missing.map(esc).join(', ')}</div></div></div>` : ''}
-      ${hud.items.length ? hud.items.map(s=>hudCard(s,true)).join('') : '<div class="empty">Is din kisi ne standup nahi bhara.</div>'}` : '';
+      <div class="field" style="margin-bottom:12px"><label>Executive</label>
+        <select onchange="hud.execFilter=this.value;render()">
+          <option value="">Saare executives</option>
+          ${EXECS.map(n=>`<option value="${esc(n.toLowerCase())}" ${hud.execFilter===n.toLowerCase()?'selected':''}>${esc(n)}</option>`).join('')}
+        </select>
+      </div>
+      ${(!hud.execFilter && missing.length) ? `<div class="alert"><div class="a-ic">${IC.bell}</div><div class="grow"><b>Standup pending</b><div class="tiny" style="color:var(--ink)">${missing.map(esc).join(', ')}</div></div></div>` : ''}
+      ${fitems.length ? fitems.map(s=>hudCard(s,true)).join('') : `<div class="empty">${hud.execFilter?'Is executive ne is din standup nahi bhara.':'Is din kisi ne standup nahi bhara.'}</div>`}` : '';
   return `<div class="main-inner">
     <div class="page-title">Daily Huddle</div>
     <div class="page-sub">Apna standup daalo${admin?' · aur poori team ka board dekho':''}.</div>
     <div class="hud-wrap">
       <div class="hud-left">${formCard}</div>
-      <div>${admin ? board + '<div style="height:22px"></div>' + mineList : mineList}</div>
+      <div>${admin ? board : mineList}</div>
     </div>
   </div>`;
 }
