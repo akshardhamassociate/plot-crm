@@ -1186,7 +1186,7 @@ try{
   });
 }catch(_){}
 // ── DAILY HUDDLE ──────────────────────────────────────────────────────────────
-const ADMIN_EMAILS = ['krishan.sr1974@gmail.com'];        // sir — board + feedback (baaki sab: apna standup)
+const ADMIN_EMAILS = ['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];        // sir + backup admin (Lov) — board + feedback + office location
 const isAdmin = () => !!(user && ADMIN_EMAILS.includes((user.email||'').toLowerCase()));
 // huddle-only logins: SIRF Huddle dikhega, CRM (leads/board) nahi. (Firebase rules bhi inhe leads se rokti hain.)
 const HUDDLE_ONLY_EMAILS = ['akdpankaj@gmail.com','bhaveshakd3@gmail.com','techakshardham@gmail.com'];
@@ -1197,7 +1197,8 @@ const NAME_BY_EMAIL = {
   'techakshardham@gmail.com':'Shaffat Ji',
   'akdpankaj@gmail.com':'Rahul',
   'bhaveshakd3@gmail.com':'Bhavesh',
-  'shanu.akshardham@gmail.com':'Rashid Ji'   // CRM + Huddle dono (huddle-only NAHI)
+  'shanu.akshardham@gmail.com':'Rashid Ji',  // CRM + Huddle dono (huddle-only NAHI)
+  'trainer.akshardham@gmail.com':'Luv'       // Lov — backup admin
 };
 let hud = { date: today(), items: [], mine: [], draft:{date:today(),yesterday:'',issues:'',today:''}, editing:false };
 // Huddle ka naam LOGGED-IN EMAIL se (device-shared myName se nahi) — taaki har user ko sirf apna kaam dikhe
@@ -1402,14 +1403,13 @@ async function attCapture(oid, oname){
 async function attPunchIn(){
   const name=hudMyName(); if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
   if(!Object.keys(att.offices).length) await attLoadOffices();
-  const oid=officeOf(name);
-  const targets = (oid ? OFFICES.filter(o=>o.id===oid) : OFFICES)   // apna office; assign nahi to koi bhi
-    .map(o=>({o, cfg:att.offices[o.id]})).filter(x=>x.cfg && x.cfg.lat!=null);
-  if(!targets.length){ alert('Aapke office ki location abhi set nahi hui.\nSir ko bolo office pe jaake "Set location" dabaye.'); return; }
+  // kisi bhi office pe punch — bas us office ke andar hona zaroori (nearest office check)
+  const targets = OFFICES.map(o=>({o, cfg:att.offices[o.id]})).filter(x=>x.cfg && x.cfg.lat!=null);
+  if(!targets.length){ alert('Kisi bhi office ki location abhi set nahi hui.\nSir/Lov ko bolo office pe jaake "Set location" dabaye.'); return; }
   let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message+'\n\nPhone me location/GPS ON karo aur is site ko "Allow" karo.'); return; }
   let best=null;
   for(const {o,cfg} of targets){ const d=distM(c.latitude,c.longitude,cfg.lat,cfg.lng); if(!best||d<best.d) best={o,d}; }
-  if(best.d>OFFICE_RADIUS){ alert(`Aap ${best.o.name} office se ~${Math.round(best.d)}m door ho.\nPunch-in sirf office pahunch ke hoga.`); return; }
+  if(best.d>OFFICE_RADIUS){ alert(`Aap kisi bhi office ke paas nahi ho.\nSabse nazdeek: ${best.o.name} (~${Math.round(best.d)}m door). Office ke andar pahunch ke Punch In karo.`); return; }
   const t=istTime(), late=t>LATE_AFTER, date=today();
   try{
     await db.collection('attendance').doc(attId(date,name)).set({ date, name, nameKey:name.toLowerCase(),
