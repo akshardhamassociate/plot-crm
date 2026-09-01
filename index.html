@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
@@ -235,7 +237,7 @@
     display:flex;align-items:center;gap:8px}
   .fab:active{transform:translateX(-50%) scale(.96)}
 
-  .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:40;display:flex;
+  .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:120;display:flex;
     align-items:flex-end;justify-content:center;animation:fade .18s ease}
   .modal{background:#fff;width:100%;max-width:560px;max-height:93dvh;overflow-y:auto;
     border-radius:20px 20px 0 0;padding:8px 18px 28px;animation:up .22s cubic-bezier(.2,.8,.2,1)}
@@ -279,7 +281,7 @@
   #_toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
     transform:translateX(-50%) translateY(18px);background:#111827;color:#fff;padding:11px 18px;
     border-radius:12px;font-weight:600;font-size:.88rem;box-shadow:var(--sh-lg);opacity:0;
-    pointer-events:none;transition:.24s;z-index:60;max-width:88vw;text-align:center}
+    pointer-events:none;transition:.24s;z-index:130;max-width:88vw;text-align:center}
   #_toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
   /* huddle cards */
