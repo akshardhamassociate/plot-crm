@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Call Log — Plot CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#f3f5fb; --card:#ffffff; --surface2:#eef1fb;
+    --ink:#161b2e; --muted:#5c6478; --faint:#9aa3b8; --line:#e4e8f2;
+    --brand:#4f46e5; --brand-d:#4338ca; --brand-t:#eef0fe;
+    --green:#0f9d58; --green-t:#e6f6ee; --red:#dc2626; --red-t:#fdecec;
+    --amber:#c2760a; --amber-t:#fdf2e2; --wa:#25b04c; --blue:#2f74c0;
+    --sh:0 1px 2px rgba(22,27,46,.05),0 6px 18px rgba(22,27,46,.06);
+    --sh-lg:0 14px 40px rgba(22,27,46,.16);
+    --r:16px; --r-sm:12px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{width:20px;height:20px;flex:none;stroke-width:2}
+  button{font-family:inherit}
+  ::selection{background:var(--brand-t)}
+
+  /* header */
+  .top{background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;
+    padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 4px 20px rgba(22,27,46,.25)}
+  .iconbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);color:#fff;
+    min-width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;transition:.12s;padding:0 10px}
+  .iconbtn:active{transform:scale(.93)} .iconbtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .top .ttl{min-width:0}
+  .top h1{font-size:1.08rem;font-weight:800;margin:0;letter-spacing:-.01em}
+  .top .who{font-size:.72rem;opacity:.82;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .sp{flex:1}
+  .lo{gap:6px;font-size:.82rem;font-weight:700}
+
+  .wrap{max-width:660px;margin:0 auto;padding:14px 15px calc(96px + env(safe-area-inset-bottom))}
+
+  /* stats strip */
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:14px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;box-shadow:var(--sh);text-align:center}
+  .stat .n{font-size:1.6rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:5px}
+  .stat.p .n{color:var(--amber)} .stat.d .n{color:var(--green)} .stat.o .n{color:var(--red)}
+
+  /* tabs */
+  .tabs{display:flex;gap:5px;background:var(--surface2);border-radius:13px;padding:4px;margin-bottom:16px}
+  .tabs button{flex:1;border:none;background:none;padding:10px 6px;border-radius:10px;font-weight:700;font-size:.85rem;
+    color:var(--muted);cursor:pointer;transition:.14s;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px}
+  .tabs button svg{width:16px;height:16px}
+  .tabs button.on{background:#fff;color:var(--brand);box-shadow:var(--sh)}
+
+  .sec{font-size:.72rem;font-weight:800;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin:20px 3px 11px;display:flex;align-items:center;gap:7px}
+  .sec .cnt{margin-left:auto;background:var(--surface2);color:var(--muted);font-size:.72rem;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:0}
+
+  /* buttons */
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:13px;
+    padding:14px;font-size:15px;font-weight:800;cursor:pointer;transition:.12s;min-height:48px}
+  .btn:active{transform:scale(.985)} .btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .btn.primary{background:var(--brand);color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.28)}
+  .btn.ghost{background:var(--surface2);color:var(--muted)}
+  .btn.sm{padding:11px;font-size:13.5px;min-height:44px}
+
+  /* contact card */
+  .cc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:15px;margin-bottom:12px}
+  .cc .r1{display:flex;align-items:center;gap:12px}
+  .cc .av{width:44px;height:44px;border-radius:13px;background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;
+    display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
+  .cc .nm{font-weight:800;font-size:15.5px;line-height:1.2}
+  .cc .mb{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px}
+  .cc .mb svg{width:13px;height:13px;color:var(--faint)}
+  .fb{background:var(--amber-t);border:1px solid #f6dcb4;border-radius:11px;padding:10px 12px;margin-top:11px;font-size:.92rem;color:#5a3a05}
+  .fb .l{font-size:.62rem;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:flex;align-items:center;gap:5px}
+  .fb .l svg{width:13px;height:13px}
+  .cdate{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);font-weight:700;margin-top:10px;background:var(--surface2);padding:5px 10px;border-radius:8px}
+  .cdate svg{width:13px;height:13px}
+  .cdate.over{color:var(--red);background:var(--red-t)}
+  .assignedby{font-size:.72rem;color:var(--faint);margin-top:8px;font-weight:600}
+  .acts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+  .acts.four{grid-template-columns:repeat(2,1fr)}
+  .ca{display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:11px;padding:11px;
+    font-size:12.5px;font-weight:800;cursor:pointer;transition:.12s;min-height:44px}
+  .ca svg{width:16px;height:16px}
+  .ca:active{transform:scale(.96)} .ca:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .ca.call{background:var(--green);color:#fff} .ca.wa{background:var(--wa);color:#fff}
+  .ca.log{background:var(--surface2);color:var(--muted)} .ca.done{background:var(--brand-t);color:var(--brand-d)}
+
+  /* log card */
+  .lg{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:14px 15px;margin-bottom:11px}
+  .lg .h{display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .lg .nm{font-weight:800;font-size:15px}
+  .lg .meta{font-size:.9rem;margin-top:6px;color:var(--ink)} .lg .meta b{color:var(--muted);font-weight:700}
+  .lg .foot{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--surface2)}
+  .lg .foot .nx{display:inline-flex;align-items:center;gap:4px;font-weight:700}
+  .st{font-size:.6rem;font-weight:800;padding:4px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.4px}
+  .st.connected{background:var(--green-t);color:#0b6b3c} .st.notpicked{background:var(--red-t);color:#a51d1d} .st.other{background:var(--surface2);color:var(--muted)}
+
+  /* empty + skeleton */
+  .empty{text-align:center;color:var(--muted);padding:44px 18px}
+  .empty .ei{width:56px;height:56px;border-radius:16px;background:var(--surface2);color:var(--brand);display:grid;place-items:center;margin:0 auto 12px}
+  .empty .ei svg{width:26px;height:26px}
+  .empty .e2{font-weight:800;color:var(--ink);font-size:15px}
+  .empty .e3{font-size:13px;margin-top:4px}
+  .sk{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:12px}
+  .sk .l{height:12px;border-radius:6px;background:linear-gradient(90deg,#eef1f8 25%,#e2e7f2 50%,#eef1f8 75%);background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  @media (prefers-reduced-motion:reduce){.sk .l{animation:none}}
+
+  /* form / modal */
+  label{display:block;font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 0 6px}
+  label:first-child{margin-top:0}
+  label .req{color:var(--red)}
+  input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;
+    background:#f8faff;color:var(--ink);outline:none;transition:.14s;min-height:48px}
+  input:focus,select:focus,textarea:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-t)}
+  textarea{resize:vertical;min-height:60px}
+  .modal{position:fixed;inset:0;background:rgba(22,27,46,.5);z-index:60;display:none;align-items:flex-end;justify-content:center;animation:fade .18s}
+  .modal.show{display:flex}
+  @keyframes fade{from{opacity:0}}
+  .sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));
+    max-height:92vh;overflow:auto;animation:up .26s cubic-bezier(.2,.8,.2,1);box-shadow:var(--sh-lg)}
+  @keyframes up{from{transform:translateY(30px)}}
+  @media(min-width:620px){.modal{align-items:center;padding:20px}.sheet{border-radius:20px}}
+  @media (prefers-reduced-motion:reduce){.modal,.sheet{animation:none}}
+  .grab{width:40px;height:4px;border-radius:3px;background:var(--line);margin:2px auto 14px}
+  @media(min-width:620px){.grab{display:none}}
+  .sheet h3{margin:0 0 4px;font-size:1.15rem;font-weight:800}
+  .sheet .sub{font-size:.85rem;color:var(--muted);margin:0 0 8px}
+  .seg{display:flex;gap:7px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:28%;min-height:46px;border:1.5px solid var(--line);background:#f8faff;border-radius:11px;
+    padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.12s}
+  .seg button.on{border-color:var(--brand);background:var(--brand-t);color:var(--brand-d)}
+  .seg button:active{transform:scale(.97)}
+
+  /* fab */
+  .fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:40;
+    display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;border:none;border-radius:16px;
+    padding:14px 20px;font-size:14.5px;font-weight:800;cursor:pointer;box-shadow:0 12px 28px rgba(79,70,229,.45);transition:.12s}
+  .fab:active{transform:scale(.95)} .fab svg{width:20px;height:20px}
+
+  .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
+    background:var(--ink);color:#fff;padding:12px 20px;border-radius:24px;font-weight:600;font-size:.88rem;
+    opacity:0;transition:.24s;z-index:80;pointer-events:none;box-shadow:var(--sh-lg);max-width:88vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* login */
+  .login{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:22px;
+    background:radial-gradient(120% 80% at 50% 0%,#2b3358 0%,#181d33 60%,#0d1120 100%)}
+  .lbox{background:#fff;border-radius:22px;padding:28px 24px;width:100%;max-width:370px;box-shadow:var(--sh-lg)}
+  .lbrand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .lbrand .lg{width:44px;height:44px;border-radius:13px;background:var(--brand);color:#fff;display:grid;place-items:center}
+  .lbrand .t{font-weight:800;font-size:1.05rem}.lbrand .s{font-size:.72rem;color:var(--muted);font-weight:600}
+  .lerr{color:var(--red);font-size:.82rem;min-height:18px;margin-top:10px;font-weight:600;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login" id="login">
+  <div class="lbox">
+    <div class="lbrand"><div class="lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.09 4.18 2 2 0 0 1 4.08 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+      <div><div class="t">Call Log</div><div class="s">Akshardham · Plot CRM</div></div></div>
+    <label>Email</label><input id="li_email" type="email" autocomplete="username" inputmode="email" placeholder="you@gmail.com">
+    <label>Password</label><input id="li_pw" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn primary" style="margin-top:18px" onclick="doLogin()">Login</button>
+    <div class="lerr" id="lerr" role="alert"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <header class="top">
+    <button class="iconbtn" onclick="location.href='index.html'" aria-label="Back to CRM">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="ttl"><h1>Call Log</h1><div class="who" id="who">—</div></div>
+    <div class="sp"></div>
+    <button class="iconbtn lo" onclick="logout()" aria-label="Logout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+  </header>
+  <div class="wrap">
+    <div id="stats"></div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="view"></div>
+  </div>
+  <button class="fab" onclick="openAssign()" aria-label="Add number">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Number</button>
+</div>
+
+<!-- ASSIGN MODAL -->
+<div class="modal" id="assignModal"><div class="sheet"><div class="grab"></div>
+  <h3 id="assignTitle">Naya number</h3><p class="sub">Caller ko batao kis se, kab, kya baat karni hai</p>
+  <label>Naam</label><input id="a_name" placeholder="Customer ka naam">
+  <label>Mobile</label><input id="a_mob" type="tel" inputmode="numeric" placeholder="10-digit number">
+  <label>Feedback — kya baat karni hai</label><textarea id="a_fb" placeholder="Jaise: plot rate discuss karna hai, site visit poochna hai…"></textarea>
+  <label>Date — kab baat karni hai</label><input type="date" id="a_date">
+  <div id="a_assignWrap"><label>Kis caller ko</label><select id="a_assign"></select></div>
+  <button class="btn primary" style="margin-top:18px" onclick="saveAssign()">Save karo</button>
+  <button class="btn ghost sm" onclick="closeModal('assignModal')">Cancel</button>
+</div></div>
+
+<!-- LOG MODAL -->
+<div class="modal" id="logModal"><div class="sheet"><div class="grab"></div>
+  <h3 id="logTitle">Call log</h3><p class="sub">Call ke baad detail bharo</p>
+  <label>Call status <span class="req">*</span></label>
+  <div class="seg" id="l_status">
+    <button type="button" data-v="connected">✔ Connected</button>
+    <button type="button" data-v="notpicked">✕ Not picked</button>
+    <button type="button" data-v="other">Other</button>
+  </div>
+  <label>Purpose <span class="req">*</span></label><input id="l_purpose" placeholder="Kis liye call">
+  <label>Response — kya baat hui</label><textarea id="l_resp" placeholder="Customer ne kya kaha…"></textarea>
+  <label>Next action</label><input id="l_action" placeholder="Aage kya karna hai">
+  <label>Next date</label><input type="date" id="l_next">
+  <button class="btn primary" style="margin-top:18px" onclick="saveLog()">Save log</button>
+  <button class="btn ghost sm" onclick="closeModal('logModal')">Cancel</button>
+</div></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+firebase.initializeApp({apiKey:"AIzaSyCZ_kgx4ErVZjw0YYPyJiCT70DFyE0HUTA",authDomain:"plot-crm.firebaseapp.com",projectId:"plot-crm",storageBucket:"plot-crm.firebasestorage.app",messagingSenderId:"795511910978",appId:"1:795511910978:web:04483a426fe865c96c73db"});
+const auth=firebase.auth(), db=firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(_){}
+
+const ADMIN_EMAILS=['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];
+const NAME_BY_EMAIL={
+  'krishan.sr1974@gmail.com':'Krishan Ji','trainer.akshardham@gmail.com':'Luv',
+  'techakshardham@gmail.com':'Shaffat Ji','akdpankaj@gmail.com':'Rahul',
+  'bhaveshakd3@gmail.com':'Bhavesh','shanu.akshardham@gmail.com':'Rashid Ji',
+  'akdrupesh@gmail.com':'Rupesh Ji','akd.sunilm@gmail.com':'Sunil Meghwal Ji',
+  'akdsunil88@gmail.com':'Sunil Pankaj Ji','akd.leeladhar@gmail.com':'Leeladhar ji',
+  'akd.raghav@gmail.com':'Raghavendra Ji','telecaller1.akd@gmail.com':'Kamana ji'
+};
+const EXECS=['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];
+
+/* icons */
+const IC={
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.09 4.18 2 2 0 0 1 4.08 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  wa:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.17L2 22l4.95-1.3A9.9 9.9 0 1 0 12.04 2zm5.6 14.2c-.24.66-1.4 1.26-1.92 1.3-.5.05-.96.24-3.24-.68-2.73-1.1-4.44-3.9-4.57-4.08-.13-.18-1.1-1.46-1.1-2.78 0-1.32.7-1.97.94-2.24.24-.26.52-.33.7-.33l.5.01c.16 0 .38-.06.6.46.22.53.75 1.85.82 1.98.07.13.11.29.02.46-.09.18-.13.29-.26.44l-.4.46c-.13.13-.26.28-.11.54.15.26.66 1.09 1.42 1.77.98.87 1.8 1.14 2.06 1.27.26.13.4.11.55-.07.15-.18.63-.74.8-.99.16-.26.33-.21.55-.13.22.08 1.42.67 1.66.79.24.12.4.18.46.28.06.11.06.63-.18 1.28z"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  contact:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17a4 4 0 0 1 8 0"/></svg>',
+  msg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>'
+};
+
+let me=null, cl={tab:'mine', contacts:[], logs:[], loading:true};
+const $=id=>document.getElementById(id);
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const today=()=>new Date(Date.now()+5.5*3600e3).toISOString().slice(0,10);
+const fmt=d=>{try{return new Date(d+'T00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}catch(_){return d||''}};
+const initials=n=>(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+const isAdmin=()=>!!(me&&ADMIN_EMAILS.includes((me.email||'').toLowerCase()));
+const myName=()=>{const e=(me&&me.email||'').toLowerCase(); return NAME_BY_EMAIL[e]||localStorage.getItem('hudName_'+e)||(e.split('@')[0]);};
+const myKey=()=>myName().toLowerCase();
+const plusDays=(d,n)=>{const x=new Date(d+'T00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
+function closeModal(id){$(id).classList.remove('show');}
+function openModal(id){$(id).classList.add('show');}
+
+/* auth */
+function doLogin(){
+  const e=$('li_email').value.trim(), p=$('li_pw').value;
+  if(!e||!p){$('lerr').textContent='Email aur password daalo';return;}
+  $('lerr').textContent='Checking…';
+  auth.signInWithEmailAndPassword(e,p).catch(err=>$('lerr').textContent=(err.message||'').replace('Firebase: ',''));
+}
+function logout(){ auth.signOut().then(()=>location.reload()); }
+$('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+auth.onAuthStateChanged(u=>{
+  if(u){ me=u; $('login').style.display='none'; $('app').style.display='block';
+    $('who').textContent=myName()+(isAdmin()?' · admin':''); buildTabs(); render(); load();
+  } else { me=null; $('app').style.display='none'; $('login').style.display='grid'; }
+});
+
+/* tabs */
+function buildTabs(){
+  const t=[['mine',IC.contact,'Meri Calls'],['logs',IC.list,'Logs']];
+  if(isAdmin()) t.push(['all',IC.users,'Sabke']);
+  $('tabs').innerHTML=t.map(([k,ic,l])=>`<button role="tab" aria-selected="${cl.tab===k}" class="${cl.tab===k?'on':''}" onclick="setTab('${k}')">${ic}${l}</button>`).join('');
+}
+function setTab(k){ cl.tab=k; buildTabs(); render(); }
+
+/* data */
+async function load(){
+  cl.loading=true; render();
+  try{
+    const cs=await db.collection('callcontacts').where('done','==',false).get();
+    cl.contacts=cs.docs.map(d=>({id:d.id,...d.data()}));
+    const lq= isAdmin() ? db.collection('calllogs').orderBy('ts','desc').limit(200)
+                        : db.collection('calllogs').where('uidKey','==',myKey());
+    const ls=await lq.get();
+    cl.logs=ls.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  }catch(e){ toast('Load error: '+e.message); }
+  cl.loading=false; render();
+}
+
+/* stats */
+function renderStats(){
+  const mineC=cl.contacts.filter(c=>(c.assignKey||'')===myKey());
+  const pending=(isAdmin()?cl.contacts:mineC).length;
+  const overdue=(isAdmin()?cl.contacts:mineC).filter(c=>c.callDate&&c.callDate<today()).length;
+  const todayCalls=cl.logs.filter(l=>l.date===today()).length;
+  $('stats').innerHTML=`<div class="stats">
+    <div class="stat d"><div class="n">${todayCalls}</div><div class="l">Aaj calls</div></div>
+    <div class="stat p"><div class="n">${pending}</div><div class="l">Pending</div></div>
+    <div class="stat o"><div class="n">${overdue}</div><div class="l">Overdue</div></div></div>`;
+}
+
+/* render */
+function render(){
+  renderStats();
+  const v=$('view');
+  if(cl.loading){ v.innerHTML=`<div class="sk"><div class="l" style="width:55%"></div><div class="l" style="width:80%;margin-top:10px"></div></div>`.repeat(3); return; }
+  if(cl.tab==='mine') v.innerHTML=mineView();
+  else if(cl.tab==='all') v.innerHTML=allView();
+  else v.innerHTML=logsView();
+}
+function mineView(){
+  const list=cl.contacts.filter(c=>(c.assignKey||'')===myKey()).sort((a,b)=>(a.callDate||'').localeCompare(b.callDate||''));
+  return `<div class="sec">${IC.contact} Mujhe assign <span class="cnt">${list.length}</span></div>
+    ${list.length? list.map(c=>contactCard(c)).join('') : empty(IC.contact,'Koi pending number nahi','＋ Number se add karo, ya admin assign karega')}`;
+}
+function allView(){
+  const list=cl.contacts.slice().sort((a,b)=>(a.assignName||'').localeCompare(b.assignName||''));
+  return `<div class="sec">${IC.users} Sabke pending <span class="cnt">${list.length}</span></div>
+    ${list.length? list.map(c=>contactCard(c,true)).join('') : empty(IC.users,'Koi pending number nahi','＋ Number se assign karo')}`;
+}
+function contactCard(c,showWho){
+  const over=c.callDate&&c.callDate<today();
+  const who= showWho&&c.assignName ? `<div class="assignedby">${IC.users} ${esc(c.assignName)}</div>` : '';
+  const by= c.assignedBy&&c.assignedBy!==c.assignName ? `<div class="assignedby">Assigned by ${esc(c.assignedBy)}</div>` : '';
+  return `<article class="cc">
+    <div class="r1"><div class="av">${esc(initials(c.name))}</div>
+      <div style="flex:1;min-width:0"><div class="nm">${esc(c.name||'—')}</div>
+        ${c.mob?`<div class="mb">${IC.phone} ${esc(c.mob)}</div>`:''}</div></div>
+    ${c.feedback?`<div class="fb"><div class="l">${IC.msg} Kya baat karni hai</div>${esc(c.feedback)}</div>`:''}
+    ${c.callDate?`<div class="cdate ${over?'over':''}">${IC.cal} ${fmt(c.callDate)}${over?' · pending':''}</div>`:''}
+    ${who}${by}
+    <div class="acts">
+      ${c.mob?`<button class="ca call" onclick="startCall('${esc(c.name)}','${esc(c.mob)}','${c.id}')" aria-label="Call">${IC.phone} Call</button>
+      <button class="ca wa" onclick="wa('${esc(c.mob)}')" aria-label="WhatsApp">${IC.wa} WhatsApp</button>`:''}
+      <button class="ca log" onclick="openLog('${esc(c.name)}','${esc(c.mob)}','${c.id}')">${IC.edit} Log</button>
+      <button class="ca done" onclick="markDone('${c.id}')">${IC.check} Ho gaya</button>
+    </div></article>`;
+}
+function logsView(){
+  const list=cl.logs;
+  return `<div class="sec">${IC.list} ${isAdmin()?'Sabke logs':'Mere logs'} <span class="cnt">${list.length}</span></div>
+    ${list.length? list.map(logCard).join('') : empty(IC.inbox,'Koi log nahi','Call karke log banao')}`;
+}
+function logCard(l){
+  const who= isAdmin()&&l.user ? ' · '+esc(l.user) : '';
+  const stLabel={connected:'Connected',notpicked:'Not picked',other:'Other'}[l.status]||l.status||'';
+  return `<article class="lg"><div class="h"><div class="nm">${esc(l.name||'—')}</div>${l.status?`<span class="st ${esc(l.status)}">${esc(stLabel)}</span>`:''}</div>
+    ${l.mob?`<div class="meta"><b>Mobile:</b> ${esc(l.mob)}</div>`:''}
+    ${l.purpose?`<div class="meta"><b>Purpose:</b> ${esc(l.purpose)}</div>`:''}
+    ${l.resp?`<div class="meta"><b>Baat:</b> ${esc(l.resp)}</div>`:''}
+    ${l.action?`<div class="meta"><b>Next:</b> ${esc(l.action)}</div>`:''}
+    <div class="foot"><span>${fmt(l.date)}${who}</span>${l.next?`<span class="nx">${IC.clock} ${fmt(l.next)}</span>`:''}</div></article>`;
+}
+function empty(ic,t,s){return `<div class="empty"><div class="ei">${ic}</div><div class="e2">${t}</div><div class="e3">${s}</div></div>`;}
+
+/* assign */
+function openAssign(){
+  ['a_name','a_mob','a_fb'].forEach(i=>$(i).value='');
+  $('a_date').value=today();
+  const w=$('a_assignWrap'), sel=$('a_assign');
+  sel.innerHTML=EXECS.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value=myName();
+  w.style.display=isAdmin()?'block':'none';
+  openModal('assignModal');
+}
+function saveAssign(){
+  const name=$('a_name').value.trim(), mob=$('a_mob').value.trim().replace(/\s+/g,'');
+  const fb=$('a_fb').value.trim(), date=$('a_date').value||today();
+  if(!name&&!mob){ toast('Naam ya number daalo'); return; }
+  const assignName= isAdmin()? ($('a_assign').value||myName()) : myName();
+  db.collection('callcontacts').add({name,mob,feedback:fb,callDate:date,
+    assignName, assignKey:assignName.toLowerCase(), assignedBy:myName(), done:false, ts:Date.now()})
+   .then(()=>{ toast('Assign ho gaya ✓'); closeModal('assignModal'); load(); })
+   .catch(e=>toast('Save error: '+e.message));
+}
+function markDone(id){
+  if(!confirm('Ye number "ho gaya" mark karein? List se hat jayega.')) return;
+  db.collection('callcontacts').doc(id).set({done:true,doneTs:Date.now()},{merge:true})
+   .then(()=>{ toast('Ho gaya ✓'); load(); }).catch(e=>toast(e.message));
+}
+
+/* call + log */
+let _logCtx=null;
+function startCall(name,mob,cid){ _logCtx={name,mob,cid,start:Date.now()}; window.location.href='tel:'+mob; }
+function wa(m){ let n=String(m).replace(/\D/g,''); if(n.length===10)n='91'+n; window.open('https://wa.me/'+n,'_blank'); }
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && _logCtx){
+    const away=Math.round((Date.now()-_logCtx.start)/1000); const c=_logCtx; _logCtx=null;
+    if(away>=4) openLog(c.name,c.mob,c.cid);
+  }
+});
+function openLog(name,mob,cid){
+  $('logTitle').textContent='Call log'+(name?' — '+name:'');
+  $('logModal')._ctx={name,mob,cid};
+  $('l_status').querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+  ['l_purpose','l_resp','l_action','l_next'].forEach(i=>$(i).value='');
+  openModal('logModal');
+}
+$('l_status').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  $('l_status').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+});
+function saveLog(){
+  const ctx=$('logModal')._ctx||{};
+  const on=$('l_status').querySelector('button.on');
+  const status=on?on.dataset.v:'';
+  const purpose=$('l_purpose').value.trim();
+  if(!status){ toast('Call status chuno'); return; }
+  if(!purpose){ toast('Purpose daalo'); return; }
+  const next=$('l_next').value||plusDays(today(),7);
+  db.collection('calllogs').add({uid:me.uid, uidKey:myKey(), user:myName(), date:today(),
+    name:ctx.name||'', mob:ctx.mob||'', status, purpose, resp:$('l_resp').value.trim(),
+    action:$('l_action').value.trim(), next, ts:Date.now()})
+   .then(()=>{
+     if(status==='connected'&&ctx.cid) db.collection('callcontacts').doc(ctx.cid).set({done:true,doneTs:Date.now()},{merge:true});
+     toast('Log saved ✓'); closeModal('logModal'); load();
+   }).catch(e=>toast('Save error: '+e.message));
+}
+</script>
+</body>
+</html>
