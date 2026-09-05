@@ -296,6 +296,7 @@
       <div style="font-size:16px;font-weight:900;color:var(--orange);letter-spacing:-0.3px">🏛️ Akshardham</div>
     </div>
     <div class="sb-nav" id="sbNav">
+      <button onclick="location.href='index.html'"><span class="ic">←</span>Plot CRM</button>
       <button class="on" data-t="home" onclick="go('home')"><span class="ic">🏠</span>Home</button>
       <button data-t="logs" onclick="go('logs')"><span class="ic">📒</span>Call Logs</button>
       <button data-t="due" onclick="go('due')"><span class="ic">⏰</span>Follow-ups</button>
@@ -312,7 +313,7 @@
 
   <div class="main">
     <div class="mobtop">
-      <div class="lchip"><span style="font-size:18px;font-weight:900;color:var(--orange)">🏛️</span></div>
+      <button class="gear" onclick="location.href='index.html'" title="Plot CRM" style="font-size:20px">←</button>
       <div class="uinfo"><div class="uname" id="uName">—</div><div class="urole" id="uRole">—</div></div>
       <button class="gear" onclick="openModal('settingsModal')">⚙</button>
     </div>
@@ -629,7 +630,7 @@ async function cloudFetchConfig(){
           }
           // Feedback / call-by date sheet se update karo (telecaller ne sheet mein daala hai)
           if(sc.feedback)cs[existing].feedback=sc.feedback;
-          if(sc.callDate)cs[existing].callDate=sc.callDate;
+          if(sc.callDate)cs[existing].callDate=normDate(sc.callDate);
         }else{
           // Naya contact add karo
           cs.push({
@@ -639,7 +640,7 @@ async function cloudFetchConfig(){
             mob,
             cat:sc.cat||sc.category||'Customer',
             feedback:sc.feedback||'',
-            callDate:sc.callDate||'',
+            callDate:normDate(sc.callDate),
             ts:sc.ts||new Date().toISOString(),
             fromSheet:true
           });
@@ -913,6 +914,14 @@ function reconcileContactsAgainstLogs(){
   }
   return false;
 }
+// CallDate ko ISO (YYYY-MM-DD) me laao — sheet me DD-MM-YYYY ya DD/MM/YYYY ho sakti hai
+function normDate(d){
+  if(!d)return'';d=String(d).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(d))return d;
+  const m=d.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return d;
+}
 let _contactView='pending';
 function setContactView(v){_contactView=v;renderContacts();}
 function renderContacts(){
@@ -930,16 +939,15 @@ function renderContacts(){
   const af=f.dataset.active||'All';
   const list=af==='All'?cs:(af==='Other'?cs.filter(c=>!KNOWN.includes(c.cat)||c.cat==='Other'):cs.filter(c=>c.cat===af));
   const t=today();
-  // Har contact ka "date added" nikalo (ts se) — jo aaj se pehle ka hai, wo pending mein jayega
-  const dateOf=c=>(c.ts||'').slice(0,10)||t;
-  const sortKey=c=>c.callDate||dateOf(c)||'';
-  const pending=list.filter(c=>dateOf(c)<t).sort((a,b)=>sortKey(a).localeCompare(sortKey(b)));
-  const todays=list.filter(c=>dateOf(c)>=t);
-  // Toggle buttons (Pending / Today) — sirf ek group ek time pe dikhega, lambi scroll nahi
+  // Split CallDate pe: jo aaj ya pehle call karni hai (ya bina date) = Call karne wale;
+  // aage ki date wale = Aage ke. (Isse sheet se naya assign turant "Call karne wale" me dikhta hai.)
+  const cd=c=>normDate(c.callDate)||'';
+  const pending=list.filter(c=>{const d=cd(c);return !d||d<=t;}).sort((a,b)=>(cd(a)||'9999').localeCompare(cd(b)||'9999'));
+  const later=list.filter(c=>{const d=cd(c);return d&&d>t;}).sort((a,b)=>cd(a).localeCompare(cd(b)));
   const vt=document.getElementById('contactViewToggle');
-  vt.innerHTML=`<button class="${_contactView==='pending'?'on':''}" onclick="setContactView('pending')">⏳ Pending (${pending.length})<\/button><button class="${_contactView==='today'?'on':''}" onclick="setContactView('today')">📅 Today (${todays.length})<\/button>`;
-  const showGroup=_contactView==='pending'?pending:todays.slice().reverse();
-  document.getElementById('contactList').innerHTML=showGroup.length?showGroup.map(contactCardHTML).join(''):empty('👥',_contactView==='pending'?'No pending contacts 🎉':'No new contacts today','Tap ＋ New Contact or Import');
+  vt.innerHTML=`<button class="${_contactView==='pending'?'on':''}" onclick="setContactView('pending')">📞 Call karne wale (${pending.length})<\/button><button class="${_contactView==='today'?'on':''}" onclick="setContactView('later')">📅 Aage ke (${later.length})<\/button>`;
+  const showGroup=_contactView==='pending'?pending:later;
+  document.getElementById('contactList').innerHTML=showGroup.length?showGroup.map(contactCardHTML).join(''):empty('👥',_contactView==='pending'?'Koi call pending nahi 🎉':'Aage koi scheduled nahi','Sheet se assign karo ya ＋ New Contact');
 }
 
 function renderMembers(){
