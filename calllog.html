@@ -262,8 +262,16 @@
 </head>
 <body>
 
-<!-- LOGIN -->
-<div class="login" id="login">
+<!-- SPLASH (jab tak plot-crm ka login check ho raha ho — login screen flash na ho) -->
+<div id="clsplash" style="position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:radial-gradient(120% 80% at 50% 0%,#24414e 0%,#15242c 55%,#0e1a20 100%);color:#fff">
+  <div style="text-align:center">
+    <div style="font-size:22px;font-weight:900;color:var(--amber)">🏛️ Akshardham</div>
+    <div style="font-size:13px;color:#a9bcc4;margin-top:8px">Call Log khul raha hai…</div>
+  </div>
+</div>
+
+<!-- LOGIN (default hidden — sirf tab dikhega jab plot-crm me bhi login nahi hai) -->
+<div class="login" id="login" style="display:none">
   <div class="loginbox">
     <div class="login-logo">
       <div style="font-size:24px;font-weight:900;color:var(--orange);letter-spacing:-0.5px;text-align:center">🏛️ Akshardham</div>
@@ -673,6 +681,7 @@ function init(){
   document.getElementById('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   // Plot CRM wala Firebase session — already logged in ho to seedha app khulega (dubara login nahi)
   fbAuth.onAuthStateChanged(async u=>{
+    const sp=document.getElementById('clsplash'); if(sp) sp.remove();   // splash hatao
     if(u){
       await resolveMe(u);
       enterApp();
@@ -680,7 +689,7 @@ function init(){
     }else{
       me=null;
       document.getElementById('app').style.display='none';
-      document.getElementById('login').style.display='';
+      document.getElementById('login').style.display='';   // sirf tab jab plot-crm me bhi login nahi
     }
   });
 }
