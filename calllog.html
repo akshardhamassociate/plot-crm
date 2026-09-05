@@ -1,506 +1,1348 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Call Log — Plot CRM</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#15242c" />
+<title>Akshardham · Call Log</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <style>
   :root{
-    --bg:#f3f5fb;--card:#fff;--s2:#eef1fb;--ink:#161b2e;--muted:#5c6478;--faint:#9aa3b8;--line:#e4e8f2;
-    --brand:#4f46e5;--brand-d:#4338ca;--brand-t:#eef0fe;--green:#0f9d58;--green-t:#e6f6ee;
-    --red:#dc2626;--red-t:#fdecec;--amber:#c2760a;--amber-t:#fdf2e2;--wa:#25b04c;--blue:#2f74c0;--blue-t:#e8f1fb;--purple:#7a5cc0;--purple-t:#efeafb;
-    --sh:0 1px 2px rgba(22,27,46,.05),0 6px 18px rgba(22,27,46,.06);--sh-lg:0 14px 40px rgba(22,27,46,.16);--r:16px;--r-sm:12px}
+    --orange:#e8722a; --orange-d:#cf5f1c; --amber:#f4a63c; --amber-l:#ffc56b;
+    --ink:#15242c; --ink2:#1f343e; --slate:#2c4651; --slate-l:#3b5b68;
+    --bg:#eef1f2; --bg2:#f6f8f8; --card:#ffffff; --line:#e3e9ea; --line2:#eef2f3;
+    --muted:#71868f; --muted2:#93a6ad;
+    --green:#179a68; --green-l:#e7f6ee; --red:#dd524e; --red-l:#fdecec;
+    --blue:#2f74c0; --blue-l:#e8f1fb; --purple:#7a5cc0; --purple-l:#efeafb;
+    --grad:linear-gradient(135deg,var(--orange),var(--amber));
+    --grad-ink:linear-gradient(165deg,var(--ink),var(--slate));
+    --sh-sm:0 1px 2px rgba(21,36,44,.05);
+    --sh:0 2px 6px rgba(21,36,44,.06),0 8px 24px rgba(21,36,44,.06);
+    --sh-lg:0 12px 40px rgba(21,36,44,.16);
+    --r:18px; --r-sm:13px; --sbw:250px;
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{-webkit-text-size-adjust:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  svg{width:20px;height:20px;flex:none;stroke-width:2}
+  html,body{margin:0;padding:0}
+  body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.45;font-size:15px;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--amber-l)}
   button{font-family:inherit}
-  ::selection{background:var(--brand-t)}
-  .top{background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 4px 20px rgba(22,27,46,.25)}
-  .iconbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);color:#fff;min-width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;transition:.12s;padding:0 10px}
-  .iconbtn:active{transform:scale(.93)} .iconbtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
-  .top h1{font-size:1.08rem;font-weight:800;margin:0}
-  .top .who{font-size:.72rem;opacity:.82;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .top .sp{flex:1}
-  .wrap{max-width:660px;margin:0 auto;padding:14px 15px calc(96px + env(safe-area-inset-bottom))}
-  .pt{font-size:1.5rem;font-weight:800;margin:2px 0 2px;letter-spacing:-.02em}
-  .ps{color:var(--muted);font-size:.9rem;margin:0 0 16px}
-  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  @media(min-width:520px){.stats{grid-template-columns:2fr 1fr 1fr 1fr}}
-  .hero{grid-column:1/-1;background:linear-gradient(140deg,var(--brand),#6d63f0);color:#fff;border-radius:var(--r);padding:18px 20px;box-shadow:0 10px 28px rgba(79,70,229,.32);position:relative;overflow:hidden}
-  @media(min-width:520px){.hero{grid-column:auto}}
-  .hero .l{font-size:.72rem;font-weight:800;opacity:.9;letter-spacing:.4px}
-  .hero .n{font-size:2.6rem;font-weight:800;line-height:1;margin-top:6px;font-variant-numeric:tabular-nums}
-  .hero .s{font-size:.78rem;opacity:.9;margin-top:6px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px;box-shadow:var(--sh);text-align:center}
-  .stat .n{font-size:1.55rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-  .stat .l{font-size:.64rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:5px}
-  .stat.c .n{color:var(--green)} .stat.a .n{color:var(--blue)} .stat.d .n{color:var(--amber)}
-  .sec{font-size:.72rem;font-weight:800;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin:20px 3px 11px;display:flex;align-items:center;gap:7px}
-  .sec .cnt{margin-left:auto;background:var(--s2);color:var(--muted);font-size:.72rem;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:0}
-  .chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;-ms-overflow-style:none;scrollbar-width:none}
-  .chips::-webkit-scrollbar{display:none}
-  .chip{flex:none;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:22px;border:1.5px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;white-space:nowrap;min-height:38px}
-  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .chip.sm{font-size:11.5px;padding:6px 11px;min-height:32px}
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;transition:.12s;min-height:48px}
-  .btn:active{transform:scale(.985)} .btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-  .btn.primary{background:var(--brand);color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.28)}
-  .btn.dark{background:var(--ink);color:#fff}
-  .btn.ghost{background:var(--s2);color:var(--muted)}
-  .btn.sm{padding:11px;font-size:13.5px;min-height:44px}
-  .row2{display:flex;gap:10px}.row2>*{flex:1}
-  .cc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:15px;margin-bottom:12px}
-  .cc .r1{display:flex;align-items:center;gap:12px}
-  .av{width:44px;height:44px;border-radius:13px;background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
-  .nm{font-weight:800;font-size:15.5px;line-height:1.2}
-  .mb{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px}
-  .mb svg{width:13px;height:13px;color:var(--faint)}
-  .badge{font-size:9.5px;font-weight:800;padding:4px 9px;border-radius:7px;color:#fff;text-transform:uppercase;letter-spacing:.4px;flex:none}
-  .b-customer{background:var(--green)}.b-agent{background:var(--blue)}.b-networker{background:var(--purple)}.b-vendor{background:var(--amber)}.b-other{background:#64748b}
-  .fb{background:var(--amber-t);border:1px solid #f6dcb4;border-radius:11px;padding:10px 12px;margin-top:11px;font-size:.92rem;color:#5a3a05}
-  .fb .l{font-size:.62rem;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:flex;align-items:center;gap:5px}.fb .l svg{width:13px;height:13px}
-  .cdate{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);font-weight:700;margin-top:10px;background:var(--s2);padding:5px 10px;border-radius:8px}.cdate svg{width:13px;height:13px}
-  .cdate.over{color:var(--red);background:var(--red-t)}
-  .meta{font-size:.9rem;margin-top:6px;color:var(--ink)} .meta b{color:var(--muted);font-weight:700}
-  .assignedby{font-size:.72rem;color:var(--faint);margin-top:8px;font-weight:600;display:flex;align-items:center;gap:5px}.assignedby svg{width:13px;height:13px}
-  .acts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
-  .ca{display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:11px;padding:11px;font-size:12.5px;font-weight:800;cursor:pointer;transition:.12s;min-height:44px}.ca svg{width:16px;height:16px}
-  .ca:active{transform:scale(.96)} .ca:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-  .ca.call{background:var(--green);color:#fff}.ca.wa{background:var(--wa);color:#fff}.ca.log{background:var(--s2);color:var(--muted)}.ca.done{background:var(--brand-t);color:var(--brand-d)}.ca.rec{background:var(--purple-t);color:var(--purple)}.ca.edit{background:var(--s2);color:var(--muted)}
-  .foot{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--s2)}
-  .foot .nx{display:inline-flex;align-items:center;gap:4px;font-weight:700}.foot .nx.over{color:var(--red)}
-  .st{font-size:.6rem;font-weight:800;padding:4px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.4px}
-  .st.connected{background:var(--green-t);color:#0b6b3c}.st.notpicked{background:var(--red-t);color:#a51d1d}.st.other{background:var(--s2);color:var(--muted)}
-  .recwrap{margin-top:10px;background:var(--purple-t);border-radius:11px;padding:10px 12px;display:none}
-  .recwrap audio{width:100%;height:36px}
-  .empty{text-align:center;color:var(--muted);padding:44px 18px}
-  .empty .ei{width:56px;height:56px;border-radius:16px;background:var(--s2);color:var(--brand);display:grid;place-items:center;margin:0 auto 12px}.empty .ei svg{width:26px;height:26px}
-  .empty .e2{font-weight:800;color:var(--ink);font-size:15px}.empty .e3{font-size:13px;margin-top:4px}
-  .sk{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:12px}
-  .sk .l{height:12px;border-radius:6px;background:linear-gradient(90deg,#eef1f8 25%,#e2e7f2 50%,#eef1f8 75%);background-size:200% 100%;animation:shm 1.2s infinite}
-  @keyframes shm{to{background-position:-200% 0}}@media(prefers-reduced-motion:reduce){.sk .l{animation:none}}
-  table.tt{width:100%;border-collapse:collapse;font-size:13px}
-  table.tt th{text-align:left;padding:8px 9px;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--line);font-weight:800}
-  table.tt td{padding:9px;border-bottom:1px solid var(--s2);vertical-align:middle}
-  table.tt tr:last-child td{border-bottom:none}
-  .tnum{font-weight:800;font-variant-numeric:tabular-nums}
-  label{display:block;font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 0 6px}
-  label:first-child{margin-top:0} label .req{color:var(--red)}
-  input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;background:#f8faff;color:var(--ink);outline:none;transition:.14s;min-height:48px}
-  input:focus,select:focus,textarea:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-t)}
-  textarea{resize:vertical;min-height:60px}
+
+  /* ---------- LOGIN ---------- */
+  .login{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
+    background:radial-gradient(120% 80% at 50% 0%, #24414e 0%, var(--ink) 55%, #0e1a20 100%);padding:24px;overflow:auto}
+  .login::before{content:"";position:absolute;top:-80px;right:-60px;width:240px;height:240px;background:var(--grad);filter:blur(70px);opacity:.35;border-radius:50%}
+  .loginbox{position:relative;width:100%;max-width:380px;animation:rise .5s cubic-bezier(.2,.8,.2,1)}
+  .login-logo{background:#fff;border-radius:22px;padding:22px 26px;box-shadow:var(--sh-lg);display:grid;place-items:center;margin-bottom:22px}
+  .login-logo img{width:100%;max-width:240px;height:auto;display:block}
+  .login-card{background:rgba(255,255,255,.06);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:24px 22px}
+  .login-card h2{color:#fff;font-size:19px;margin:0 0 3px;font-weight:700}
+  .login-card p{color:#a9bcc4;font-size:13px;margin:0 0 18px}
+  .field{position:relative;margin-bottom:13px}
+  .field input{width:100%;background:rgba(255,255,255,.95);border:1.5px solid transparent;border-radius:13px;padding:14px 14px 14px 44px;font-size:15px;color:var(--ink);outline:none;font:inherit}
+  .field input:focus{border-color:var(--amber);background:#fff}
+  .field .fi{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:16px;opacity:.5}
+  .field .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;opacity:.55;padding:8px}
+  .login-btn{width:100%;background:var(--grad);color:#fff;border:none;border-radius:13px;padding:15px;font-size:15px;font-weight:800;letter-spacing:.4px;cursor:pointer;margin-top:6px;box-shadow:0 8px 22px rgba(232,114,42,.4);transition:transform .12s}
+  .login-btn:active{transform:scale(.98)}
+  .login-err{color:#ffb3b0;font-size:12.5px;margin-top:10px;text-align:center;min-height:16px;font-weight:600}
+  .login-foot{text-align:center;color:#7f949c;font-size:11px;margin-top:18px;letter-spacing:.3px}
+  @keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ---------- SHELL ---------- */
+  #app{display:flex;min-height:100vh}
+  .sidebar{width:var(--sbw);flex:none;background:var(--grad-ink);color:#fff;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:18px 14px;gap:6px}
+  .sb-logo{background:#fff;border-radius:14px;padding:12px 14px;display:grid;place-items:center;margin-bottom:14px}
+  .sb-logo img{width:100%;max-width:160px;height:auto;display:block}
+  .sb-nav{display:flex;flex-direction:column;gap:4px}
+  .sb-nav button{display:flex;align-items:center;gap:12px;background:none;border:none;color:#c4d3d9;padding:12px 14px;border-radius:12px;font-size:14.5px;font-weight:600;cursor:pointer;text-align:left;transition:.15s}
+  .sb-nav button .ic{font-size:18px;width:22px;text-align:center}
+  .sb-nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+  .sb-nav button.on{background:rgba(255,255,255,.12);color:#fff}
+  .sb-new{margin-top:8px;background:var(--grad);color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 6px 18px rgba(232,114,42,.4)}
+  .sb-spacer{flex:1}
+  .sb-user{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px}
+  .sb-user .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-user .rl{font-size:11px;color:#a9bcc4;font-weight:600;margin-top:2px}
+  .sb-user .ub{display:flex;gap:7px;margin-top:10px}
+  .sb-user .ub button{flex:1;background:rgba(255,255,255,.1);border:none;color:#dfe9ec;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer}
+  .sb-user .ub button:hover{background:rgba(255,255,255,.18)}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+  .mobtop{display:none;position:sticky;top:0;z-index:40;background:var(--grad-ink);color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));align-items:center;justify-content:space-between;gap:10px;box-shadow:0 4px 18px rgba(21,36,44,.18)}
+  .mobtop .lchip{background:#fff;border-radius:11px;padding:6px 9px;display:flex;align-items:center;height:38px}
+  .mobtop .lchip img{height:24px;width:auto;display:block}
+  .mobtop .uinfo{flex:1;min-width:0}
+  .mobtop .uname{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  .mobtop .urole{font-size:10.5px;color:#b9cad1;font-weight:600}
+  .mobtop .gear{background:rgba(255,255,255,.13);border:none;color:#fff;width:38px;height:38px;border-radius:11px;font-size:17px;cursor:pointer;flex:none}
+
+  .syncline{background:var(--ink);color:#cfe;font-size:11px;text-align:center;padding:5px;font-weight:600;letter-spacing:.3px}
+  .syncline .d{display:inline-block;width:6px;height:6px;border-radius:50%;background:#5fdba0;margin-right:5px;vertical-align:middle}
+  .syncline.off{background:#3a2a22;color:#f2c39e}.syncline.off .d{background:#f0a35e}
+
+  .wrap{max-width:1080px;width:100%;margin:0 auto;padding:26px 26px 60px}
+  section{display:none;animation:pop .25s ease}
+  section.active{display:block}
+  .pagehead{font-size:27px;font-weight:800;margin:0 0 5px;letter-spacing:-.4px;text-align:center}
+  .pagesub{color:var(--muted);font-size:14px;margin:0 0 22px;font-weight:500;text-align:center}
+  .center-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .secttl{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin:24px 2px 12px;font-weight:800}
+
+  .dash{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:14px;align-items:stretch}
+  .hero{background:var(--grad);border-radius:20px;padding:20px 22px;color:#fff;position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(232,114,42,.3)}
+  .hero::after{content:"";position:absolute;right:-30px;top:-30px;width:150px;height:150px;background:rgba(255,255,255,.13);border-radius:50%}
+  .hero::before{content:"";position:absolute;right:34px;bottom:-54px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%}
+  .hero .lab{font-size:12.5px;font-weight:700;opacity:.92;letter-spacing:.4px}
+  .hero .num{font-size:54px;font-weight:900;line-height:1;margin-top:6px;letter-spacing:-1.5px}
+  .hero .sub{font-size:12.5px;opacity:.92;margin-top:8px;position:relative;z-index:1}
+  .ms{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:16px 14px;box-shadow:var(--sh-sm);display:flex;flex-direction:column;justify-content:center}
+  .ms .n{font-size:30px;font-weight:800;line-height:1}
+  .ms .l{font-size:10.5px;color:var(--muted);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.5px}
+  .ms.cust .n{color:var(--green)} .ms.agent .n{color:var(--blue)} .ms.due .n{color:var(--orange)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:13px}
+
+  .entry{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;box-shadow:var(--sh-sm);transition:box-shadow .15s}
+  .entry:hover{box-shadow:var(--sh)}
+  .entry .r1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .entry .av{width:40px;height:40px;border-radius:12px;background:var(--grad);color:#fff;display:grid;place-items:center;font-weight:800;font-size:16px;flex:none}
+  .entry .nm{font-weight:700;font-size:15.5px;line-height:1.2}
+  .entry .mb{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+  .entry .meta{font-size:13px;color:var(--slate);margin-top:7px}
+  .entry .meta b{color:var(--ink);font-weight:700}
+  .entry .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line2);padding-top:9px}
+  .badge{font-size:9.5px;font-weight:800;padding:4px 8px;border-radius:7px;color:#fff;text-transform:uppercase;letter-spacing:.5px;flex:none}
+  .b-customer{background:var(--green)} .b-agent{background:var(--blue)} .b-networker{background:var(--purple)} .b-vendor{background:var(--amber)} .b-other{background:var(--slate)}
+  .nx{font-weight:700} .nx.over{color:var(--red)}
+  .erow{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+  .mini{flex:1;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:.12s}
+  .mini.call{background:var(--green-l);color:var(--green)} .mini.wa{background:var(--blue-l);color:var(--blue)} .mini.edit{background:#f0f3f4;color:var(--slate)}
+  .mini.rec{background:var(--purple-l);color:var(--purple)}
+
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:46px 18px}
+  .empty .e1{font-size:42px;margin-bottom:10px;opacity:.8}
+  .empty .e2{font-weight:700;color:var(--slate);font-size:15px}
+  .empty .e3{font-size:13px;margin-top:5px}
+
+  .filters{display:flex;gap:8px;padding:4px 2px 12px;justify-content:center;flex-wrap:wrap}
+  .filt{flex:none;font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:22px;border:1.5px solid var(--line);background:#fff;color:var(--slate);cursor:pointer;white-space:nowrap;transition:.15s}
+  .filt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .filt.sm{font-size:11px;padding:6px 11px}
+
+  .contact{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--sh-sm);transition:box-shadow .15s}
+  .contact:hover{box-shadow:var(--sh)}
+  .contact .c1{display:flex;align-items:center;gap:11px}
+  .contact .av{width:42px;height:42px;border-radius:12px;background:var(--grad-ink);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+  .contact .nm{font-weight:700;font-size:15px}
+  .contact .mb{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+  .contact .acts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+  .ca{border:none;border-radius:11px;padding:10px;font-size:12.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:.12s}
+  .ca.call{background:var(--green);color:#fff} .ca.wa{background:#25b04c;color:#fff} .ca.log{background:#f0f3f4;color:var(--slate)} .ca.done{background:var(--blue);color:#fff}
+  .ca:active{transform:scale(.96)}
+
+  .form{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;box-shadow:var(--sh);max-width:640px;margin:0 auto}
+  label{display:block;font-size:12px;font-weight:800;color:var(--slate);margin:14px 0 6px;letter-spacing:.2px}
+  label:first-child{margin-top:0}
+  input,select,textarea{width:100%;font:inherit;font-size:15px;padding:12px 13px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg2);color:var(--ink);outline:none;transition:.15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--orange);background:#fff}
+  textarea{resize:vertical;min-height:56px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-  .seg{display:flex;gap:7px;flex-wrap:wrap}
-  .seg button{flex:1;min-width:28%;min-height:46px;border:1.5px solid var(--line);background:#f8faff;border-radius:11px;padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.12s}
-  .seg button.on{border-color:var(--brand);background:var(--brand-t);color:var(--brand-d)}
-  .seg button:active{transform:scale(.97)}
-  .hint{font-size:.74rem;color:var(--muted);margin-top:5px}
-  .modal{position:fixed;inset:0;background:rgba(22,27,46,.5);z-index:60;display:none;align-items:flex-end;justify-content:center;animation:fade .18s}
-  .modal.show{display:flex}@keyframes fade{from{opacity:0}}
-  .sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto;animation:up .26s cubic-bezier(.2,.8,.2,1);box-shadow:var(--sh-lg);position:relative}
-  @keyframes up{from{transform:translateY(30px)}}@media(min-width:620px){.modal{align-items:center;padding:20px}.sheet{border-radius:20px}}
-  @media(prefers-reduced-motion:reduce){.modal,.sheet{animation:none}}
-  .grab{width:40px;height:4px;border-radius:3px;background:var(--line);margin:2px auto 14px}@media(min-width:620px){.grab{display:none}}
-  .sheet h3{margin:0 0 4px;font-size:1.15rem;font-weight:800}
-  .sheet .sub{font-size:.85rem;color:var(--muted);margin:0 0 8px}
-  .bnav{position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:7px 4px;padding-bottom:max(7px,env(safe-area-inset-bottom));box-shadow:0 -2px 16px rgba(22,27,46,.08)}
-  .bnav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.6rem;font-weight:700;color:var(--faint);padding:5px 6px;position:relative;min-width:0;flex:1}
-  .bnav button svg{width:22px;height:22px}
-  .bnav button.on{color:var(--brand)}
-  .bnav button.on::before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:24px;height:3px;border-radius:3px;background:var(--brand)}
-  .fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:44;display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;border:none;border-radius:16px;padding:14px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 12px 28px rgba(79,70,229,.45);transition:.12s}
-  .fab:active{transform:scale(.95)}.fab svg{width:20px;height:20px}
-  .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:24px;font-weight:600;font-size:.88rem;opacity:0;transition:.24s;z-index:80;pointer-events:none;box-shadow:var(--sh-lg);max-width:88vw;text-align:center}
+  .req::after{content:" *";color:var(--red)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:5px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:26%;border:1.5px solid var(--line);background:var(--bg2);border-radius:11px;padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--slate);cursor:pointer;transition:.15s}
+  .seg button.on{border-color:var(--orange);background:#fff;color:var(--orange);box-shadow:0 2px 8px rgba(232,114,42,.15)}
+  .seg button.other{border-style:dashed}
+  .catother{margin-top:8px;display:none}
+  .btn{display:block;width:100%;border:none;border-radius:13px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;margin-top:18px;letter-spacing:.3px;transition:transform .1s}
+  .btn:active{transform:scale(.99)}
+  .btn.primary{background:var(--grad);color:#fff;box-shadow:0 8px 20px rgba(232,114,42,.32)}
+  .btn.dark{background:var(--ink);color:#fff}
+  .btn.ghost{background:#eef2f3;color:var(--slate)}
+  .btn.sm{padding:11px;font-size:13.5px;margin-top:10px}
+  .btn.inline{display:inline-block;width:auto;padding:12px 22px;margin:0}
+
+  /* category manager */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--sh-sm);max-width:640px;margin:0 auto 18px}
+  .panel h4{margin:0 0 4px;font-size:15px}
+  .panel .ph{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+  .catwrap{display:flex;flex-wrap:wrap;gap:8px}
+  .catchip{display:inline-flex;align-items:center;gap:7px;background:var(--bg2);border:1.5px solid var(--line);border-radius:20px;padding:6px 8px 6px 13px;font-size:13px;font-weight:700;color:var(--slate)}
+  .catchip button{background:var(--red-l);color:var(--red);border:none;width:20px;height:20px;border-radius:50%;font-size:13px;cursor:pointer;line-height:1;display:grid;place-items:center}
+  .catadd{display:flex;gap:8px;margin-top:12px}
+  .catadd input{flex:1}
+  .catadd button{flex:none;background:var(--ink);color:#fff;border:none;border-radius:11px;padding:0 18px;font-weight:800;cursor:pointer}
+
+  .mrow{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:12px;box-shadow:var(--sh-sm)}
+  .mrow .av{width:40px;height:40px;border-radius:11px;background:var(--grad);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+  .mrow .nm{font-weight:700;font-size:14.5px}
+  .mrow .id{font-size:11.5px;color:var(--muted);font-weight:600}
+  .mrow .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .rolepill{font-size:10px;font-weight:800;padding:4px 9px;border-radius:6px;background:#eef2f3;color:var(--slate);text-transform:uppercase;letter-spacing:.4px}
+  .mact{border:none;border-radius:9px;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer}
+  .mact.e{background:var(--blue-l);color:var(--blue)} .mact.d{background:var(--red-l);color:var(--red)}
+
+  .bnav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:45;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line);justify-content:space-around;padding:8px 6px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  .bnav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:700;color:var(--muted2);padding:5px 12px;border-radius:14px;position:relative}
+  .bnav button .ic{font-size:20px;line-height:1}
+  .bnav button.on{color:var(--orange)}
+  .bnav button.on::before{content:"";position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:24px;height:3px;border-radius:3px;background:var(--grad)}
+  .fab{display:none;position:fixed;right:18px;bottom:84px;z-index:46;width:60px;height:60px;border-radius:20px;background:var(--grad);color:#fff;border:none;font-size:30px;cursor:pointer;box-shadow:0 10px 26px rgba(232,114,42,.5);place-items:center;transition:transform .12s}
+  .fab:active{transform:scale(.92) rotate(8deg)}
+
+  .modal{position:fixed;inset:0;z-index:80;background:rgba(21,36,44,.55);display:none;align-items:center;justify-content:center;padding:20px;animation:fade .2s}
+  .modal.show{display:flex}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .sheet{background:#fff;width:100%;max-width:480px;border-radius:22px;padding:24px 22px;max-height:90vh;overflow:auto;animation:pop .25s cubic-bezier(.2,.8,.2,1);box-shadow:var(--sh-lg)}
+  .sheet .grab{display:none}
+  .sheet h3{margin:0 0 4px;font-size:18px}
+  .modal-close-btn{position:absolute;top:14px;right:14px;background:var(--bg2);border:1.5px solid var(--line);color:var(--slate);width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;display:grid;place-items:center;font-weight:700;line-height:1;z-index:2}
+  .modal-close-btn:hover{background:var(--red-l);border-color:var(--red);color:var(--red)}
+  .sheet{position:relative}
+  .sheet .ssub{font-size:13px;color:var(--muted);margin:0 0 14px}
+  .callhead{background:var(--grad);border-radius:16px;padding:14px;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+  .callhead .av{width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.22);display:grid;place-items:center;font-weight:800;font-size:18px}
+  .callhead .cn{font-weight:800;font-size:16px}
+  .callhead .cd{font-size:12px;opacity:.92;margin-top:2px}
+  .toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:26px;font-size:13.5px;font-weight:700;opacity:0;transition:.25s;z-index:90;pointer-events:none;box-shadow:var(--sh-lg);max-width:90%;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .login{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:22px;background:radial-gradient(120% 80% at 50% 0%,#2b3358 0%,#181d33 60%,#0d1120 100%)}
-  .lbox{background:#fff;border-radius:22px;padding:28px 24px;width:100%;max-width:370px;box-shadow:var(--sh-lg)}
-  .lbrand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-  .lbrand .lg{width:44px;height:44px;border-radius:13px;background:var(--brand);color:#fff;display:grid;place-items:center}
-  .lbrand .t{font-weight:800;font-size:1.05rem}.lbrand .s{font-size:.72rem;color:var(--muted);font-weight:600}
-  .lerr{color:var(--red);font-size:.82rem;min-height:18px;margin-top:10px;font-weight:600;text-align:center}
+  .settings-row{font-size:12.5px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}
+  .settings-row b{color:var(--ink)}
+
+  /* ---------- TEAM TABLE (Admin Dashboard) ---------- */
+  .team-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  .team-table th{text-align:left;padding:8px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--line);font-weight:800}
+  .team-table td{padding:10px 10px;border-bottom:1px solid var(--line2);vertical-align:middle}
+  .team-table tr:last-child td{border-bottom:none}
+  .team-table tr:hover td{background:var(--bg2)}
+  .tm-name{font-weight:700;font-size:13.5px}
+  .tm-role{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .tm-num{font-weight:800;font-size:17px;color:var(--orange)}
+  .tm-num.green{color:var(--green)} .tm-num.blue{color:var(--blue)}
+  .tm-due{font-weight:700;font-size:13px}
+  .tm-due.over{color:var(--red)}
+
+  /* ---------- RECORDING PLAYER ---------- */
+  .rec-wrap{margin-top:9px;background:var(--purple-l);border-radius:11px;padding:10px 12px;display:none}
+  .rec-wrap audio{width:100%;height:34px;display:block}
+  .rec-label{font-size:11px;color:var(--purple);font-weight:800;margin-bottom:6px}
+
+  /* ---------- USER FILTER ROW ---------- */
+  .user-filters{display:flex;gap:6px;padding:0 2px 10px;justify-content:flex-start;flex-wrap:wrap}
+
+  .assign-tag{font-size:10px;background:var(--blue-l);color:var(--blue);padding:3px 8px;border-radius:6px;font-weight:700;display:inline-block;margin-top:3px}
+  .cfb{background:#fdf2e2;border:1px solid #f6dcb4;border-radius:10px;padding:9px 11px;margin-top:10px;font-size:13px;color:#5a3a05;line-height:1.4}
+  .cfb b{color:var(--orange-d);font-weight:800}
+  .ccdate{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--slate);background:var(--bg2);padding:5px 10px;border-radius:8px;margin-top:8px}
+  .ccdate.over{color:var(--red);background:var(--red-l)}
+
+  @media (max-width:860px){
+    .sidebar{display:none}
+    .mobtop{display:flex}
+    .bnav{display:flex}
+    .fab{display:grid}
+    body{padding-bottom:86px}
+    .wrap{padding:16px 15px 20px;max-width:560px}
+    .pagehead{font-size:21px;margin-top:4px} .pagesub{font-size:12.5px;margin-bottom:16px}
+    .dash{grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px}
+    .hero{grid-column:1/-1;padding:18px 20px}
+    .hero .num{font-size:50px}
+    .ms{padding:13px 12px;text-align:center} .ms .n{font-size:24px} .ms .l{margin-top:5px}
+    .cards{grid-template-columns:1fr;gap:11px}
+    .toast{bottom:100px}
+    .modal{align-items:flex-end;padding:0}
+    .sheet{max-width:540px;border-radius:24px 24px 0 0;padding-bottom:max(22px,env(safe-area-inset-bottom));animation:up .3s cubic-bezier(.2,.8,.2,1)}
+    .sheet .grab{display:block;width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 16px}
+    @keyframes up{from{transform:translateY(40px)}to{transform:none}}
+  }
 </style>
 </head>
 <body>
 
+<!-- LOGIN -->
 <div class="login" id="login">
-  <div class="lbox">
-    <div class="lbrand"><div class="lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.09 4.18 2 2 0 0 1 4.08 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
-      <div><div class="t">Call Log</div><div class="s">Akshardham · Plot CRM</div></div></div>
-    <label>Email</label><input id="li_email" type="email" autocomplete="username" inputmode="email" placeholder="you@gmail.com">
-    <label>Password</label><input id="li_pw" type="password" autocomplete="current-password" placeholder="••••••••">
-    <button class="btn primary" style="margin-top:18px" onclick="doLogin()">Login</button>
-    <div class="lerr" id="lerr" role="alert"></div>
+  <div class="loginbox">
+    <div class="login-logo">
+      <div style="font-size:24px;font-weight:900;color:var(--orange);letter-spacing:-0.5px;text-align:center">🏛️ Akshardham</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-top:4px">ASSOCIATES</div>
+    </div>
+    <div class="login-card">
+      <h2>Call Log</h2><p>Plot CRM wale email &amp; password se login karein</p>
+      <div class="field"><span class="fi">👤</span><input id="li_email" type="email" autocomplete="username" inputmode="email" placeholder="you@gmail.com" autocapitalize="none" spellcheck="false"></div>
+      <div class="field"><span class="fi">🔒</span><input id="li_pw" type="password" autocomplete="current-password" placeholder="Password"><button class="eye" onclick="togglePw()" id="eyeBtn">👁</button></div>
+      <button class="login-btn" onclick="doLogin()">Login</button>
+      <div class="login-err" id="loginErr"></div>
+      <div style="text-align:center;margin-top:14px"><a href="index.html" style="color:#a9bcc4;font-size:12.5px;font-weight:600;text-decoration:none">← Plot CRM par wapas</a></div>
+    </div>
+    <div class="login-foot">AKSHARDHAM ASSOCIATES · Internal Tool</div>
   </div>
 </div>
 
+<!-- APP -->
 <div id="app" style="display:none">
-  <header class="top">
-    <button class="iconbtn" onclick="location.href='index.html'" aria-label="Back to CRM"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-    <div style="min-width:0"><h1>Call Log</h1><div class="who" id="who">—</div></div>
-    <div class="sp"></div>
-    <button class="iconbtn" onclick="exportCSV()" aria-label="Export CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
-    <button class="iconbtn" onclick="logout()" aria-label="Logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
-  </header>
-  <div class="wrap"><div id="view"></div></div>
-  <button class="fab" onclick="openLog()" aria-label="New call log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Call Log</button>
-  <nav class="bnav" id="bnav"></nav>
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div style="font-size:16px;font-weight:900;color:var(--orange);letter-spacing:-0.3px">🏛️ Akshardham</div>
+    </div>
+    <div class="sb-nav" id="sbNav">
+      <button class="on" data-t="home" onclick="go('home')"><span class="ic">🏠</span>Home</button>
+      <button data-t="logs" onclick="go('logs')"><span class="ic">📒</span>Call Logs</button>
+      <button data-t="due" onclick="go('due')"><span class="ic">⏰</span>Follow-ups</button>
+      <button data-t="contacts" onclick="go('contacts')"><span class="ic">👥</span>Contacts</button>
+      <button data-t="team" id="sbTeam" onclick="go('team')" style="display:none"><span class="ic">🛠️</span>Team</button>
+    </div>
+    <button class="sb-new" onclick="openNewLog()">＋ New Call Log</button>
+    <div class="sb-spacer"></div>
+    <div class="sb-user">
+      <div class="nm" id="sbName">—</div><div class="rl" id="sbRole">—</div>
+      <div class="ub"><button onclick="openModal('settingsModal')">⚙ Settings</button><button onclick="logout()">Logout</button></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="mobtop">
+      <div class="lchip"><span style="font-size:18px;font-weight:900;color:var(--orange)">🏛️</span></div>
+      <div class="uinfo"><div class="uname" id="uName">—</div><div class="urole" id="uRole">—</div></div>
+      <button class="gear" onclick="openModal('settingsModal')">⚙</button>
+    </div>
+    <div class="syncline off" id="syncLine"><span class="d"></span><span id="syncTxt">Local only — add a sync URL in settings</span></div>
+
+    <div class="wrap">
+      <!-- HOME -->
+      <section id="home" class="active">
+        <h1 class="pagehead">Dashboard</h1><p class="pagesub">Today's calling activity at a glance</p>
+        <div class="dash">
+          <div class="hero"><div class="lab">TODAY'S TOTAL CALLS</div><div class="num" id="stTotal">0</div><div class="sub" id="stSub">No calls logged yet</div></div>
+          <div class="ms cust"><div class="n" id="stCust">0</div><div class="l">Customer</div></div>
+          <div class="ms agent"><div class="n" id="stAgent">0</div><div class="l">Agent</div></div>
+          <div class="ms due"><div class="n" id="stDue">0</div><div class="l">Due today</div></div>
+        </div>
+        <!-- ADMIN: Team Performance Table -->
+        <div id="adminDash" style="display:none">
+          <h2 class="secttl">Team Performance — Today</h2>
+          <div class="panel" style="overflow-x:auto;padding:14px">
+            <table class="team-table" id="teamTable"></table>
+          </div>
+        </div>
+        <h2 class="secttl">Today's activity</h2>
+        <div class="cards" id="todayList"></div>
+      </section>
+
+      <!-- LOGS -->
+      <section id="logs">
+        <h1 class="pagehead" id="logsHead">All Call Logs</h1><p class="pagesub" id="logsSub">Every logged call across the team</p>
+        <div class="filters" id="logFilters"></div>
+        <div class="user-filters" id="logUserFilters" style="display:none"></div>
+        <div class="cards" id="allList"></div>
+      </section>
+
+      <!-- DUE -->
+      <section id="due">
+        <h1 class="pagehead">Follow-ups</h1><p class="pagesub">Calls due today and what's coming up</p>
+        <div id="dueList"></div>
+      </section>
+
+      <!-- CONTACTS -->
+      <section id="contacts">
+        <h1 class="pagehead">Contacts</h1><p class="pagesub">Save a number once, then call or WhatsApp from here</p>
+        <div class="center-actions">
+          <button class="btn primary inline" onclick="openContactAdd()">＋ New Contact</button>
+          <button class="btn dark inline" onclick="openImportModal()">⬆ Import Contacts</button>
+        </div>
+        <div class="filters" id="contactFilters" style="margin-top:16px"></div>
+        <div class="user-filters" id="contactUserFilter" style="display:none"></div>
+        <div class="seg" id="contactViewToggle" style="margin:14px 0 6px"></div>
+        <div class="cards" id="contactList"></div>
+      </section>
+
+      <!-- NEW LOG -->
+      <section id="newlog">
+        <h1 class="pagehead" id="formTitle">New Call Log</h1><p class="pagesub">Record the call details</p>
+        <div class="form">
+          <div class="two"><div><label class="req">Date</label><input type="date" id="f_date"></div><div><label>Next date</label><input type="date" id="f_next"></div></div>
+          <div class="hint" style="margin-top:-2px">Leave Next date empty = auto +7 days.</div>
+          <label class="req">Category</label>
+          <div class="seg" id="f_segCat"></div>
+          <input class="catother" id="f_catOther" placeholder="Type custom category">
+          <label class="req">Called To (name)</label><input id="f_name" placeholder="e.g. Ramlal ji">
+          <label>Mobile</label><input id="f_mob" type="tel" inputmode="numeric" placeholder="98XXXXXXXX">
+          <label class="req">Purpose</label><input id="f_purpose" placeholder="Purpose of the call">
+          <label>Response (what was discussed)</label><textarea id="f_resp" placeholder="What did they say..."></textarea>
+          <label>Next action</label><input id="f_action" placeholder="What to do next">
+          <label>Comment</label><textarea id="f_comment" placeholder="Extra note (optional)"></textarea>
+          <button class="btn primary" onclick="saveLog()">Save Call Log</button>
+          <button class="btn ghost sm" onclick="go('home')">Cancel</button>
+        </div>
+      </section>
+
+      <!-- TEAM -->
+      <section id="team">
+        <h1 class="pagehead">Team &amp; Settings</h1><p class="pagesub">Admin &amp; Tech can add/edit members and categories</p>
+        <div class="panel">
+          <h4>Call Categories</h4>
+          <p class="ph">These show as options in every call log &amp; contact. Add or remove as needed.</p>
+          <div class="catwrap" id="catWrap"></div>
+          <div class="catadd"><input id="newCat" placeholder="New category name" onkeydown="if(event.key==='Enter')addCat()"><button onclick="addCat()">Add</button></div>
+        </div>
+        <div class="center-actions" style="margin-bottom:14px"><button class="btn primary inline" onclick="openMemberAdd()">＋ Add Member</button></div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:640px;margin:0 auto" id="memberList"></div>
+      </section>
+    </div>
+  </div>
+
+  <button class="fab" onclick="openNewLog()">＋</button>
+  <div class="bnav">
+    <button class="on" data-t="home" onclick="go('home')"><span class="ic">🏠</span>Home</button>
+    <button data-t="logs" onclick="go('logs')"><span class="ic">📒</span>Logs</button>
+    <button data-t="due" onclick="go('due')"><span class="ic">⏰</span>Due</button>
+    <button data-t="contacts" onclick="go('contacts')"><span class="ic">👥</span>Contacts</button>
+  </div>
 </div>
 
-<!-- ASSIGN NUMBER MODAL -->
-<div class="modal" id="assignModal"><div class="sheet"><div class="grab"></div>
-  <h3>Number assign</h3><p class="sub">Caller ko batao kis se, kab, kya baat karni hai</p>
-  <label>Naam</label><input id="a_name" placeholder="Customer ka naam">
-  <label>Mobile</label><input id="a_mob" type="tel" inputmode="numeric" placeholder="10-digit number">
-  <label>Category</label><div class="seg" id="a_cat"></div>
-  <label>Feedback — kya baat karni hai</label><textarea id="a_fb" placeholder="Jaise: plot rate discuss karna hai, site visit poochna hai…"></textarea>
-  <label>Date — kab</label><input type="date" id="a_date">
-  <div id="a_assignWrap"><label>Kis caller ko</label><select id="a_assign"></select></div>
-  <button class="btn primary" style="margin-top:18px" onclick="saveAssign()">Save karo</button>
-  <button class="btn ghost sm" onclick="closeModal('assignModal')">Cancel</button>
+<!-- auto call-log -->
+<div class="modal" id="callModal"><div class="sheet"><div class="grab"></div>
+  <button class="modal-close-btn" onclick="closeModal('callModal')" title="Close">✕</button>
+  <div class="callhead"><div class="av" id="cl_av">?</div><div><div class="cn" id="cl_name">—</div><div class="cd" id="cl_dur">Call done — fill the details</div></div></div>
+  <label class="req">Call Status</label>
+  <div class="seg" id="cl_status">
+    <button data-v="connected">✅ Connected</button>
+    <button data-v="notpicked">❌ Not Picked</button>
+    <button class="other" data-v="other">Other ＋</button>
+  </div>
+  <input class="catother" id="cl_statusOther" placeholder="Type status (e.g. wrong number, call back later)">
+  <label class="req">Category</label><div class="seg" id="cl_segCat"></div><input class="catother" id="cl_catOther" placeholder="Type custom category">
+  <label class="req">Purpose</label><input id="cl_purpose" placeholder="Purpose of the call">
+  <label>What was discussed (response)</label><textarea id="cl_resp" placeholder="What did they say..."></textarea>
+  <label>Next action</label><input id="cl_action" placeholder="What to do next">
+  <label>Next date</label><input type="date" id="cl_next"><div class="hint">Empty = auto +7 days.</div>
+  <label style="margin-top:14px">📎 Call Recording attach karein (optional)</label>
+  <input type="file" id="cl_recording" accept="audio/*" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg2);font:inherit;font-size:13px">
+  <div class="hint">Phone ki call recording file yahan attach karein (MP3, AAC, M4A, etc.)</div>
+  <button class="btn primary" onclick="saveCallModal()">Save Log</button>
+  <button class="btn ghost sm" onclick="closeModal('callModal')">Not now</button>
 </div></div>
 
-<!-- CSV IMPORT MODAL -->
+<!-- contact add -->
+<div class="modal" id="contactModal"><div class="sheet"><div class="grab"></div>
+  <button class="modal-close-btn" onclick="closeModal('contactModal')" title="Close">✕</button>
+  <h3>New Contact</h3><p class="ssub">Save the number once, then call/WhatsApp from here</p>
+  <label>Name</label><input id="c_name" placeholder="Name (optional)">
+  <label>Mobile</label><input id="c_mob" type="tel" inputmode="numeric" placeholder="98XXXXXXXX (optional)">
+  <label>Category</label><div class="seg" id="c_segCat"></div><input class="catother" id="c_catOther" placeholder="Type custom category">
+  <label>💬 Feedback — kya baat karni hai</label><textarea id="c_fb" placeholder="Jaise: plot rate discuss karna hai, site visit poochna hai…"></textarea>
+  <label>📅 Call by date — kab call karni hai</label><input type="date" id="c_date">
+  <div id="c_assignWrap" style="display:none">
+    <label>👤 Assign to User</label>
+    <select id="c_assignUser"></select>
+    <div class="hint">Yeh contact is user ke naam pe assign ho jayega</div>
+  </div>
+  <button class="btn primary" onclick="saveContact()">Save Contact</button>
+  <button class="btn ghost sm" onclick="closeModal('contactModal')">Cancel</button>
+</div></div>
+
+<!-- import contacts -->
 <div class="modal" id="importModal"><div class="sheet"><div class="grab"></div>
-  <h3>Contacts import (CSV)</h3><p class="sub">Sheet/Excel se numbers laao — Name, Mobile, Feedback, Date</p>
-  <div id="imp_assignWrap"><label>Kis caller ko assign</label><select id="imp_assign"></select></div>
-  <label>CSV file</label><input type="file" id="impFile" accept=".csv,text/csv" onchange="importCSV(this)">
-  <div class="hint">Columns: <b>Name, Mobile, Feedback, Date, Category</b> — pehli header row skip hogi. Sirf Name/Mobile zaroori.</div>
+  <button class="modal-close-btn" onclick="closeModal('importModal')" title="Close">✕</button>
+  <h3>Import Contacts</h3><p class="ssub">Bring in name + number automatically. Other details you add later.</p>
+  <button class="btn primary" id="impPhoneBtn" onclick="importPhone()" style="display:none">📱 Import from phone contacts</button>
+  <div id="imp_assignWrap" style="display:none;margin-top:14px">
+    <label>👤 Assign to User (Admin)</label>
+    <select id="imp_assignUser"></select>
+    <div class="hint">Import ke saare contacts is user ko assign honge (CSV mein column 4 se override bhi ho sakta hai)</div>
+  </div>
+  <label style="margin-top:16px">Import from CSV file</label>
+  <input type="file" id="impFile" accept=".csv,text/csv" onchange="importCSV(this)">
+  <div class="hint">CSV format: Name, Mobile, Category, AssignedToUserID, Feedback, CallDate — pehli header row skip hogi. Aakhri teen column optional (e.g. sunilmeghawal, "plot rate baat karni hai", 2026-07-10)</div>
   <button class="btn ghost sm" onclick="closeModal('importModal')">Close</button>
 </div></div>
 
-<!-- LOG MODAL (new + edit + after-call) -->
-<div class="modal" id="logModal"><div class="sheet"><div class="grab"></div>
-  <h3 id="logTitle">Naya Call Log</h3><p class="sub" id="logSub">Call ki detail bharo</p>
-  <label>Call status <span class="req">*</span></label>
-  <div class="seg" id="l_status"><button type="button" data-v="connected">✔ Connected</button><button type="button" data-v="notpicked">✕ Not picked</button><button type="button" data-v="other">Other</button></div>
-  <label>Category</label><div class="seg" id="l_cat"></div>
-  <div class="two"><div><label>Date</label><input type="date" id="l_date"></div><div><label>Next date</label><input type="date" id="l_next"></div></div>
-  <label>Naam <span class="req">*</span></label><input id="l_name" placeholder="Kisko call kiya">
-  <label>Mobile</label><input id="l_mob" type="tel" inputmode="numeric" placeholder="10-digit">
-  <label>Purpose <span class="req">*</span></label><input id="l_purpose" placeholder="Kis liye call">
-  <label>Response — kya baat hui</label><textarea id="l_resp" placeholder="Customer ne kya kaha…"></textarea>
-  <label>Next action</label><input id="l_action" placeholder="Aage kya karna hai">
-  <label>Comment</label><textarea id="l_comment" placeholder="Extra note (optional)"></textarea>
-  <label>🎙 Recording attach (optional)</label><input type="file" id="l_rec" accept="audio/*">
-  <div class="hint">Phone ki call-recording file yahan lagao (phone me local save hoti hai).</div>
-  <button class="btn primary" style="margin-top:16px" onclick="saveLog()">Save log</button>
-  <button class="btn ghost sm" onclick="closeModal('logModal')">Cancel</button>
+<!-- member add/edit -->
+<div class="modal" id="memberModal"><div class="sheet"><div class="grab"></div>
+  <button class="modal-close-btn" onclick="closeModal('memberModal')" title="Close">✕</button>
+  <h3 id="m_title">New Team Member</h3><p class="ssub">Only Admin / Tech can manage members</p>
+  <label class="req">Full name</label><input id="m_name" placeholder="e.g. Mohit Sharma">
+  <label class="req">Login ID</label><input id="m_id" placeholder="mohit" autocapitalize="none" spellcheck="false">
+  <label class="req">Password</label><input id="m_pw" placeholder="Password">
+  <label>Role</label>
+  <select id="m_role"><option>Sales Associate</option><option>Sales Manager</option><option>Tech</option><option>Accountant</option><option>Telecaller</option><option>Admin</option></select>
+  <label>Telecaller? (exempt from call log)</label>
+  <select id="m_tc"><option value="no">No</option><option value="yes">Yes</option></select>
+  <button class="btn primary" id="m_save" onclick="saveMember()">Add Member</button>
+  <button class="btn ghost sm" onclick="closeModal('memberModal')">Cancel</button>
 </div></div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!-- settings -->
+<div class="modal" id="settingsModal"><div class="sheet"><div class="grab"></div>
+  <button class="modal-close-btn" onclick="closeModal('settingsModal')" title="Close">✕</button>
+  <h3>Settings</h3>
+  <div id="urlManual">
+    <label>Google Sheet sync URL</label>
+    <input id="set_url" placeholder="https://script.google.com/macros/s/.../exec">
+    <button class="btn dark sm" onclick="saveSettings()">Save URL</button>
+  </div>
+  <div id="urlLocked" style="display:none">
+    <div class="hint" style="background:var(--green-l);color:var(--green);padding:11px 13px;border-radius:11px;font-weight:700;font-size:13px;margin-top:2px">🔒 Connected to the team Google Sheet (managed by admin)</div>
+  </div>
+  <button class="btn dark sm" onclick="syncNow()">🔄 Sync now (pull team, categories &amp; contacts)</button>
+  <button class="btn dark sm" id="teamBtn" onclick="closeModal('settingsModal');go('team')">🛠️ Team &amp; Categories</button>
+  <button class="btn ghost sm" onclick="exportCSV()">⬇ Export CSV</button>
+  <div class="settings-row">Logged in: <b id="set_who"></b></div>
+  <button class="btn ghost sm" onclick="logout()">Logout</button>
+</div></div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-"use strict";
+/* ================= DATA ================= */
+/* NOTE: yeh sirf ek "seed" list hai — jab koi Sheet-connected mode use kar raha ho (jaise abhi),
+   asli login Apps Script ke server-side (doLoginCheck) se verify hota hai, is list se nahi.
+   Password yahan jaan-boojh kar KHAALI rakhe hain taaki source code mein kisi ka bhi real
+   password kabhi na dikhe. Yeh list sirf tab kaam aati hai jab koi bilkul "Local only" (bina
+   Sheet ke) mode use kare — us case mein Team page se in members ka password set karna hoga. */
+const BASE_USERS=[
+  {name:"Krishan Sharma",id:"krishan",pw:"",role:"Admin",tc:false},
+  {name:"Rupesh Ji",id:"rupesh",pw:"",role:"Sales Manager",tc:false},
+  {name:"Sunil Pankaj",id:"sunil",pw:"",role:"Sales Associate",tc:false},
+  {name:"Luv",id:"luv",pw:"",role:"Tech",tc:false},
+  {name:"Leeladhar ji",id:"leeladhar",pw:"",role:"Accountant",tc:false},
+  {name:"Raghavendra Ji",id:"ragahavdendra",pw:"",role:"Sales Manager",tc:false},
+  {name:"Sunil Meghawal",id:"sunilmeghawal",pw:"",role:"Sales Associate",tc:false}
+];
+const DEFAULT_CATS=["Customer","Agent","Networker","Vendor"];
+const KNOWN=["Customer","Agent","Networker","Vendor","Other"];
+const ADMIN_ROLES=["Admin","Tech"];
+
+/* ===== FIREBASE LOGIN (Plot CRM wala hi — same website, dubara login nahi) ===== */
 firebase.initializeApp({apiKey:"AIzaSyCZ_kgx4ErVZjw0YYPyJiCT70DFyE0HUTA",authDomain:"plot-crm.firebaseapp.com",projectId:"plot-crm",storageBucket:"plot-crm.firebasestorage.app",messagingSenderId:"795511910978",appId:"1:795511910978:web:04483a426fe865c96c73db"});
-const auth=firebase.auth(), db=firebase.firestore();
-try{ db.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(_){}
-
-const ADMIN_EMAILS=['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];
-const NAME_BY_EMAIL={'krishan.sr1974@gmail.com':'Krishan Ji','trainer.akshardham@gmail.com':'Luv','techakshardham@gmail.com':'Shaffat Ji','akdpankaj@gmail.com':'Rahul','bhaveshakd3@gmail.com':'Bhavesh','shanu.akshardham@gmail.com':'Rashid Ji','akdrupesh@gmail.com':'Rupesh Ji','akd.sunilm@gmail.com':'Sunil Meghwal Ji','akdsunil88@gmail.com':'Sunil Pankaj Ji','akd.leeladhar@gmail.com':'Leeladhar ji','akd.raghav@gmail.com':'Raghavendra Ji','telecaller1.akd@gmail.com':'Kamana ji'};
-const EXECS=['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];
-const CATS=['Customer','Agent','Networker','Vendor'];
-const KNOWN=['Customer','Agent','Networker','Vendor','Other'];
-
-const IC={
-  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.09 4.18 2 2 0 0 1 4.08 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-  wa:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.17L2 22l4.95-1.3A9.9 9.9 0 1 0 12.04 2zm5.6 14.2c-.24.66-1.4 1.26-1.92 1.3-.5.05-.96.24-3.24-.68-2.73-1.1-4.44-3.9-4.57-4.08-.13-.18-1.1-1.46-1.1-2.78 0-1.32.7-1.97.94-2.24.24-.26.52-.33.7-.33l.5.01c.16 0 .38-.06.6.46.22.53.75 1.85.82 1.98.07.13.11.29.02.46-.35.7-.72.9-.36.44-.13.5.15.26.66 1.09 1.42 1.77.98.87 1.8 1.14 2.06 1.27.26.13.4.11.55-.07.15-.18.63-.74.8-.99.16-.26.33-.21.55-.13.22.08 1.42.67 1.66.79.24.12.4.18.46.28.06.11.06.63-.18 1.28z"/></svg>',
-  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
-  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
-  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
-  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-  contact:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17a4 4 0 0 1 8 0"/></svg>',
-  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
-  msg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
-  play:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>',
-  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5-5 5 5M12 4v12"/></svg>',
-  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>'
+const fbAuth=firebase.auth();
+/* Firebase email -> sheet user id (contacts assignedTo isi id se match hote hain) */
+const EMAIL_TO_SHEETID={
+  'krishan.sr1974@gmail.com':'krishan',
+  'trainer.akshardham@gmail.com':'luv',
+  'akdrupesh@gmail.com':'rupesh',
+  'akdsunil88@gmail.com':'sunil',
+  'akd.sunilm@gmail.com':'sunilmeghwal',
+  'akd.leeladhar@gmail.com':'leeladhar',
+  'akd.raghav@gmail.com':'raghavendra',
+  'shanu.akshardham@gmail.com':'rashid'
 };
+const ADMIN_EMAILS=['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];
+/* =========================================================
+   TEAM SHEET CONNECTION  (inbuilt — har device auto-connect)
+   Apps Script deploy karke jo /exec URL mile, wo niche
+   SYNC_URL mein paste karo. Yeh URL sab devices pe same
+   rahega — khaali string chhod do to Settings se manual
+   URL daal sakte ho.
 
-let me=null, cl={tab:'home', contacts:[], logs:[], loading:true, logFilter:'All', userFilter:'All', editId:null, ctx:null}, _logCtx=null;
-const $=id=>document.getElementById(id);
-const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const today=()=>new Date(Date.now()+5.5*3600e3).toISOString().slice(0,10);
-const fmt=d=>{try{return new Date(d+'T00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}catch(_){return d||''}};
-const initials=n=>(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
-const isAdmin=()=>!!(me&&ADMIN_EMAILS.includes((me.email||'').toLowerCase()));
-const myName=()=>{const e=(me&&me.email||'').toLowerCase(); return NAME_BY_EMAIL[e]||localStorage.getItem('hudName_'+e)||(e.split('@')[0]);};
-const myKey=()=>myName().toLowerCase();
-const plusDays=(d,n)=>{const x=new Date(d+'T00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);};
-const catBadge=c=>{const cls=KNOWN.includes(c)?('b-'+c.toLowerCase()):'b-other';return `<span class="badge ${cls}">${esc(c||'Other')}</span>`;};
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
-function closeModal(id){$(id).classList.remove('show');}
-function openModal(id){$(id).classList.add('show');}
+   Google Sheet mein "contacts" named range ya sheet add
+   karke contacts bhi sync kar sakte ho:
+   Columns: name | mobile | category | assignedTo (user ID)
+========================================================= */
+const SYNC_URL = "https://script.google.com/macros/s/AKfycbzg03zxLfHawG5NG4fK4bkOd7kZAdKz9lJS2t-UkAhVFc-9xsEADcLWQGpOo-dZtPiV/exec";
 
-/* seg helper */
-function buildSeg(el,vals,sel){el.innerHTML=vals.map(v=>`<button type="button" data-c="${esc(v)}" class="${v===sel?'on':''}">${esc(v)}</button>`).join('')+`<button type="button" data-c="__o" class="${sel&&!vals.includes(sel)?'on':''}">Other</button>`;
-  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');});}
-function segVal(el){const on=el.querySelector('button.on');if(!on)return CATS[0];if(on.dataset.c==='__o')return 'Other';return on.dataset.c;}
+const LS={logs:"acl4_logs",contacts:"acl4_contacts",sess:"acl4_sess",url:"acl4_url",users:"acl4_users",cats:"acl4_cats",delContacts:"acl4_delContacts"};
+function db(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function arr(k){const v=db(k);return Array.isArray(v)?v:[]}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function syncUrl(){return localStorage.getItem(LS.url)||(SYNC_URL&&SYNC_URL.trim())||""}
+function loadUsers(){let u=db(LS.users);if(!Array.isArray(u)||!u.length){u=BASE_USERS.slice();save(LS.users,u);}return u;}
+function allUsers(){return loadUsers();}
+function getCats(){let c=db(LS.cats);if(!Array.isArray(c)||!c.length){c=DEFAULT_CATS.slice();save(LS.cats,c);}return c;}
+let me=null,editId=null,pendingCall=null,editMemberId=null;
 
-/* auth */
-function doLogin(){const e=$('li_email').value.trim(),p=$('li_pw').value;if(!e||!p){$('lerr').textContent='Email aur password daalo';return;}$('lerr').textContent='Checking…';auth.signInWithEmailAndPassword(e,p).catch(err=>$('lerr').textContent=(err.message||'').replace('Firebase: ',''));}
-function logout(){auth.signOut().then(()=>location.reload());}
-$('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-auth.onAuthStateChanged(u=>{
-  if(u){me=u;$('login').style.display='none';$('app').style.display='block';$('who').textContent=myName()+(isAdmin()?' · admin':'');buildNav();render();load();}
-  else{me=null;$('app').style.display='none';$('login').style.display='grid';}
-});
-
-/* nav */
-function buildNav(){
-  const t=[['home',IC.home,'Home'],['logs',IC.list,'Logs'],['due',IC.bell,'Follow-ups'],['contacts',IC.contact,'Contacts']];
-  if(isAdmin())t.push(['team',IC.users,'Team']);
-  $('bnav').innerHTML=t.map(([k,ic,l])=>`<button class="${cl.tab===k?'on':''}" onclick="setTab('${k}')" aria-label="${l}">${ic}<span>${l}</span></button>`).join('');
+/* ================= LOGIN ================= */
+function togglePw(){const i=document.getElementById('li_pw');i.type=i.type==='password'?'text':'password';document.getElementById('eyeBtn').textContent=i.type==='password'?'👁':'🙈';}
+async function doLogin(){
+  const email=document.getElementById('li_email').value.trim();const pw=document.getElementById('li_pw').value;
+  const errEl=document.getElementById('loginErr');
+  if(!email||!pw){errEl.textContent='Email aur password daalo';return;}
+  errEl.textContent='Checking…';
+  try{await fbAuth.signInWithEmailAndPassword(email,pw);}
+  catch(e){errEl.textContent=(e.message||'Login fail').replace('Firebase: ','');}
 }
-function setTab(k){cl.tab=k;buildNav();render();}
+function logout(){fbAuth.signOut().then(()=>location.reload());}
+/* Firebase user -> sheet user (id/name/role) resolve karo */
+async function resolveMe(u){
+  const email=(u.email||'').toLowerCase();
+  if(!arr(LS.users).length){await cloudFetchConfig();}
+  const users=allUsers();
+  const sid=EMAIL_TO_SHEETID[email];
+  let su=sid?users.find(x=>x.id===sid):null;
+  if(su){me=Object.assign({},su);}
+  else{me={id:sid||email.split('@')[0],name:email.split('@')[0],role:ADMIN_EMAILS.includes(email)?'Admin':'Sales Associate',tc:false};}
+  if(ADMIN_EMAILS.includes(email)&&!ADMIN_ROLES.includes(me.role))me.role='Admin';
+  return me;
+}
 
-/* data */
-async function load(){
-  cl.loading=true;render();
+/* ================= SYNC ================= */
+function jsonp(url){return new Promise((resolve,reject)=>{
+  const cb='_jcb'+Date.now();let timer=setTimeout(()=>{cleanup();reject(new Error('timeout'));},15000);
+  const s=document.createElement('script');
+  function cleanup(){clearTimeout(timer);try{delete window[cb]}catch(e){window[cb]=undefined}if(s.parentNode)s.remove();}
+  window[cb]=d=>{cleanup();resolve(d);};
+  s.onerror=()=>{cleanup();reject(new Error('error'));};
+  s.src=url+(url.includes('?')?'&':'?')+'callback='+cb+'&t='+Date.now();
+  document.body.appendChild(s);
+});}
+
+async function cloudFetchConfig(){
+  const url=syncUrl();if(!url)return false;
   try{
-    const cs=await db.collection('callcontacts').where('done','==',false).get();
-    cl.contacts=cs.docs.map(d=>({id:d.id,...d.data()}));
-    const lq=isAdmin()?db.collection('calllogs').orderBy('ts','desc').limit(300):db.collection('calllogs').where('uidKey','==',myKey());
-    const ls=await lq.get();
-    cl.logs=ls.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.ts||0)-(a.ts||0));
-  }catch(e){toast('Load error: '+e.message);}
-  cl.loading=false;render();
+    const data=await jsonp(url);
+    if(data&&Array.isArray(data.users)&&data.users.length){
+      save(LS.users,data.users);
+      // me object bhi refresh karo taaki stale role na rahe
+      if(me){const fresh=data.users.find(u=>u.id===me.id);if(fresh)me=fresh;}
+    }
+    if(data&&Array.isArray(data.categories)&&data.categories.length)save(LS.cats,data.categories);
+    // Google Sheet se contacts pull karo (assignedTo support ke saath)
+    if(data&&Array.isArray(data.contacts)&&data.contacts.length){
+      let cs=arr(LS.contacts);
+      const users=loadUsers();
+      data.contacts.forEach(sc=>{
+        if(!sc.mob&&!sc.mobile)return;
+        const mob=String(sc.mob||sc.mobile||'').replace(/\s+/g,'');
+        if(!mob)return;
+        if(isTombstoned(mob,sc.ts||''))return; // Yeh contact hum yahan se delete kar chuke hain (aur koi naya entry nahi aayi) — Sheet se wapas mat lao
+        // Assign to user
+        const assignedId=sc.assignedTo||sc.uid||'';
+        let uid=assignedId,uname='';
+        if(uid){const u=users.find(u=>u.id===uid);uname=u?u.name:uid;}
+        // Existing contact dhundho same mobile se
+        const existing=cs.findIndex(c=>String(c.mob)===String(mob));
+        if(existing>=0){
+          // Contact mil gaya — uid update karo agar sheet mein assignedTo set hai (reassign support)
+          if(uid){
+            cs[existing].uid=uid;
+            cs[existing].user=uname||cs[existing].user;
+          }
+          // Feedback / call-by date sheet se update karo (telecaller ne sheet mein daala hai)
+          if(sc.feedback)cs[existing].feedback=sc.feedback;
+          if(sc.callDate)cs[existing].callDate=sc.callDate;
+        }else{
+          // Naya contact add karo
+          cs.push({
+            id:sc.id||('CS'+Date.now()+Math.random().toString(36).slice(2,4)),
+            uid,user:uname||sc.user||'',
+            name:sc.name||'Unknown',
+            mob,
+            cat:sc.cat||sc.category||'Customer',
+            feedback:sc.feedback||'',
+            callDate:sc.callDate||'',
+            ts:sc.ts||new Date().toISOString(),
+            fromSheet:true
+          });
+        }
+      });
+      save(LS.contacts,cs);
+    }
+    // Logs sync — sheet se baaki team ke logs pull karo (admin dashboard ke liye)
+    if(data&&Array.isArray(data.logs)&&data.logs.length){
+      let ls=arr(LS.logs);
+      const existingIds=new Set(ls.map(l=>l.id));
+      let added=0;
+      data.logs.forEach(sl=>{
+        if(!sl.id)return;
+        if(existingIds.has(sl.id)){
+          // Already hai — update karo (edit case)
+          const idx=ls.findIndex(l=>l.id===sl.id);
+          if(idx>=0&&sl.ts>=(ls[idx].ts||'')){ls[idx]=Object.assign({},ls[idx],sl);added++;}
+        }else{
+          ls.push(sl);added++;
+        }
+      });
+      if(added>0)save(LS.logs,ls);
+    }
+    return true;
+  }catch(e){return false;}
 }
-const myLogs=()=>isAdmin()?cl.logs:cl.logs.filter(l=>l.uidKey===myKey());
-const myContacts=()=>isAdmin()?cl.contacts:cl.contacts.filter(c=>(c.assignKey||'')===myKey());
 
-/* render */
-function render(){
-  const v=$('view');
-  if(cl.loading){v.innerHTML=`<div class="sk"><div class="l" style="width:55%"></div><div class="l" style="width:80%;margin-top:10px"></div></div>`.repeat(3);return;}
-  if(cl.tab==='home')v.innerHTML=homeView();
-  else if(cl.tab==='logs')v.innerHTML=logsView();
-  else if(cl.tab==='due')v.innerHTML=dueView();
-  else if(cl.tab==='contacts')v.innerHTML=contactsView();
-  else if(cl.tab==='team')v.innerHTML=teamView();
+async function syncNow(){
+  if(!syncUrl()){toast('Add a sync URL first');return;}
+  toast('Syncing…');
+  const ok=await cloudFetchConfig();
+  if(me){rebuildSegs();renderAll();}
+  toast(ok?'Synced from Google Sheet ✓':'Could not reach the sheet');
 }
 
-function homeView(){
-  const t=today(), lg=myLogs(), todayL=lg.filter(l=>l.date===t);
-  const cust=todayL.filter(l=>l.cat==='Customer').length, agent=todayL.filter(l=>l.cat==='Agent').length;
-  const due=myContacts().filter(c=>c.callDate&&c.callDate<=t).length;
-  let admin='';
+function init(){
+  buildCallStatusSeg();
+  document.getElementById('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  // Plot CRM wala Firebase session — already logged in ho to seedha app khulega (dubara login nahi)
+  fbAuth.onAuthStateChanged(async u=>{
+    if(u){
+      await resolveMe(u);
+      enterApp();
+      cloudFetchConfig().then(ok=>{if(ok&&me){const fresh=allUsers().find(x=>x.id===me.id);if(fresh)me=Object.assign({},me,fresh);renderAll();}});
+    }else{
+      me=null;
+      document.getElementById('app').style.display='none';
+      document.getElementById('login').style.display='';
+    }
+  });
+}
+function isAdmin(){return !!(me&&ADMIN_ROLES.includes(me.role));}
+function enterApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='flex';
+  const roleTxt=me.role+(isAdmin()?' · sees all':'');
+  document.getElementById('uName').textContent=me.name;document.getElementById('uRole').textContent=roleTxt;
+  document.getElementById('sbName').textContent=me.name;document.getElementById('sbRole').textContent=roleTxt;
+  document.getElementById('set_who').textContent=me.name+' ('+me.id+')';
+  document.getElementById('teamBtn').style.display=isAdmin()?'block':'none';
+  document.getElementById('sbTeam').style.display=isAdmin()?'flex':'none';
+  if('contacts' in navigator && 'ContactsManager' in window) document.getElementById('impPhoneBtn').style.display='block';
+  // Admin-only elements
   if(isAdmin()){
-    const rows=EXECS.map(nm=>{const k=nm.toLowerCase();const ul=cl.logs.filter(l=>l.uidKey===k);const tod=ul.filter(l=>l.date===t).length;
-      const cs=cl.contacts.filter(c=>(c.assignKey||'')===k);const od=cs.filter(c=>c.callDate&&c.callDate<=t).length;
-      return `<tr><td><b>${esc(nm)}</b></td><td class="tnum" style="color:var(--green)">${tod}</td><td class="tnum">${ul.length}</td><td class="tnum" style="color:${od?'var(--red)':'inherit'}">${od}</td><td class="tnum">${cs.length}</td></tr>`;}).join('');
-    admin=`<div class="sec">${IC.users} Team — Aaj</div><div class="cc" style="overflow-x:auto;padding:12px"><table class="tt"><tr><th>Member</th><th>Aaj</th><th>Total</th><th>Due</th><th>Contacts</th></tr>${rows}</table></div>`;
+    document.getElementById('adminDash').style.display='block';
+    document.getElementById('logUserFilters').style.display='flex';
+    document.getElementById('contactUserFilter').style.display='flex';
   }
-  return `<h1 class="pt">Dashboard</h1><p class="ps">Aaj ki calling activity</p>
-    <div class="stats">
-      <div class="hero"><div class="l">AAJ KI TOTAL CALLS</div><div class="n">${todayL.length}</div><div class="s">${todayL.length?todayL.length+' call'+(todayL.length>1?'s':'')+' logged':'Abhi koi call nahi'}</div></div>
-      <div class="stat c"><div class="n">${cust}</div><div class="l">Customer</div></div>
-      <div class="stat a"><div class="n">${agent}</div><div class="l">Agent</div></div>
-      <div class="stat d"><div class="n">${due}</div><div class="l">Due</div></div>
-    </div>
-    ${admin}
-    <div class="sec">${IC.clock} Aaj ki activity</div>
-    ${todayL.length?todayL.map(logCard).join(''):empty(IC.phone,'Aaj koi call log nahi','Neeche + Call Log se add karo, ya Contacts se call karo')}`;
+  rebuildSegs();setupCallReturn();refreshSync();renderAll();
 }
 
-function logsView(){
-  let list=myLogs();
-  const cats=['All',...CATS,'Other'];
-  const chips=cats.map(c=>`<button class="chip ${cl.logFilter===c?'on':''}" onclick="cl.logFilter='${c}';render()">${c}</button>`).join('');
-  let userChips='';
+/* ================= NAV ================= */
+function go(tab){
+  if(tab==='team'&&!isAdmin())return;
+  document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+  document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+  window.scrollTo(0,0);
+  if(tab==='team'){renderMembers();renderCats();}
+  // Contacts ya Home section khulte hi silent sync karo (sirf jab koi call pending nahi)
+  if((tab==='contacts'||tab==='home')&&!pendingCall){silentSync();}
+}
+
+/* ================= HELPERS ================= */
+function today(){return new Date().toISOString().slice(0,10);}
+/* ----- deleted-contact tombstone (Sheet abhi bhi row rakhta hai, isliye local block-list) ----- */
+function getDelMap(){const m=db(LS.delContacts);return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};}
+function tombstoneMob(mob){if(!mob)return;const m=getDelMap();m[mob]=new Date().toISOString();save(LS.delContacts,m);}
+function untombstoneMob(mob){if(!mob)return;const m=getDelMap();if(mob in m){delete m[mob];save(LS.delContacts,m);}}
+function isTombstoned(mob,incomingTs){
+  const m=getDelMap();if(!(mob in m))return false;
+  const delAt=m[mob];
+  if(incomingTs&&incomingTs>delAt){untombstoneMob(mob);return false;} // yeh naya entry hai (delete ke baad bani) — valid hai, block mat karo
+  return true;
+}
+function plusDays(d,n){const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);}
+function fmt(d){if(!d)return'';const p=d.split('-');return p[2]+'/'+p[1];}
+function initials(n){return (n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+function myLogs(){const all=arr(LS.logs);return isAdmin()?all:all.filter(l=>l.uid===me.id);}
+function catBadge(c){const cls=KNOWN.includes(c)?('b-'+c.toLowerCase()):'b-other';return `<span class="badge ${cls}">${esc(c||'Other')}<\/span>`;}
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
+
+function setF(id,btn){const f=document.getElementById(id);f.querySelectorAll('.filt').forEach(b=>b.classList.remove('on'));btn.classList.add('on');f.dataset.active=btn.textContent;}
+function setUserF(id,btn){const f=document.getElementById(id);f.querySelectorAll('.filt').forEach(b=>b.classList.remove('on'));btn.classList.add('on');f.dataset.user=btn.textContent;}
+
+/* ----- category segments ----- */
+function buildSeg(segId,otherId){
+  const el=document.getElementById(segId);const cats=getCats();
+  el.innerHTML=cats.map(c=>`<button data-c="${esc(c)}">${esc(c)}<\/button>`).join('')+`<button class="other" data-c="__other__">Other ＋<\/button>`;
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+    const oth=document.getElementById(otherId);
+    if(b.dataset.c==='__other__'){oth.style.display='block';oth.focus();}else{oth.style.display='none';oth.value='';}
+  });
+  el.querySelector('button').classList.add('on');
+  document.getElementById(otherId).style.display='none';
+}
+function getSegCat(segId,otherId){
+  const el=document.getElementById(segId);const on=el.querySelector('button.on');
+  if(!on)return getCats()[0]||'Customer';
+  if(on.dataset.c==='__other__'){const v=document.getElementById(otherId).value.trim();return v||'Other';}
+  return on.dataset.c;
+}
+function setSegCat(segId,otherId,val){
+  const el=document.getElementById(segId);const oth=document.getElementById(otherId);let matched=false;
+  el.querySelectorAll('button').forEach(b=>{const m=b.dataset.c===val;b.classList.toggle('on',m);if(m)matched=true;});
+  if(!matched){el.querySelectorAll('button').forEach(b=>b.classList.remove('on'));const ob=el.querySelector('[data-c="__other__"]');if(ob)ob.classList.add('on');oth.style.display='block';oth.value=val;}
+  else{oth.style.display='none';oth.value='';}
+}
+function rebuildSegs(){buildSeg('f_segCat','f_catOther');buildSeg('cl_segCat','cl_catOther');buildSeg('c_segCat','c_catOther');}
+
+/* ----- category manager ----- */
+function renderCats(){
+  const cats=getCats();
+  document.getElementById('catWrap').innerHTML=cats.map(c=>`<span class="catchip">${esc(c)}<button onclick="removeCat('${esc(c)}')" title="Remove">×<\/button><\/span>`).join('')||'<span class="ph">No categories yet<\/span>';
+}
+function addCat(){
+  const inp=document.getElementById('newCat');const v=inp.value.trim();if(!v){return;}
+  const cats=getCats();if(cats.some(c=>c.toLowerCase()===v.toLowerCase())){toast('Category already exists');return;}
+  cats.push(v);save(LS.cats,cats);inp.value='';renderCats();rebuildSegs();pushSheet('category',{action:'add',name:v,by:me.name});toast('Category added ✓');
+}
+function removeCat(c){
+  let cats=getCats();if(cats.length<=1){toast('Keep at least one category');return;}
+  cats=cats.filter(x=>x!==c);save(LS.cats,cats);renderCats();rebuildSegs();pushSheet('category',{action:'remove',name:c,by:me.name});toast('Category removed');
+}
+
+/* ================= RENDER ================= */
+function renderAll(){renderHome();renderLogs();renderDue();renderContacts();if(isAdmin()){renderMembers();renderCats();}}
+
+function renderHome(){
+  const logs=myLogs().filter(l=>l.date===today());
+  document.getElementById('stTotal').textContent=logs.length;
+  document.getElementById('stCust').textContent=logs.filter(l=>l.cat==='Customer').length;
+  document.getElementById('stAgent').textContent=logs.filter(l=>l.cat==='Agent').length;
+  document.getElementById('stDue').textContent=myLogs().filter(l=>l.next&&l.next<=today()).length;
+  document.getElementById('stSub').textContent=logs.length?`${logs.length} call${logs.length>1?'s':''} logged today`:'No calls logged yet';
+  document.getElementById('todayList').innerHTML=logs.length?logs.slice().reverse().map(entryHTML).join(''):empty('📞','No calls logged today','Tap ＋ to add, or call from Contacts');
+  // Admin: Team Performance Table
   if(isAdmin()){
-    userChips=`<div class="chips">${['All',...EXECS].map(n=>`<button class="chip sm ${cl.userFilter===n?'on':''}" onclick="cl.userFilter='${esc(n)}';render()">${esc(n)}</button>`).join('')}</div>`;
-    if(cl.userFilter!=='All')list=list.filter(l=>l.uidKey===cl.userFilter.toLowerCase());
+    const allLogs=arr(LS.logs);const t=today();const allContacts=arr(LS.contacts);
+    const users=allUsers();
+    const rows=users.map(u=>{
+      const ul=allLogs.filter(l=>l.uid===u.id);
+      const tod=ul.filter(l=>l.date===t).length;
+      const total=ul.length;
+      const due=ul.filter(l=>l.next&&l.next<=t).length;
+      const cs=allContacts.filter(c=>c.uid===u.id).length;
+      return `<tr>
+        <td><div class="tm-name">${esc(u.name)}<\/div><div class="tm-role">${esc(u.role)}<\/div><\/td>
+        <td><span class="tm-num">${tod}<\/span><\/td>
+        <td><span class="tm-num blue">${total}<\/span><\/td>
+        <td><span class="tm-due${due>0?' over':''}">${due}<\/span><\/td>
+        <td>${cs}<\/td>
+      <\/tr>`;
+    });
+    document.getElementById('teamTable').innerHTML=
+      `<tr><th>Member<\/th><th>Aaj<\/th><th>Total<\/th><th>Overdue<\/th><th>Contacts<\/th><\/tr>`+rows.join('');
   }
-  if(cl.logFilter!=='All')list=cl.logFilter==='Other'?list.filter(l=>!KNOWN.includes(l.cat)||l.cat==='Other'):list.filter(l=>l.cat===cl.logFilter);
-  return `<h1 class="pt">${isAdmin()?'All Call Logs':'Mere Call Logs'}</h1><p class="ps">${list.length} logs</p>
-    <div class="chips">${chips}</div>${userChips}
-    ${list.length?list.map(logCard).join(''):empty(IC.list,'Koi log nahi','Filter badlo ya naya call log banao')}`;
 }
 
-function dueView(){
-  const t=today(), lg=myLogs().filter(l=>l.next);
-  const due=lg.filter(l=>l.next<=t).sort((a,b)=>a.next.localeCompare(b.next));
-  const up=lg.filter(l=>l.next>t).sort((a,b)=>a.next.localeCompare(b.next)).slice(0,40);
-  return `<h1 class="pt">Follow-ups</h1><p class="ps">Aaj due + aage aane wale</p>
-    <div class="sec">${IC.bell} Due / Overdue <span class="cnt">${due.length}</span></div>
-    ${due.length?due.map(logCard).join(''):empty(IC.check,'Koi follow-up due nahi','Sab up to date 👍')}
-    ${up.length?`<div class="sec">${IC.clock} Aage aane wale <span class="cnt">${up.length}</span></div>${up.map(logCard).join('')}`:''}`;
-}
-
-function contactsView(){
-  let list=myContacts();
-  const cats=['All',...CATS,'Other'];
-  const chips=cats.map(c=>`<button class="chip ${cl.logFilter===c?'on':''}" onclick="cl.logFilter='${c}';render()">${c}</button>`).join('');
-  let userChips='';
+function renderLogs(){
+  document.getElementById('logsHead').textContent=isAdmin()?'All Call Logs':'My Call Logs';
+  document.getElementById('logsSub').textContent=isAdmin()?'Every logged call across the team':'Your logged calls';
+  let all=myLogs();
+  const f=document.getElementById('logFilters');
+  f.innerHTML=['All',...getCats(),'Other'].map(c=>`<button class="filt ${f.dataset.active===c||(!f.dataset.active&&c==='All')?'on':''}" onclick="setF('logFilters',this);renderLogs()">${esc(c)}<\/button>`).join('');
+  // Admin: User filter
   if(isAdmin()){
-    userChips=`<div class="chips">${['All',...EXECS].map(n=>`<button class="chip sm ${cl.userFilter===n?'on':''}" onclick="cl.userFilter='${esc(n)}';render()">${esc(n)}</button>`).join('')}</div>`;
-    if(cl.userFilter!=='All')list=list.filter(c=>(c.assignKey||'')===cl.userFilter.toLowerCase());
+    const uf=document.getElementById('logUserFilters');
+    uf.innerHTML=['All',...allUsers().map(u=>u.name)].map((n,i)=>`<button class="filt sm ${(uf.dataset.user===n||(i===0&&!uf.dataset.user))?'on':''}" onclick="setUserF('logUserFilters',this);renderLogs()">${esc(n)}<\/button>`).join('');
+    const selUser=uf.dataset.user||'All';
+    if(selUser!=='All'){const u=allUsers().find(u=>u.name===selUser);if(u)all=all.filter(l=>l.uid===u.id);}
   }
-  if(cl.logFilter!=='All')list=cl.logFilter==='Other'?list.filter(c=>!KNOWN.includes(c.cat)||c.cat==='Other'):list.filter(c=>c.cat===cl.logFilter);
-  list=list.slice().sort((a,b)=>(a.callDate||'').localeCompare(b.callDate||''));
-  return `<h1 class="pt">Contacts</h1><p class="ps">Call karne wale numbers — feedback ke saath</p>
-    <div class="row2"><button class="btn primary" onclick="openAssign()">${IC.contact} Number add</button><button class="btn dark" onclick="openImport()">${IC.up} Import</button></div>
-    <div class="chips" style="margin-top:14px">${chips}</div>${userChips}
-    ${list.length?list.map(c=>contactCard(c,isAdmin())).join(''):empty(IC.contact,'Koi pending number nahi','Number add ya Import karo')}`;
+  const af=f.dataset.active||'All';
+  const list=af==='All'?all:(af==='Other'?all.filter(l=>!KNOWN.includes(l.cat)||l.cat==='Other'):all.filter(l=>l.cat===af));
+  document.getElementById('allList').innerHTML=list.length?list.slice().reverse().map(entryHTML).join(''):empty('📒','No logs yet','Change the filter or add a new call');
 }
 
-function teamView(){
-  const t=today();
-  const rows=EXECS.map(nm=>{const k=nm.toLowerCase();const ul=cl.logs.filter(l=>l.uidKey===k);
-    return `<tr><td><b>${esc(nm)}</b></td><td class="tnum" style="color:var(--green)">${ul.filter(l=>l.date===t).length}</td><td class="tnum">${ul.length}</td><td class="tnum">${cl.contacts.filter(c=>(c.assignKey||'')===k).length}</td></tr>`;}).join('');
-  return `<h1 class="pt">Team</h1><p class="ps">Sabki calling performance</p>
-    <div class="cc" style="overflow-x:auto;padding:12px"><table class="tt"><tr><th>Member</th><th>Aaj</th><th>Total</th><th>Pending</th></tr>${rows}</table></div>`;
+function renderDue(){
+  const all=myLogs().filter(l=>l.next).sort((a,b)=>a.next.localeCompare(b.next));const t=today();
+  const due=all.filter(l=>l.next<=t),up=all.filter(l=>l.next>t).slice(0,30);let h='';
+  h+=due.length?'<div class="cards">'+due.map(entryHTML).join('')+'<\/div>':empty('✅','No follow-ups due today','Upcoming ones are shown below');
+  if(up.length)h+='<h2 class="secttl">Upcoming<\/h2><div class="cards">'+up.map(entryHTML).join('')+'<\/div>';
+  document.getElementById('dueList').innerHTML=h;
 }
 
-function contactCard(c,showWho){
-  const over=c.callDate&&c.callDate<today();
-  return `<article class="cc">
-    <div class="r1"><div class="av">${esc(initials(c.name))}</div>
-      <div style="flex:1;min-width:0"><div class="nm">${esc(c.name||'—')}</div>${c.mob?`<div class="mb">${IC.phone} ${esc(c.mob)}</div>`:''}</div>${catBadge(c.cat)}</div>
-    ${c.feedback?`<div class="fb"><div class="l">${IC.msg} Kya baat karni hai</div>${esc(c.feedback)}</div>`:''}
-    ${c.callDate?`<div class="cdate ${over?'over':''}">${IC.cal} ${fmt(c.callDate)}${over?' · pending':''}</div>`:''}
-    ${showWho&&c.assignName?`<div class="assignedby">${IC.users} ${esc(c.assignName)}${c.assignedBy&&c.assignedBy!==c.assignName?' · by '+esc(c.assignedBy):''}</div>`:''}
-    <div class="acts">
-      ${c.mob?`<button class="ca call" onclick="startCall('${esc(c.name)}','${esc(c.mob)}','${c.id}','${esc(c.cat||'')}')">${IC.phone} Call</button><button class="ca wa" onclick="wa('${esc(c.mob)}')">${IC.wa} WhatsApp</button>`:''}
-      <button class="ca log" onclick="openLog(null,{name:'${esc(c.name)}',mob:'${esc(c.mob)}',cat:'${esc(c.cat||'')}',cid:'${c.id}'})">${IC.edit} Log</button>
-      <button class="ca done" onclick="markDone('${c.id}')">${IC.check} Ho gaya</button>
-    </div></article>`;
-}
-function logCard(l){
+function entryHTML(l){
   const over=l.next&&l.next<=today();
-  const who=isAdmin()&&l.user?' · '+esc(l.user):'';
-  const stLabel={connected:'Connected',notpicked:'Not picked',other:'Other'}[l.status]||'';
-  const rec=l.hasRec?`<button class="ca rec" onclick="playRec('${l.id}',this)">${IC.play} Recording</button>`:'';
-  return `<article class="cc">
-    <div class="r1"><div class="av">${esc(initials(l.name))}</div>
-      <div style="flex:1;min-width:0"><div class="nm">${esc(l.name||'—')}</div>${l.mob?`<div class="mb">${IC.phone} ${esc(l.mob)}</div>`:''}</div>
-      ${l.status?`<span class="st ${esc(l.status)}">${esc(stLabel)}</span>`:catBadge(l.cat)}</div>
-    ${l.purpose?`<div class="meta"><b>Purpose:</b> ${esc(l.purpose)}</div>`:''}
-    ${l.resp?`<div class="meta"><b>Baat:</b> ${esc(l.resp)}</div>`:''}
-    ${l.action?`<div class="meta"><b>Next:</b> ${esc(l.action)}</div>`:''}
-    ${l.comment?`<div class="meta" style="color:var(--muted)">${esc(l.comment)}</div>`:''}
-    <div class="foot"><span>${fmt(l.date)}${who}</span>${l.next?`<span class="nx ${over?'over':''}">${IC.clock} ${fmt(l.next)}${over?' DUE':''}</span>`:''}</div>
-    <div class="acts" style="grid-template-columns:${l.mob?'1fr 1fr 1fr':'1fr 1fr'}">
-      ${l.mob?`<button class="ca call" onclick="startCall('${esc(l.name)}','${esc(l.mob)}','','${esc(l.cat||'')}')">${IC.phone} Call</button><button class="ca wa" onclick="wa('${esc(l.mob)}')">${IC.wa} WA</button>`:''}
-      <button class="ca edit" onclick="openLog('${l.id}')">${IC.edit} Edit</button>
-    </div>
-    ${rec}
-    <div class="recwrap" id="rw_${l.id}"><audio controls></audio></div></article>`;
+  const who=isAdmin()&&l.uid!==me.id?` · <b>${esc((allUsers().find(u=>u.id===l.uid)||{}).name||l.uid)}<\/b>`:'';
+  const recBtn=l.hasRec?`<button class="mini rec" onclick="playRec('${l.id}',this)">▶ Recording<\/button>`:'';
+  return `<div class="entry"><div class="r1"><div style="display:flex;gap:11px;min-width:0">
+    <div class="av">${initials(l.name)}<\/div><div style="min-width:0"><div class="nm">${esc(l.name)||'—'}<\/div>${l.mob?`<div class="mb">📱 ${esc(l.mob)}<\/div>`:''}<\/div>
+    <\/div>${catBadge(l.cat)}<\/div>
+    ${l.purpose?`<div class="meta"><b>Purpose:<\/b> ${esc(l.purpose)}<\/div>`:''}
+    ${l.resp?`<div class="meta"><b>Discussed:<\/b> ${esc(l.resp)}<\/div>`:''}
+    ${l.action?`<div class="meta"><b>Next:<\/b> ${esc(l.action)}<\/div>`:''}
+    ${l.comment?`<div class="meta" style="color:var(--muted)">${esc(l.comment)}<\/div>`:''}
+    <div class="foot"><span>📅 ${fmt(l.date)}${l.dur?' · '+l.dur:''}${who}<\/span>${l.next?`<span class="nx ${over?'over':''}">↻ ${fmt(l.next)}${over?' DUE':''}<\/span>`:''}<\/div>
+    <div class="erow">${l.mob?`<button class="mini call" onclick="startCall('${esc(l.name)}','${esc(l.mob)}','${esc(l.cat)}')">📞 Call<\/button><button class="mini wa" onclick="waNum('${esc(l.mob)}')">💬 WA<\/button>`:''}<button class="mini edit" onclick="editLog('${l.id}')">✎ Edit<\/button>${recBtn}<\/div>
+    <div class="rec-wrap" id="recplay_${l.id}"><div class="rec-label">🎙 Call Recording<\/div><audio controls style="width:100%;height:34px"><\/audio><\/div><\/div>`;
 }
-function empty(ic,t,s){return `<div class="empty"><div class="ei">${ic}</div><div class="e2">${t}</div><div class="e3">${s}</div></div>`;}
 
-/* assign contact */
-function openAssign(){
-  ['a_name','a_mob','a_fb'].forEach(i=>$(i).value='');$('a_date').value=today();
-  buildSeg($('a_cat'),CATS,'Customer');
-  const sel=$('a_assign');sel.innerHTML=EXECS.map(n=>`<option>${esc(n)}</option>`).join('');sel.value=myName();
-  $('a_assignWrap').style.display=isAdmin()?'block':'none';
-  openModal('assignModal');
+function contactCardHTML(c){
+  const aUser=isAdmin()&&c.uid&&c.uid!==me.id?allUsers().find(u=>u.id===c.uid):null;
+  const aTag=aUser?`<span class="assign-tag">👤 ${esc(aUser.name)}<\/span>`:'';
+  const fb=c.feedback?`<div class="cfb"><b>💬 Baat karni hai:<\/b> ${esc(c.feedback)}<\/div>`:'';
+  const over=c.callDate&&c.callDate<today();
+  const cd=c.callDate?`<div class="ccdate${over?' over':''}">📅 ${fmt(c.callDate)}${over?' · pending':''}<\/div>`:'';
+  return `<div class="contact">
+    <div class="c1"><div class="av">${initials(c.name)}<\/div><div style="flex:1;min-width:0"><div class="nm">${esc(c.name)}<\/div><div class="mb">📱 ${esc(c.mob)}<\/div>${aTag}<\/div>${catBadge(c.cat)}<\/div>
+    ${fb}${cd}
+    <div class="acts"><button class="ca call" onclick="startCall('${esc(c.name)}','${esc(c.mob)}','${esc(c.cat)}')">📞 Call<\/button><button class="ca wa" onclick="waNum('${esc(c.mob)}')">💬 WhatsApp<\/button><button class="ca log" onclick="logFromContact('${esc(c.name)}','${esc(c.mob)}','${esc(c.cat)}')">📝 Log<\/button><button class="ca done" onclick="markConnected('${esc(c.name)}','${esc(c.mob)}')">✅ Connected<\/button><\/div>
+  <\/div>`;
 }
-function saveAssign(){
-  const name=$('a_name').value.trim(),mob=$('a_mob').value.trim().replace(/\s+/g,''),fb=$('a_fb').value.trim(),date=$('a_date').value||today();
-  if(!name&&!mob){toast('Naam ya number daalo');return;}
-  const an=isAdmin()?($('a_assign').value||myName()):myName();
-  db.collection('callcontacts').add({name,mob,cat:segVal($('a_cat')),feedback:fb,callDate:date,assignName:an,assignKey:an.toLowerCase(),assignedBy:myName(),done:false,ts:Date.now()})
-   .then(()=>{toast('Assign ho gaya ✓');closeModal('assignModal');load();}).catch(e=>toast('Error: '+e.message));
+/* Jo contact ka Call Logs mein already "connected" wala log ban chuka hai (ya purani entry jisme
+   callStatus field hai hi nahi), use Contacts list se khud-ba-khud hata do — dobara "Connected"
+   button dabane ki zaroorat nahi. Sirf "Not Picked" wale contacts pending mein rehte hain.
+   IMPORTANT: log ka date contact ke (re)add hone ke baad/usi din ka hona chahiye — warna kisi
+   purane/stale log (jo mahino pehle kisi aur wajah se bana tha) ki wajah se naya bulk-added
+   contact turant hat jaata (yeh galti pehle ho rahi thi, ab fix kar diya). */
+function reconcileContactsAgainstLogs(){
+  const logs=arr(LS.logs);
+  const connectedDateByMob={}; // mob -> latest connected-log date (YYYY-MM-DD)
+  logs.forEach(l=>{
+    const mob=String(l.mob||'').replace(/\s+/g,'');
+    if(!mob)return;
+    if(!l.callStatus||l.callStatus==='connected'){
+      const d=l.date||(l.ts||'').slice(0,10)||'';
+      if(d&&(!connectedDateByMob[mob]||d>connectedDateByMob[mob]))connectedDateByMob[mob]=d;
+    }
+  });
+  if(!Object.keys(connectedDateByMob).length)return false;
+  let cs=arr(LS.contacts);
+  const removed=[];
+  cs=cs.filter(c=>{
+    const mob=String(c.mob).replace(/\s+/g,'');
+    const logDate=mob&&connectedDateByMob[mob];
+    if(logDate){
+      const addedDate=(c.ts||'').slice(0,10)||today();
+      if(logDate>=addedDate){removed.push(mob);return false;} // isi contact ke liye hi connected hui thi — hatao
+    }
+    return true;
+  });
+  if(removed.length){
+    save(LS.contacts,cs);
+    removed.forEach(mob=>{tombstoneMob(mob);pushSheet('contact',{action:'delete',mob,by:me.name});});
+    return true;
+  }
+  return false;
 }
-function markDone(id){if(!confirm('Ye number "ho gaya" mark karein?'))return;db.collection('callcontacts').doc(id).set({done:true,doneTs:Date.now()},{merge:true}).then(()=>{toast('Ho gaya ✓');load();}).catch(e=>toast(e.message));}
+let _contactView='pending';
+function setContactView(v){_contactView=v;renderContacts();}
+function renderContacts(){
+  reconcileContactsAgainstLogs(); // pehle purani-called contacts saaf kar do
+  let cs=arr(LS.contacts).filter(c=>isAdmin()||c.uid===me.id);
+  const f=document.getElementById('contactFilters');
+  f.innerHTML=['All',...getCats(),'Other'].map(c=>`<button class="filt ${f.dataset.active===c||(!f.dataset.active&&c==='All')?'on':''}" onclick="setF('contactFilters',this);renderContacts()">${esc(c)}<\/button>`).join('');
+  // Admin: User filter
+  if(isAdmin()){
+    const uf=document.getElementById('contactUserFilter');
+    uf.innerHTML=['All',...allUsers().map(u=>u.name)].map((n,i)=>`<button class="filt sm ${(uf.dataset.user===n||(i===0&&!uf.dataset.user))?'on':''}" onclick="setUserF('contactUserFilter',this);renderContacts()">${esc(n)}<\/button>`).join('');
+    const selUser=uf.dataset.user||'All';
+    if(selUser!=='All'){const u=allUsers().find(u=>u.name===selUser);if(u)cs=cs.filter(c=>c.uid===u.id);}
+  }
+  const af=f.dataset.active||'All';
+  const list=af==='All'?cs:(af==='Other'?cs.filter(c=>!KNOWN.includes(c.cat)||c.cat==='Other'):cs.filter(c=>c.cat===af));
+  const t=today();
+  // Har contact ka "date added" nikalo (ts se) — jo aaj se pehle ka hai, wo pending mein jayega
+  const dateOf=c=>(c.ts||'').slice(0,10)||t;
+  const sortKey=c=>c.callDate||dateOf(c)||'';
+  const pending=list.filter(c=>dateOf(c)<t).sort((a,b)=>sortKey(a).localeCompare(sortKey(b)));
+  const todays=list.filter(c=>dateOf(c)>=t);
+  // Toggle buttons (Pending / Today) — sirf ek group ek time pe dikhega, lambi scroll nahi
+  const vt=document.getElementById('contactViewToggle');
+  vt.innerHTML=`<button class="${_contactView==='pending'?'on':''}" onclick="setContactView('pending')">⏳ Pending (${pending.length})<\/button><button class="${_contactView==='today'?'on':''}" onclick="setContactView('today')">📅 Today (${todays.length})<\/button>`;
+  const showGroup=_contactView==='pending'?pending:todays.slice().reverse();
+  document.getElementById('contactList').innerHTML=showGroup.length?showGroup.map(contactCardHTML).join(''):empty('👥',_contactView==='pending'?'No pending contacts 🎉':'No new contacts today','Tap ＋ New Contact or Import');
+}
 
-/* import */
-function openImport(){const sel=$('imp_assign');sel.innerHTML=EXECS.map(n=>`<option>${esc(n)}</option>`).join('');sel.value=myName();$('imp_assignWrap').style.display=isAdmin()?'block':'none';$('impFile').value='';openModal('importModal');}
+function renderMembers(){
+  document.getElementById('memberList').innerHTML=allUsers().map(u=>`<div class="mrow">
+    <div class="av">${initials(u.name)}<\/div><div style="min-width:0"><div class="nm">${esc(u.name)}<\/div><div class="id">ID: ${esc(u.id)}${u.tc?' · Telecaller':''}<\/div><\/div>
+    <div class="right"><span class="rolepill">${esc(u.role)}<\/span>
+      <button class="mact e" onclick="editMember('${esc(u.id)}')">Edit<\/button>
+      ${u.id===me.id?'':`<button class="mact d" onclick="deleteMember('${esc(u.id)}')">Del<\/button>`}
+    <\/div><\/div>`).join('');
+}
+function empty(a,b,c){return `<div class="empty"><div class="e1">${a}<\/div><div class="e2">${b}<\/div><div class="e3">${c}<\/div><\/div>`;}
+
+/* ================= CALL FLOW ================= */
+let _lastSync=0;
+async function silentSync(){
+  if(!syncUrl())return;
+  const now=Date.now();
+  if(now-_lastSync<25000)return; // 25 sec se kam mein dobara nahi (spam-protect)
+  _lastSync=now;
+  const ok=await cloudFetchConfig();
+  if(ok&&me){renderAll();}
+}
+
+function setupCallReturn(){
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      // App foreground mein aaya — sync karo
+      if(me)silentSync();
+      // Pending call check
+      if(pendingCall){const away=Math.round((Date.now()-pendingCall.start)/1000);const pc=pendingCall;pendingCall=null;if(away>=4)openCallModal(pc,away);}
+    }
+  });
+  // Har 30 second mein auto-sync (jab tak app khula/foreground hai)
+  setInterval(()=>{if(me&&document.visibilityState==='visible')silentSync();},30000);
+}
+function startCall(name,mob,cat){pendingCall={name,mob,cat:cat||'Customer',start:Date.now()};window.location.href='tel:'+mob;}
+function waNum(m){let n=String(m).replace(/\D/g,'');if(n.length===10)n='91'+n;window.open('https://wa.me/'+n,'_blank');}
+function durTxt(s){if(s<60)return s+'s';return Math.floor(s/60)+'m '+(s%60)+'s';}
+
+/* ----- call status segment (Connected / Not Picked / Other) ----- */
+function buildCallStatusSeg(){
+  const el=document.getElementById('cl_status');
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+    const oth=document.getElementById('cl_statusOther');
+    if(b.dataset.v==='other'){oth.style.display='block';oth.focus();}else{oth.style.display='none';oth.value='';}
+  });
+}
+function resetCallStatus(){
+  document.getElementById('cl_status').querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+  const oth=document.getElementById('cl_statusOther');oth.style.display='none';oth.value='';
+}
+function getCallStatus(){
+  const el=document.getElementById('cl_status');const on=el.querySelector('button.on');
+  if(!on)return null;
+  if(on.dataset.v==='other'){const v=document.getElementById('cl_statusOther').value.trim();return v?{key:'other',label:v}:null;}
+  return {key:on.dataset.v,label:on.textContent.trim()};
+}
+/* ----- remove a contact once the call is actually connected ----- */
+function removeContactByMobile(mob){
+  if(!mob)return;
+  const clean=String(mob).replace(/\s+/g,'');if(!clean)return;
+  let cs=arr(LS.contacts);const before=cs.length;
+  cs=cs.filter(c=>String(c.mob).replace(/\s+/g,'')!==clean);
+  if(cs.length!==before){
+    save(LS.contacts,cs);
+    tombstoneMob(clean); // safety net agar sync race ho jaye
+    pushSheet('contact',{action:'delete',mob:clean,by:me.name}); // Apps Script ab delete-support karta hai
+    renderContacts();
+  }
+}
+function markConnected(name,mob){
+  if(!confirm(name+' se baat ho gayi? Yeh contact list se hat jayega.'))return;
+  removeContactByMobile(mob);toast('Contact hata diya — baat ho chuki ✓');
+}
+
+function openCallModal(pc,away){
+  document.getElementById('cl_av').textContent=initials(pc.name);document.getElementById('cl_name').textContent=pc.name;
+  document.getElementById('cl_dur').textContent='Call done · ~'+durTxt(away)+' · fill details';
+  resetCallStatus();
+  setSegCat('cl_segCat','cl_catOther',pc.cat);
+  ['cl_purpose','cl_resp','cl_action','cl_next'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('cl_recording').value='';
+  document.getElementById('callModal')._ctx={name:pc.name,mob:pc.mob,dur:durTxt(away)};openModal('callModal');
+}
+function saveCallModal(){
+  const ctx=document.getElementById('callModal')._ctx||{};const purpose=document.getElementById('cl_purpose').value.trim();
+  const status=getCallStatus();
+  if(!status){toast('Call status select karo');return;}
+  if(!purpose){toast('Purpose is required');return;}
+  const next=document.getElementById('cl_next').value||plusDays(today(),7);
+  const recFile=document.getElementById('cl_recording').files&&document.getElementById('cl_recording').files[0];
+  const lid=commit({date:today(),cat:getSegCat('cl_segCat','cl_catOther'),name:ctx.name,mob:ctx.mob||'',purpose,resp:document.getElementById('cl_resp').value.trim(),action:document.getElementById('cl_action').value.trim(),next,comment:'',dur:ctx.dur||'',hasRec:!!recFile,callStatus:status.key,callStatusLabel:status.label});
+  if(recFile&&lid)saveRec(lid,recFile);
+  if(status.key==='connected')removeContactByMobile(ctx.mob);
+  closeModal('callModal');document.getElementById('cl_recording').value='';toast('Call log saved ✓');renderAll();
+}
+
+/* ================= NEW / EDIT LOG ================= */
+function openNewLog(){
+  editId=null;document.getElementById('formTitle').textContent='New Call Log';
+  document.getElementById('f_date').value=today();document.getElementById('f_next').value='';
+  ['f_name','f_mob','f_purpose','f_resp','f_action','f_comment'].forEach(i=>document.getElementById(i).value='');
+  setSegCat('f_segCat','f_catOther',getCats()[0]||'Customer');go('newlog');
+}
+function logFromContact(n,m,c){openNewLog();document.getElementById('f_name').value=n;document.getElementById('f_mob').value=m;setSegCat('f_segCat','f_catOther',c);}
+function editLog(id){
+  const l=arr(LS.logs).find(x=>x.id===id);if(!l)return;editId=id;
+  document.getElementById('formTitle').textContent='Edit Call Log';
+  document.getElementById('f_date').value=l.date||today();document.getElementById('f_next').value=l.next||'';
+  document.getElementById('f_name').value=l.name||'';document.getElementById('f_mob').value=l.mob||'';
+  document.getElementById('f_purpose').value=l.purpose||'';document.getElementById('f_resp').value=l.resp||'';
+  document.getElementById('f_action').value=l.action||'';document.getElementById('f_comment').value=l.comment||'';
+  setSegCat('f_segCat','f_catOther',l.cat||'Customer');go('newlog');
+}
+function saveLog(){
+  const name=document.getElementById('f_name').value.trim();const purpose=document.getElementById('f_purpose').value.trim();
+  if(!name){toast('Name is required');return;}if(!purpose){toast('Purpose is required');return;}
+  const date=document.getElementById('f_date').value||today();const next=document.getElementById('f_next').value||plusDays(date,7);
+  commit({id:editId,date,cat:getSegCat('f_segCat','f_catOther'),name,mob:document.getElementById('f_mob').value.trim(),purpose,resp:document.getElementById('f_resp').value.trim(),action:document.getElementById('f_action').value.trim(),next,comment:document.getElementById('f_comment').value.trim(),dur:''});
+  toast(editId?'Updated ✓':'Saved ✓');editId=null;renderAll();go('home');
+}
+function commit(o){
+  let logs=arr(LS.logs);
+  if(o.id){
+    // Edit — hasRec preserve karo
+    logs=logs.map(l=>{
+      if(l.id!==o.id)return l;
+      const updated=Object.assign({},l,o);
+      if(l.hasRec&&!o.hasRec)updated.hasRec=true; // recording link toot na jaaye
+      updated.ts=new Date().toISOString(); // update timestamp
+      return updated;
+    });
+    save(LS.logs,logs);
+    pushSheet('log',logs.find(l=>l.id===o.id));
+    return o.id;
+  }
+  const rec=Object.assign({id:'L'+Date.now()+Math.random().toString(36).slice(2,5),uid:me.id,user:me.name,ts:new Date().toISOString()},o);
+  logs.push(rec);save(LS.logs,logs);pushSheet('log',rec);return rec.id;
+}
+
+/* ================= CONTACTS ================= */
+function openContactAdd(){
+  ['c_name','c_mob','c_fb'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('c_date').value='';
+  setSegCat('c_segCat','c_catOther',getCats()[0]||'Customer');
+  const aw=document.getElementById('c_assignWrap');
+  if(isAdmin()){
+    aw.style.display='block';
+    const sel=document.getElementById('c_assignUser');
+    sel.innerHTML=allUsers().map(u=>`<option value="${esc(u.id)}">${esc(u.name)} (${esc(u.role)})<\/option>`).join('');
+    sel.value=me.id;
+  }else{aw.style.display='none';}
+  openModal('contactModal');
+}
+function saveContact(){
+  const name=document.getElementById('c_name').value.trim()||'Unknown';
+  const mob=document.getElementById('c_mob').value.trim();
+  let tUid=me.id,tUser=me.name;
+  if(isAdmin()){
+    const selVal=document.getElementById('c_assignUser').value;
+    if(selVal){const tu=allUsers().find(u=>u.id===selVal);if(tu){tUid=tu.id;tUser=tu.name;}}
+  }
+  const fb=document.getElementById('c_fb').value.trim();
+  const callDate=document.getElementById('c_date').value||'';
+  const result=addContact(name,mob,getSegCat('c_segCat','c_catOther'),tUid,tUser,fb,callDate);
+  if(result&&result.blocked){
+    toast('⚠ Yeh number pehle se "'+result.existing.user+'" ko assign hai — dobara assign nahi ho sakta');
+    return;
+  }
+  closeModal('contactModal');toast('Contact saved — '+tUser+' ko assign ✓');renderContacts();
+}
+function addContact(name,mob,cat,tUid,tUser,feedback,callDate){
+  const uid=tUid||me.id,user=tUser||me.name;
+  const cleanMob=String(mob||'').replace(/\s+/g,'');
+  const cs=arr(LS.contacts);
+  if(cleanMob){
+    const idx=cs.findIndex(c=>String(c.mob)===cleanMob);
+    if(idx>=0){
+      const existing=cs[idx];
+      if(existing.uid!==uid){
+        // Already assigned to a DIFFERENT user — block, don't create a duplicate/steal it
+        return {blocked:true,existing};
+      }
+      // Same user re-adding the same number — just refresh it, no duplicate row
+      cs[idx].name=name||cs[idx].name;cs[idx].cat=cat||cs[idx].cat;cs[idx].ts=new Date().toISOString();
+      if(feedback)cs[idx].feedback=feedback;if(callDate)cs[idx].callDate=callDate;
+      save(LS.contacts,cs);
+      return cs[idx];
+    }
+  }
+  const rec={id:'C'+Date.now()+Math.random().toString(36).slice(2,4),uid,user,name,mob:cleanMob,cat:cat||'Customer',feedback:feedback||'',callDate:callDate||'',ts:new Date().toISOString()};
+  cs.push(rec);save(LS.contacts,cs);if(cleanMob)untombstoneMob(cleanMob);pushSheet('contact',rec);return rec;
+}
+
+/* ---- import ---- */
+function openImportModal(){
+  const aw=document.getElementById('imp_assignWrap');
+  if(isAdmin()){
+    aw.style.display='block';
+    const sel=document.getElementById('imp_assignUser');
+    sel.innerHTML=allUsers().map(u=>`<option value="${esc(u.id)}">${esc(u.name)} (${esc(u.role)})<\/option>`).join('');
+    sel.value=me.id;
+  }else{aw.style.display='none';}
+  openModal('importModal');
+}
+async function importPhone(){
+  try{
+    const props=['name','tel'];const opts={multiple:true};
+    const list=await navigator.contacts.select(props,opts);
+    let n=0,skipped=0;
+    let tUid=me.id,tUser=me.name;
+    if(isAdmin()){
+      const selVal=document.getElementById('imp_assignUser').value;
+      if(selVal){const tu=allUsers().find(u=>u.id===selVal);if(tu){tUid=tu.id;tUser=tu.name;}}
+    }
+    list.forEach(c=>{const nm=(c.name&&c.name[0])||'Unknown';const tel=(c.tel&&c.tel[0])||'';if(tel){const r=addContact(nm,tel.replace(/[^\d+]/g,''),'Customer',tUid,tUser);if(r&&r.blocked)skipped++;else n++;}});
+    closeModal('importModal');renderContacts();
+    toast(n+' contact'+(n!==1?'s':'')+' imported ✓'+(skipped?' · '+skipped+' skipped (already assigned)':''));
+  }catch(e){toast('Import cancelled');}
+}
 function importCSV(input){
   const file=input.files&&input.files[0];if(!file)return;
-  const an=isAdmin()?($('imp_assign').value||myName()):myName();
   const r=new FileReader();
-  r.onload=async()=>{
-    const lines=String(r.result).replace(/\r/g,'').split('\n').filter(x=>x.trim());
-    let start=0;if(lines.length){const f=lines[0].toLowerCase();if(f.includes('name')||f.includes('mobile')||f.includes('number'))start=1;}
-    let n=0;const batch=db.batch();
-    for(let i=start;i<lines.length;i++){
-      const p=lines[i].split(',').map(s=>s.replace(/^"|"$/g,'').trim());
-      const name=p[0]||'',mob=(p[1]||'').replace(/[^\d+]/g,''),fb=p[2]||'',date=p[3]||today(),cat=p[4]||'Customer';
-      if(!name&&!mob)continue;
-      const ref=db.collection('callcontacts').doc();
-      batch.set(ref,{name,mob,cat,feedback:fb,callDate:date,assignName:an,assignKey:an.toLowerCase(),assignedBy:myName(),done:false,ts:Date.now()+i});
-      n++;if(n>=450)break;
+  r.onload=()=>{
+    const text=r.result.replace(/\r/g,'');const lines=text.split('\n').filter(x=>x.trim());
+    let start=0;
+    if(lines.length){const first=lines[0].toLowerCase();if(first.includes('name')||first.includes('mobile')||first.includes('phone'))start=1;}
+    let n=0,skipped=0;
+    let defUid=me.id,defUser=me.name;
+    if(isAdmin()){
+      const selVal=document.getElementById('imp_assignUser').value;
+      if(selVal){const tu=allUsers().find(u=>u.id===selVal);if(tu){defUid=tu.id;defUser=tu.name;}}
     }
-    try{await batch.commit();toast(n+' contact import ✓');}catch(e){toast('Import error: '+e.message);}
-    input.value='';closeModal('importModal');load();
+    for(let i=start;i<lines.length;i++){
+      const parts=lines[i].split(',').map(s=>s.replace(/^"|"$/g,'').trim());
+      if(parts.length<2)continue;
+      const name=parts[0]||'Unknown';const mob=(parts[1]||'').replace(/[^\d+]/g,'');const cat=parts[2]||'Customer';
+      // Column 4 = assignedTo user ID, Column 5 = Feedback, Column 6 = Call-by date
+      let tUid=defUid,tUser=defUser;
+      if(parts[3]){const u=allUsers().find(u=>u.id===parts[3].trim());if(u){tUid=u.id;tUser=u.name;}}
+      const fb=parts[4]||'';const callDate=parts[5]||'';
+      if(!mob)continue;
+      const r2=addContact(name,mob,cat,tUid,tUser,fb,callDate);
+      if(r2&&r2.blocked)skipped++;else n++;
+    }
+    input.value='';closeModal('importModal');renderContacts();
+    toast(n+' contact'+(n!==1?'s':'')+' imported ✓'+(skipped?' · '+skipped+' skipped (already assigned)':''));
   };
   r.readAsText(file);
 }
 
-/* call + log */
-function wa(m){let n=String(m).replace(/\D/g,'');if(n.length===10)n='91'+n;window.open('https://wa.me/'+n,'_blank');}
-function startCall(name,mob,cid,cat){_logCtx={name,mob,cid,cat,start:Date.now()};window.location.href='tel:'+mob;}
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible'&&_logCtx){const a=Math.round((Date.now()-_logCtx.start)/1000);const c=_logCtx;_logCtx=null;if(a>=4)openLog(null,c);}
-});
-function openLog(editId,ctx){
-  cl.editId=editId||null; $('logModal')._ctx=ctx||null;
-  $('l_status').querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-  let L={};
-  if(editId){L=cl.logs.find(x=>x.id===editId)||{};$('logTitle').textContent='Edit Call Log';$('logSub').textContent='Detail badlo';
-    if(L.status){const b=$('l_status').querySelector('[data-v="'+L.status+'"]');if(b)b.classList.add('on');}}
-  else{$('logTitle').textContent='Naya Call Log';$('logSub').textContent=ctx&&ctx.name?('Call: '+ctx.name):'Call ki detail bharo';}
-  buildSeg($('l_cat'),CATS,L.cat||(ctx&&ctx.cat)||'Customer');
-  $('l_date').value=L.date||today();$('l_next').value=L.next||'';
-  $('l_name').value=L.name||(ctx&&ctx.name)||'';$('l_mob').value=L.mob||(ctx&&ctx.mob)||'';
-  $('l_purpose').value=L.purpose||'';$('l_resp').value=L.resp||'';$('l_action').value=L.action||'';$('l_comment').value=L.comment||'';
-  $('l_rec').value='';
-  openModal('logModal');
+/* ================= MEMBERS ================= */
+function openMemberAdd(){
+  if(!isAdmin())return;editMemberId=null;
+  document.getElementById('m_title').textContent='New Team Member';
+  document.getElementById('m_save').textContent='Add Member';
+  ['m_name','m_id','m_pw'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('m_pw').placeholder='Password';
+  document.getElementById('m_id').disabled=false;
+  document.getElementById('m_role').value='Sales Associate';document.getElementById('m_tc').value='no';
+  openModal('memberModal');
 }
-async function saveLog(){
-  const on=$('l_status').querySelector('button.on');const status=on?on.dataset.v:'';
-  const name=$('l_name').value.trim(),purpose=$('l_purpose').value.trim();
-  if(!status){toast('Call status chuno');return;}
-  if(!name){toast('Naam daalo');return;}
-  if(!purpose){toast('Purpose daalo');return;}
-  const date=$('l_date').value||today(), next=$('l_next').value||plusDays(date,7);
-  const ctx=$('logModal')._ctx||{};
-  const recFile=$('l_rec').files&&$('l_rec').files[0];
-  const data={date,next,cat:segVal($('l_cat')),name,mob:$('l_mob').value.trim(),purpose,resp:$('l_resp').value.trim(),action:$('l_action').value.trim(),comment:$('l_comment').value.trim(),status,ts:Date.now()};
-  try{
-    let id=cl.editId;
-    if(id){ if(recFile)data.hasRec=true; await db.collection('calllogs').doc(id).set(data,{merge:true}); }
-    else{ data.uid=me.uid;data.uidKey=myKey();data.user=myName();data.hasRec=!!recFile;
-      const ref=await db.collection('calllogs').add(data);id=ref.id;
-      if(status==='connected'&&ctx.cid)db.collection('callcontacts').doc(ctx.cid).set({done:true,doneTs:Date.now()},{merge:true});
+function editMember(id){
+  if(!isAdmin())return;const u=allUsers().find(x=>x.id===id);if(!u)return;editMemberId=id;
+  document.getElementById('m_title').textContent='Edit Member';
+  document.getElementById('m_save').textContent='Save Changes';
+  document.getElementById('m_name').value=u.name;document.getElementById('m_id').value=u.id;document.getElementById('m_pw').value='';
+  document.getElementById('m_pw').placeholder='Leave blank to keep current password';
+  document.getElementById('m_id').disabled=false;
+  document.getElementById('m_role').value=u.role;document.getElementById('m_tc').value=u.tc?'yes':'no';
+  openModal('memberModal');
+}
+function saveMember(){
+  if(!isAdmin()){toast('Admin/Tech only');return;}
+  const name=document.getElementById('m_name').value.trim();const id=document.getElementById('m_id').value.trim().toLowerCase();const pw=document.getElementById('m_pw').value;
+  if(!name||!id){toast('Enter name and ID');return;}
+  if(!editMemberId&&!pw){toast('Set a password for the new member');return;}
+  let users=allUsers();
+  if(users.some(u=>u.id.toLowerCase()===id && u.id!==editMemberId)){toast('This Login ID already exists');return;}
+  const rec={name,id,pw,role:document.getElementById('m_role').value,tc:document.getElementById('m_tc').value==='yes'};
+  if(editMemberId){
+    users=users.map(u=>u.id===editMemberId?Object.assign({},u,rec):u);save(LS.users,users);
+    if(me.id===editMemberId){me=Object.assign({},me,rec);save(LS.sess,{id:me.id});enterApp();}
+    // pw khaali ho to Apps Script purana password preserve karega (delete nahi karega)
+    pushSheet('member',{action:'edit',name,id,pw,role:rec.role,tc:rec.tc,by:me.name});toast('Member updated ✓');
+  }else{
+    users.push(rec);save(LS.users,users);pushSheet('member',{action:'add',name,id,pw,role:rec.role,tc:rec.tc,by:me.name});toast(name+' added ✓');
+  }
+  closeModal('memberModal');renderMembers();
+}
+function deleteMember(id){
+  if(!isAdmin()||id===me.id)return;
+  const u=allUsers().find(x=>x.id===id);if(!u)return;
+  if(!confirm('Remove '+u.name+'? They will not be able to log in.'))return;
+  const users=allUsers().filter(x=>x.id!==id);save(LS.users,users);pushSheet('member',{action:'delete',id,by:me.name});renderMembers();toast('Member removed');
+}
+
+/* ================= CALL RECORDING (IndexedDB) ================= */
+let recDB=null;
+function openRecDB(){
+  if(recDB)return Promise.resolve(recDB);
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open('aclRecordings',1);
+    req.onupgradeneeded=e=>{e.target.result.createObjectStore('recs',{keyPath:'id'});};
+    req.onsuccess=e=>{recDB=e.target.result;res(recDB);};
+    req.onerror=()=>rej(new Error('IDB error'));
+  });
+}
+function saveRec(logId,file){
+  if(!file||!logId)return;
+  // 1) Local copy (is device pe instant playback, offline bhi)
+  openRecDB().then(db=>{
+    const tx=db.transaction('recs','readwrite');
+    tx.objectStore('recs').put({id:logId,name:file.name,type:file.type,blob:file});
+  }).catch(()=>{});
+  // 2) Google Drive pe upload (taaki admin/dusre device pe bhi sun sake)
+  uploadRecToDrive(logId,file);
+}
+function uploadRecToDrive(logId,file){
+  const url=syncUrl();if(!url)return;
+  // ponytail: 20MB cap — Apps Script POST body limit (~50MB) aur base64 ~33% badhta hai
+  if(file.size>20*1024*1024){toast('Recording bahut badi — Drive pe skip, local pe saved');return;}
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const b64=String(rd.result).split(',')[1]||'';
+    const ext=(file.name.split('.').pop()||'m4a').toLowerCase();
+    // no-cors fire-and-forget (response nahi padh sakte, isliye file naam = logId)
+    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({type:'recording',record:{id:logId,name:logId+'.'+ext,mime:file.type||'audio/mpeg',data:b64}})}).catch(()=>{});
+    toast('Recording Drive pe upload ho rahi hai…');
+  };
+  rd.readAsDataURL(file);
+}
+function getRec(logId){
+  return openRecDB().then(db=>new Promise(res=>{
+    const tx=db.transaction('recs','readonly');
+    const req=tx.objectStore('recs').get(logId);
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>res(null);
+  }));
+}
+function playRec(lid,btn){
+  const wrap=document.getElementById('recplay_'+lid);
+  if(wrap.style.display==='block'){wrap.style.display='none';btn.textContent='▶ Recording';return;}
+  getRec(lid).then(r=>{
+    if(r){
+      wrap.querySelector('audio').src=URL.createObjectURL(r.blob);
+      wrap.style.display='block';btn.textContent='✕ Recording';return;
     }
-    if(recFile&&id)saveRec(id,recFile);
-    toast(cl.editId?'Updated ✓':'Log saved ✓');cl.editId=null;closeModal('logModal');load();
-  }catch(e){toast('Save error: '+e.message);}
+    // Local pe nahi (dusra device/admin) — Google Drive se laao
+    const su=syncUrl();if(!su){toast('Recording nahi mili');return;}
+    toast('Drive se recording la rahe hain…');
+    jsonp(su+(su.includes('?')?'&':'?')+'rec='+encodeURIComponent(lid)).then(d=>{
+      if(d&&d.recUrl){wrap.querySelector('audio').src=d.recUrl;wrap.style.display='block';btn.textContent='✕ Recording';}
+      else{toast('Recording nahi mili');}
+    }).catch(()=>toast('Recording nahi mili'));
+  });
 }
 
-/* recordings — local IndexedDB (per-device) */
-let rdb=null;
-function openRdb(){if(rdb)return Promise.resolve(rdb);return new Promise((res,rej)=>{const q=indexedDB.open('callRecs',1);q.onupgradeneeded=e=>e.target.result.createObjectStore('r',{keyPath:'id'});q.onsuccess=e=>{rdb=e.target.result;res(rdb);};q.onerror=()=>rej(new Error('idb'));});}
-function saveRec(id,file){openRdb().then(d=>{d.transaction('r','readwrite').objectStore('r').put({id,blob:file});}).catch(()=>{});}
-function playRec(id,btn){const w=$('rw_'+id);if(w.style.display==='block'){w.style.display='none';return;}
-  openRdb().then(d=>{const q=d.transaction('r','readonly').objectStore('r').get(id);q.onsuccess=()=>{if(!q.result){toast('Recording sirf usi phone pe hai jisne save ki');return;}w.querySelector('audio').src=URL.createObjectURL(q.result.blob);w.style.display='block';};}).catch(()=>toast('Recording error'));}
-
-/* export */
+/* ================= MODAL MANAGEMENT ================= */
+let _openModalId=null;
+function openModal(id){
+  document.getElementById(id).classList.add('show');
+  _openModalId=id;
+  // Push a fake history state so back button closes modal instead of exiting app
+  if(window.history&&window.history.pushState){
+    window.history.pushState({modal:id},'');
+  }
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+  _openModalId=null;
+}
+// Back button (Android/PWA) — close modal instead of going back
+window.addEventListener('popstate',function(e){
+  if(_openModalId){closeModal(_openModalId);}
+});
+// Tap outside sheet (on dark overlay) to close modal
+document.addEventListener('click',function(e){
+  if(!_openModalId)return;
+  const modal=document.getElementById(_openModalId);
+  if(!modal)return;
+  const sheet=modal.querySelector('.sheet');
+  if(sheet&&!sheet.contains(e.target)&&modal.contains(e.target)){
+    closeModal(_openModalId);
+    // Remove the history state we pushed
+    if(window.history&&window.history.state&&window.history.state.modal){
+      window.history.go(-1);
+    }
+  }
+});
+/* ================= SETTINGS / SYNC ================= */
+function saveSettings(){localStorage.setItem(LS.url,document.getElementById('set_url').value.trim());refreshSync();toast('Sync URL saved ✓');}
+function refreshSync(){
+  const inbuilt=!!(SYNC_URL&&SYNC_URL.trim());
+  document.getElementById('urlManual').style.display=inbuilt?'none':'block';
+  document.getElementById('urlLocked').style.display=inbuilt?'block':'none';
+  const on=!!syncUrl();const l=document.getElementById('syncLine');l.classList.toggle('off',!on);
+  document.getElementById('syncTxt').textContent=on?'Google Sheet sync ON':'Local only — add a sync URL in settings';
+  if(!inbuilt)document.getElementById('set_url').value=localStorage.getItem(LS.url)||"";
+}
+function pushSheet(type,rec){const url=syncUrl();if(!url)return;fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({type,record:rec})}).catch(()=>{});}
 function exportCSV(){
-  const logs=myLogs();if(!logs.length){toast('Koi log nahi');return;}
-  const head=['User','Date','Category','Name','Mobile','Purpose','Response','Next Action','Next Date','Status','Comment'];
-  const rows=logs.map(l=>[l.user,l.date,l.cat,l.name,l.mob,l.purpose,l.resp,l.action,l.next,l.status,l.comment].map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(','));
-  const csv=head.join(',')+'\n'+rows.join('\n');const fn='call_log_'+today()+'.csv';
-  const blob=new Blob(['﻿'+csv],{type:'text/csv'});
-  try{const f=new File([blob],fn,{type:'text/csv'});if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:fn});return;}}catch(_){}
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();setTimeout(()=>{try{URL.revokeObjectURL(a.href)}catch(_){}} ,5000);
+  const logs=myLogs();if(!logs.length){toast('No logs to export');return;}
+  const head=['User','Date','Category','Called To','Mobile','Purpose','Response','Next Action','Next Date','Duration','Comment'];
+  const rows=logs.map(l=>[l.user,l.date,l.cat,l.name,l.mob,l.purpose,l.resp,l.action,l.next,l.dur,l.comment].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob([head.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='call_log_'+today()+'.csv';a.click();
 }
+
+init();
 </script>
 </body>
 </html>
