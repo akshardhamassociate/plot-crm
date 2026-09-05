@@ -14,148 +14,114 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <style>
   :root{
-    --bg:#f3f5fb; --card:#ffffff; --surface2:#eef1fb;
-    --ink:#161b2e; --muted:#5c6478; --faint:#9aa3b8; --line:#e4e8f2;
-    --brand:#4f46e5; --brand-d:#4338ca; --brand-t:#eef0fe;
-    --green:#0f9d58; --green-t:#e6f6ee; --red:#dc2626; --red-t:#fdecec;
-    --amber:#c2760a; --amber-t:#fdf2e2; --wa:#25b04c; --blue:#2f74c0;
-    --sh:0 1px 2px rgba(22,27,46,.05),0 6px 18px rgba(22,27,46,.06);
-    --sh-lg:0 14px 40px rgba(22,27,46,.16);
-    --r:16px; --r-sm:12px;
-  }
+    --bg:#f3f5fb;--card:#fff;--s2:#eef1fb;--ink:#161b2e;--muted:#5c6478;--faint:#9aa3b8;--line:#e4e8f2;
+    --brand:#4f46e5;--brand-d:#4338ca;--brand-t:#eef0fe;--green:#0f9d58;--green-t:#e6f6ee;
+    --red:#dc2626;--red-t:#fdecec;--amber:#c2760a;--amber-t:#fdf2e2;--wa:#25b04c;--blue:#2f74c0;--blue-t:#e8f1fb;--purple:#7a5cc0;--purple-t:#efeafb;
+    --sh:0 1px 2px rgba(22,27,46,.05),0 6px 18px rgba(22,27,46,.06);--sh-lg:0 14px 40px rgba(22,27,46,.16);--r:16px;--r-sm:12px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html{-webkit-text-size-adjust:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;
-    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
   svg{width:20px;height:20px;flex:none;stroke-width:2}
   button{font-family:inherit}
   ::selection{background:var(--brand-t)}
-
-  /* header */
-  .top{background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;
-    padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));
-    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 4px 20px rgba(22,27,46,.25)}
-  .iconbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);color:#fff;
-    min-width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;transition:.12s;padding:0 10px}
+  .top{background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 4px 20px rgba(22,27,46,.25)}
+  .iconbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);color:#fff;min-width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;transition:.12s;padding:0 10px}
   .iconbtn:active{transform:scale(.93)} .iconbtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
-  .top .ttl{min-width:0}
-  .top h1{font-size:1.08rem;font-weight:800;margin:0;letter-spacing:-.01em}
+  .top h1{font-size:1.08rem;font-weight:800;margin:0}
   .top .who{font-size:.72rem;opacity:.82;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .top .sp{flex:1}
-  .lo{gap:6px;font-size:.82rem;font-weight:700}
-
   .wrap{max-width:660px;margin:0 auto;padding:14px 15px calc(96px + env(safe-area-inset-bottom))}
-
-  /* stats strip */
-  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:14px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;box-shadow:var(--sh);text-align:center}
-  .stat .n{font-size:1.6rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-  .stat .l{font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:5px}
-  .stat.p .n{color:var(--amber)} .stat.d .n{color:var(--green)} .stat.o .n{color:var(--red)}
-
-  /* tabs */
-  .tabs{display:flex;gap:5px;background:var(--surface2);border-radius:13px;padding:4px;margin-bottom:16px}
-  .tabs button{flex:1;border:none;background:none;padding:10px 6px;border-radius:10px;font-weight:700;font-size:.85rem;
-    color:var(--muted);cursor:pointer;transition:.14s;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px}
-  .tabs button svg{width:16px;height:16px}
-  .tabs button.on{background:#fff;color:var(--brand);box-shadow:var(--sh)}
-
+  .pt{font-size:1.5rem;font-weight:800;margin:2px 0 2px;letter-spacing:-.02em}
+  .ps{color:var(--muted);font-size:.9rem;margin:0 0 16px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  @media(min-width:520px){.stats{grid-template-columns:2fr 1fr 1fr 1fr}}
+  .hero{grid-column:1/-1;background:linear-gradient(140deg,var(--brand),#6d63f0);color:#fff;border-radius:var(--r);padding:18px 20px;box-shadow:0 10px 28px rgba(79,70,229,.32);position:relative;overflow:hidden}
+  @media(min-width:520px){.hero{grid-column:auto}}
+  .hero .l{font-size:.72rem;font-weight:800;opacity:.9;letter-spacing:.4px}
+  .hero .n{font-size:2.6rem;font-weight:800;line-height:1;margin-top:6px;font-variant-numeric:tabular-nums}
+  .hero .s{font-size:.78rem;opacity:.9;margin-top:6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px;box-shadow:var(--sh);text-align:center}
+  .stat .n{font-size:1.55rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:.64rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:5px}
+  .stat.c .n{color:var(--green)} .stat.a .n{color:var(--blue)} .stat.d .n{color:var(--amber)}
   .sec{font-size:.72rem;font-weight:800;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin:20px 3px 11px;display:flex;align-items:center;gap:7px}
-  .sec .cnt{margin-left:auto;background:var(--surface2);color:var(--muted);font-size:.72rem;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:0}
-
-  /* buttons */
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:13px;
-    padding:14px;font-size:15px;font-weight:800;cursor:pointer;transition:.12s;min-height:48px}
+  .sec .cnt{margin-left:auto;background:var(--s2);color:var(--muted);font-size:.72rem;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:0}
+  .chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;-ms-overflow-style:none;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:22px;border:1.5px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;white-space:nowrap;min-height:38px}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip.sm{font-size:11.5px;padding:6px 11px;min-height:32px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;transition:.12s;min-height:48px}
   .btn:active{transform:scale(.985)} .btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
   .btn.primary{background:var(--brand);color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.28)}
-  .btn.ghost{background:var(--surface2);color:var(--muted)}
+  .btn.dark{background:var(--ink);color:#fff}
+  .btn.ghost{background:var(--s2);color:var(--muted)}
   .btn.sm{padding:11px;font-size:13.5px;min-height:44px}
-
-  /* contact card */
+  .row2{display:flex;gap:10px}.row2>*{flex:1}
   .cc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:15px;margin-bottom:12px}
   .cc .r1{display:flex;align-items:center;gap:12px}
-  .cc .av{width:44px;height:44px;border-radius:13px;background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;
-    display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
-  .cc .nm{font-weight:800;font-size:15.5px;line-height:1.2}
-  .cc .mb{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px}
-  .cc .mb svg{width:13px;height:13px;color:var(--faint)}
+  .av{width:44px;height:44px;border-radius:13px;background:linear-gradient(155deg,#181d33,#2b3358);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
+  .nm{font-weight:800;font-size:15.5px;line-height:1.2}
+  .mb{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px}
+  .mb svg{width:13px;height:13px;color:var(--faint)}
+  .badge{font-size:9.5px;font-weight:800;padding:4px 9px;border-radius:7px;color:#fff;text-transform:uppercase;letter-spacing:.4px;flex:none}
+  .b-customer{background:var(--green)}.b-agent{background:var(--blue)}.b-networker{background:var(--purple)}.b-vendor{background:var(--amber)}.b-other{background:#64748b}
   .fb{background:var(--amber-t);border:1px solid #f6dcb4;border-radius:11px;padding:10px 12px;margin-top:11px;font-size:.92rem;color:#5a3a05}
-  .fb .l{font-size:.62rem;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:flex;align-items:center;gap:5px}
-  .fb .l svg{width:13px;height:13px}
-  .cdate{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);font-weight:700;margin-top:10px;background:var(--surface2);padding:5px 10px;border-radius:8px}
-  .cdate svg{width:13px;height:13px}
+  .fb .l{font-size:.62rem;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:flex;align-items:center;gap:5px}.fb .l svg{width:13px;height:13px}
+  .cdate{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);font-weight:700;margin-top:10px;background:var(--s2);padding:5px 10px;border-radius:8px}.cdate svg{width:13px;height:13px}
   .cdate.over{color:var(--red);background:var(--red-t)}
-  .assignedby{font-size:.72rem;color:var(--faint);margin-top:8px;font-weight:600}
+  .meta{font-size:.9rem;margin-top:6px;color:var(--ink)} .meta b{color:var(--muted);font-weight:700}
+  .assignedby{font-size:.72rem;color:var(--faint);margin-top:8px;font-weight:600;display:flex;align-items:center;gap:5px}.assignedby svg{width:13px;height:13px}
   .acts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
-  .acts.four{grid-template-columns:repeat(2,1fr)}
-  .ca{display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:11px;padding:11px;
-    font-size:12.5px;font-weight:800;cursor:pointer;transition:.12s;min-height:44px}
-  .ca svg{width:16px;height:16px}
+  .ca{display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:11px;padding:11px;font-size:12.5px;font-weight:800;cursor:pointer;transition:.12s;min-height:44px}.ca svg{width:16px;height:16px}
   .ca:active{transform:scale(.96)} .ca:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-  .ca.call{background:var(--green);color:#fff} .ca.wa{background:var(--wa);color:#fff}
-  .ca.log{background:var(--surface2);color:var(--muted)} .ca.done{background:var(--brand-t);color:var(--brand-d)}
-
-  /* log card */
-  .lg{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:14px 15px;margin-bottom:11px}
-  .lg .h{display:flex;justify-content:space-between;gap:8px;align-items:center}
-  .lg .nm{font-weight:800;font-size:15px}
-  .lg .meta{font-size:.9rem;margin-top:6px;color:var(--ink)} .lg .meta b{color:var(--muted);font-weight:700}
-  .lg .foot{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--surface2)}
-  .lg .foot .nx{display:inline-flex;align-items:center;gap:4px;font-weight:700}
+  .ca.call{background:var(--green);color:#fff}.ca.wa{background:var(--wa);color:#fff}.ca.log{background:var(--s2);color:var(--muted)}.ca.done{background:var(--brand-t);color:var(--brand-d)}.ca.rec{background:var(--purple-t);color:var(--purple)}.ca.edit{background:var(--s2);color:var(--muted)}
+  .foot{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--s2)}
+  .foot .nx{display:inline-flex;align-items:center;gap:4px;font-weight:700}.foot .nx.over{color:var(--red)}
   .st{font-size:.6rem;font-weight:800;padding:4px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.4px}
-  .st.connected{background:var(--green-t);color:#0b6b3c} .st.notpicked{background:var(--red-t);color:#a51d1d} .st.other{background:var(--surface2);color:var(--muted)}
-
-  /* empty + skeleton */
+  .st.connected{background:var(--green-t);color:#0b6b3c}.st.notpicked{background:var(--red-t);color:#a51d1d}.st.other{background:var(--s2);color:var(--muted)}
+  .recwrap{margin-top:10px;background:var(--purple-t);border-radius:11px;padding:10px 12px;display:none}
+  .recwrap audio{width:100%;height:36px}
   .empty{text-align:center;color:var(--muted);padding:44px 18px}
-  .empty .ei{width:56px;height:56px;border-radius:16px;background:var(--surface2);color:var(--brand);display:grid;place-items:center;margin:0 auto 12px}
-  .empty .ei svg{width:26px;height:26px}
-  .empty .e2{font-weight:800;color:var(--ink);font-size:15px}
-  .empty .e3{font-size:13px;margin-top:4px}
+  .empty .ei{width:56px;height:56px;border-radius:16px;background:var(--s2);color:var(--brand);display:grid;place-items:center;margin:0 auto 12px}.empty .ei svg{width:26px;height:26px}
+  .empty .e2{font-weight:800;color:var(--ink);font-size:15px}.empty .e3{font-size:13px;margin-top:4px}
   .sk{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:12px}
-  .sk .l{height:12px;border-radius:6px;background:linear-gradient(90deg,#eef1f8 25%,#e2e7f2 50%,#eef1f8 75%);background-size:200% 100%;animation:sh 1.2s infinite}
-  @keyframes sh{to{background-position:-200% 0}}
-  @media (prefers-reduced-motion:reduce){.sk .l{animation:none}}
-
-  /* form / modal */
+  .sk .l{height:12px;border-radius:6px;background:linear-gradient(90deg,#eef1f8 25%,#e2e7f2 50%,#eef1f8 75%);background-size:200% 100%;animation:shm 1.2s infinite}
+  @keyframes shm{to{background-position:-200% 0}}@media(prefers-reduced-motion:reduce){.sk .l{animation:none}}
+  table.tt{width:100%;border-collapse:collapse;font-size:13px}
+  table.tt th{text-align:left;padding:8px 9px;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--line);font-weight:800}
+  table.tt td{padding:9px;border-bottom:1px solid var(--s2);vertical-align:middle}
+  table.tt tr:last-child td{border-bottom:none}
+  .tnum{font-weight:800;font-variant-numeric:tabular-nums}
   label{display:block;font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 0 6px}
-  label:first-child{margin-top:0}
-  label .req{color:var(--red)}
-  input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;
-    background:#f8faff;color:var(--ink);outline:none;transition:.14s;min-height:48px}
+  label:first-child{margin-top:0} label .req{color:var(--red)}
+  input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;background:#f8faff;color:var(--ink);outline:none;transition:.14s;min-height:48px}
   input:focus,select:focus,textarea:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-t)}
   textarea{resize:vertical;min-height:60px}
-  .modal{position:fixed;inset:0;background:rgba(22,27,46,.5);z-index:60;display:none;align-items:flex-end;justify-content:center;animation:fade .18s}
-  .modal.show{display:flex}
-  @keyframes fade{from{opacity:0}}
-  .sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));
-    max-height:92vh;overflow:auto;animation:up .26s cubic-bezier(.2,.8,.2,1);box-shadow:var(--sh-lg)}
-  @keyframes up{from{transform:translateY(30px)}}
-  @media(min-width:620px){.modal{align-items:center;padding:20px}.sheet{border-radius:20px}}
-  @media (prefers-reduced-motion:reduce){.modal,.sheet{animation:none}}
-  .grab{width:40px;height:4px;border-radius:3px;background:var(--line);margin:2px auto 14px}
-  @media(min-width:620px){.grab{display:none}}
-  .sheet h3{margin:0 0 4px;font-size:1.15rem;font-weight:800}
-  .sheet .sub{font-size:.85rem;color:var(--muted);margin:0 0 8px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:11px}
   .seg{display:flex;gap:7px;flex-wrap:wrap}
-  .seg button{flex:1;min-width:28%;min-height:46px;border:1.5px solid var(--line);background:#f8faff;border-radius:11px;
-    padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.12s}
+  .seg button{flex:1;min-width:28%;min-height:46px;border:1.5px solid var(--line);background:#f8faff;border-radius:11px;padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.12s}
   .seg button.on{border-color:var(--brand);background:var(--brand-t);color:var(--brand-d)}
   .seg button:active{transform:scale(.97)}
-
-  /* fab */
-  .fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:40;
-    display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;border:none;border-radius:16px;
-    padding:14px 20px;font-size:14.5px;font-weight:800;cursor:pointer;box-shadow:0 12px 28px rgba(79,70,229,.45);transition:.12s}
-  .fab:active{transform:scale(.95)} .fab svg{width:20px;height:20px}
-
-  .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
-    background:var(--ink);color:#fff;padding:12px 20px;border-radius:24px;font-weight:600;font-size:.88rem;
-    opacity:0;transition:.24s;z-index:80;pointer-events:none;box-shadow:var(--sh-lg);max-width:88vw;text-align:center}
+  .hint{font-size:.74rem;color:var(--muted);margin-top:5px}
+  .modal{position:fixed;inset:0;background:rgba(22,27,46,.5);z-index:60;display:none;align-items:flex-end;justify-content:center;animation:fade .18s}
+  .modal.show{display:flex}@keyframes fade{from{opacity:0}}
+  .sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto;animation:up .26s cubic-bezier(.2,.8,.2,1);box-shadow:var(--sh-lg);position:relative}
+  @keyframes up{from{transform:translateY(30px)}}@media(min-width:620px){.modal{align-items:center;padding:20px}.sheet{border-radius:20px}}
+  @media(prefers-reduced-motion:reduce){.modal,.sheet{animation:none}}
+  .grab{width:40px;height:4px;border-radius:3px;background:var(--line);margin:2px auto 14px}@media(min-width:620px){.grab{display:none}}
+  .sheet h3{margin:0 0 4px;font-size:1.15rem;font-weight:800}
+  .sheet .sub{font-size:.85rem;color:var(--muted);margin:0 0 8px}
+  .bnav{position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:7px 4px;padding-bottom:max(7px,env(safe-area-inset-bottom));box-shadow:0 -2px 16px rgba(22,27,46,.08)}
+  .bnav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.6rem;font-weight:700;color:var(--faint);padding:5px 6px;position:relative;min-width:0;flex:1}
+  .bnav button svg{width:22px;height:22px}
+  .bnav button.on{color:var(--brand)}
+  .bnav button.on::before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:24px;height:3px;border-radius:3px;background:var(--brand)}
+  .fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:44;display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;border:none;border-radius:16px;padding:14px 18px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 12px 28px rgba(79,70,229,.45);transition:.12s}
+  .fab:active{transform:scale(.95)}.fab svg{width:20px;height:20px}
+  .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:24px;font-weight:600;font-size:.88rem;opacity:0;transition:.24s;z-index:80;pointer-events:none;box-shadow:var(--sh-lg);max-width:88vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-  /* login */
-  .login{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:22px;
-    background:radial-gradient(120% 80% at 50% 0%,#2b3358 0%,#181d33 60%,#0d1120 100%)}
+  .login{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:22px;background:radial-gradient(120% 80% at 50% 0%,#2b3358 0%,#181d33 60%,#0d1120 100%)}
   .lbox{background:#fff;border-radius:22px;padding:28px 24px;width:100%;max-width:370px;box-shadow:var(--sh-lg)}
   .lbrand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
   .lbrand .lg{width:44px;height:44px;border-radius:13px;background:var(--brand);color:#fff;display:grid;place-items:center}
@@ -165,7 +131,6 @@
 </head>
 <body>
 
-<!-- LOGIN -->
 <div class="login" id="login">
   <div class="lbox">
     <div class="lbrand"><div class="lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.09 4.18 2 2 0 0 1 4.08 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
@@ -177,51 +142,57 @@
   </div>
 </div>
 
-<!-- APP -->
 <div id="app" style="display:none">
   <header class="top">
-    <button class="iconbtn" onclick="location.href='index.html'" aria-label="Back to CRM">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-    <div class="ttl"><h1>Call Log</h1><div class="who" id="who">—</div></div>
+    <button class="iconbtn" onclick="location.href='index.html'" aria-label="Back to CRM"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div style="min-width:0"><h1>Call Log</h1><div class="who" id="who">—</div></div>
     <div class="sp"></div>
-    <button class="iconbtn lo" onclick="logout()" aria-label="Logout">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+    <button class="iconbtn" onclick="exportCSV()" aria-label="Export CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
+    <button class="iconbtn" onclick="logout()" aria-label="Logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
   </header>
-  <div class="wrap">
-    <div id="stats"></div>
-    <div class="tabs" id="tabs" role="tablist"></div>
-    <div id="view"></div>
-  </div>
-  <button class="fab" onclick="openAssign()" aria-label="Add number">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Number</button>
+  <div class="wrap"><div id="view"></div></div>
+  <button class="fab" onclick="openLog()" aria-label="New call log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Call Log</button>
+  <nav class="bnav" id="bnav"></nav>
 </div>
 
-<!-- ASSIGN MODAL -->
+<!-- ASSIGN NUMBER MODAL -->
 <div class="modal" id="assignModal"><div class="sheet"><div class="grab"></div>
-  <h3 id="assignTitle">Naya number</h3><p class="sub">Caller ko batao kis se, kab, kya baat karni hai</p>
+  <h3>Number assign</h3><p class="sub">Caller ko batao kis se, kab, kya baat karni hai</p>
   <label>Naam</label><input id="a_name" placeholder="Customer ka naam">
   <label>Mobile</label><input id="a_mob" type="tel" inputmode="numeric" placeholder="10-digit number">
+  <label>Category</label><div class="seg" id="a_cat"></div>
   <label>Feedback — kya baat karni hai</label><textarea id="a_fb" placeholder="Jaise: plot rate discuss karna hai, site visit poochna hai…"></textarea>
-  <label>Date — kab baat karni hai</label><input type="date" id="a_date">
+  <label>Date — kab</label><input type="date" id="a_date">
   <div id="a_assignWrap"><label>Kis caller ko</label><select id="a_assign"></select></div>
   <button class="btn primary" style="margin-top:18px" onclick="saveAssign()">Save karo</button>
   <button class="btn ghost sm" onclick="closeModal('assignModal')">Cancel</button>
 </div></div>
 
-<!-- LOG MODAL -->
+<!-- CSV IMPORT MODAL -->
+<div class="modal" id="importModal"><div class="sheet"><div class="grab"></div>
+  <h3>Contacts import (CSV)</h3><p class="sub">Sheet/Excel se numbers laao — Name, Mobile, Feedback, Date</p>
+  <div id="imp_assignWrap"><label>Kis caller ko assign</label><select id="imp_assign"></select></div>
+  <label>CSV file</label><input type="file" id="impFile" accept=".csv,text/csv" onchange="importCSV(this)">
+  <div class="hint">Columns: <b>Name, Mobile, Feedback, Date, Category</b> — pehli header row skip hogi. Sirf Name/Mobile zaroori.</div>
+  <button class="btn ghost sm" onclick="closeModal('importModal')">Close</button>
+</div></div>
+
+<!-- LOG MODAL (new + edit + after-call) -->
 <div class="modal" id="logModal"><div class="sheet"><div class="grab"></div>
-  <h3 id="logTitle">Call log</h3><p class="sub">Call ke baad detail bharo</p>
+  <h3 id="logTitle">Naya Call Log</h3><p class="sub" id="logSub">Call ki detail bharo</p>
   <label>Call status <span class="req">*</span></label>
-  <div class="seg" id="l_status">
-    <button type="button" data-v="connected">✔ Connected</button>
-    <button type="button" data-v="notpicked">✕ Not picked</button>
-    <button type="button" data-v="other">Other</button>
-  </div>
+  <div class="seg" id="l_status"><button type="button" data-v="connected">✔ Connected</button><button type="button" data-v="notpicked">✕ Not picked</button><button type="button" data-v="other">Other</button></div>
+  <label>Category</label><div class="seg" id="l_cat"></div>
+  <div class="two"><div><label>Date</label><input type="date" id="l_date"></div><div><label>Next date</label><input type="date" id="l_next"></div></div>
+  <label>Naam <span class="req">*</span></label><input id="l_name" placeholder="Kisko call kiya">
+  <label>Mobile</label><input id="l_mob" type="tel" inputmode="numeric" placeholder="10-digit">
   <label>Purpose <span class="req">*</span></label><input id="l_purpose" placeholder="Kis liye call">
   <label>Response — kya baat hui</label><textarea id="l_resp" placeholder="Customer ne kya kaha…"></textarea>
   <label>Next action</label><input id="l_action" placeholder="Aage kya karna hai">
-  <label>Next date</label><input type="date" id="l_next">
-  <button class="btn primary" style="margin-top:18px" onclick="saveLog()">Save log</button>
+  <label>Comment</label><textarea id="l_comment" placeholder="Extra note (optional)"></textarea>
+  <label>🎙 Recording attach (optional)</label><input type="file" id="l_rec" accept="audio/*">
+  <div class="hint">Phone ki call-recording file yahan lagao (phone me local save hoti hai).</div>
+  <button class="btn primary" style="margin-top:16px" onclick="saveLog()">Save log</button>
   <button class="btn ghost sm" onclick="closeModal('logModal')">Cancel</button>
 </div></div>
 
@@ -234,20 +205,14 @@ const auth=firebase.auth(), db=firebase.firestore();
 try{ db.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(_){}
 
 const ADMIN_EMAILS=['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];
-const NAME_BY_EMAIL={
-  'krishan.sr1974@gmail.com':'Krishan Ji','trainer.akshardham@gmail.com':'Luv',
-  'techakshardham@gmail.com':'Shaffat Ji','akdpankaj@gmail.com':'Rahul',
-  'bhaveshakd3@gmail.com':'Bhavesh','shanu.akshardham@gmail.com':'Rashid Ji',
-  'akdrupesh@gmail.com':'Rupesh Ji','akd.sunilm@gmail.com':'Sunil Meghwal Ji',
-  'akdsunil88@gmail.com':'Sunil Pankaj Ji','akd.leeladhar@gmail.com':'Leeladhar ji',
-  'akd.raghav@gmail.com':'Raghavendra Ji','telecaller1.akd@gmail.com':'Kamana ji'
-};
+const NAME_BY_EMAIL={'krishan.sr1974@gmail.com':'Krishan Ji','trainer.akshardham@gmail.com':'Luv','techakshardham@gmail.com':'Shaffat Ji','akdpankaj@gmail.com':'Rahul','bhaveshakd3@gmail.com':'Bhavesh','shanu.akshardham@gmail.com':'Rashid Ji','akdrupesh@gmail.com':'Rupesh Ji','akd.sunilm@gmail.com':'Sunil Meghwal Ji','akdsunil88@gmail.com':'Sunil Pankaj Ji','akd.leeladhar@gmail.com':'Leeladhar ji','akd.raghav@gmail.com':'Raghavendra Ji','telecaller1.akd@gmail.com':'Kamana ji'};
 const EXECS=['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];
+const CATS=['Customer','Agent','Networker','Vendor'];
+const KNOWN=['Customer','Agent','Networker','Vendor','Other'];
 
-/* icons */
 const IC={
   phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.09 4.18 2 2 0 0 1 4.08 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-  wa:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.17L2 22l4.95-1.3A9.9 9.9 0 1 0 12.04 2zm5.6 14.2c-.24.66-1.4 1.26-1.92 1.3-.5.05-.96.24-3.24-.68-2.73-1.1-4.44-3.9-4.57-4.08-.13-.18-1.1-1.46-1.1-2.78 0-1.32.7-1.97.94-2.24.24-.26.52-.33.7-.33l.5.01c.16 0 .38-.06.6.46.22.53.75 1.85.82 1.98.07.13.11.29.02.46-.09.18-.13.29-.26.44l-.4.46c-.13.13-.26.28-.11.54.15.26.66 1.09 1.42 1.77.98.87 1.8 1.14 2.06 1.27.26.13.4.11.55-.07.15-.18.63-.74.8-.99.16-.26.33-.21.55-.13.22.08 1.42.67 1.66.79.24.12.4.18.46.28.06.11.06.63-.18 1.28z"/></svg>',
+  wa:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.17L2 22l4.95-1.3A9.9 9.9 0 1 0 12.04 2zm5.6 14.2c-.24.66-1.4 1.26-1.92 1.3-.5.05-.96.24-3.24-.68-2.73-1.1-4.44-3.9-4.57-4.08-.13-.18-1.1-1.46-1.1-2.78 0-1.32.7-1.97.94-2.24.24-.26.52-.33.7-.33l.5.01c.16 0 .38-.06.6.46.22.53.75 1.85.82 1.98.07.13.11.29.02.46-.35.7-.72.9-.36.44-.13.5.15.26.66 1.09 1.42 1.77.98.87 1.8 1.14 2.06 1.27.26.13.4.11.55-.07.15-.18.63-.74.8-.99.16-.26.33-.21.55-.13.22.08 1.42.67 1.66.79.24.12.4.18.46.28.06.11.06.63-.18 1.28z"/></svg>',
   edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
@@ -255,11 +220,15 @@ const IC={
   users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
   contact:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17a4 4 0 0 1 8 0"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
   msg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5-5 5 5M12 4v12"/></svg>',
   inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>'
 };
 
-let me=null, cl={tab:'mine', contacts:[], logs:[], loading:true};
+let me=null, cl={tab:'home', contacts:[], logs:[], loading:true, logFilter:'All', userFilter:'All', editId:null, ctx:null}, _logCtx=null;
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const today=()=>new Date(Date.now()+5.5*3600e3).toISOString().slice(0,10);
@@ -269,174 +238,268 @@ const isAdmin=()=>!!(me&&ADMIN_EMAILS.includes((me.email||'').toLowerCase()));
 const myName=()=>{const e=(me&&me.email||'').toLowerCase(); return NAME_BY_EMAIL[e]||localStorage.getItem('hudName_'+e)||(e.split('@')[0]);};
 const myKey=()=>myName().toLowerCase();
 const plusDays=(d,n)=>{const x=new Date(d+'T00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);};
+const catBadge=c=>{const cls=KNOWN.includes(c)?('b-'+c.toLowerCase()):'b-other';return `<span class="badge ${cls}">${esc(c||'Other')}</span>`;};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000);}
 function closeModal(id){$(id).classList.remove('show');}
 function openModal(id){$(id).classList.add('show');}
 
+/* seg helper */
+function buildSeg(el,vals,sel){el.innerHTML=vals.map(v=>`<button type="button" data-c="${esc(v)}" class="${v===sel?'on':''}">${esc(v)}</button>`).join('')+`<button type="button" data-c="__o" class="${sel&&!vals.includes(sel)?'on':''}">Other</button>`;
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');});}
+function segVal(el){const on=el.querySelector('button.on');if(!on)return CATS[0];if(on.dataset.c==='__o')return 'Other';return on.dataset.c;}
+
 /* auth */
-function doLogin(){
-  const e=$('li_email').value.trim(), p=$('li_pw').value;
-  if(!e||!p){$('lerr').textContent='Email aur password daalo';return;}
-  $('lerr').textContent='Checking…';
-  auth.signInWithEmailAndPassword(e,p).catch(err=>$('lerr').textContent=(err.message||'').replace('Firebase: ',''));
-}
-function logout(){ auth.signOut().then(()=>location.reload()); }
+function doLogin(){const e=$('li_email').value.trim(),p=$('li_pw').value;if(!e||!p){$('lerr').textContent='Email aur password daalo';return;}$('lerr').textContent='Checking…';auth.signInWithEmailAndPassword(e,p).catch(err=>$('lerr').textContent=(err.message||'').replace('Firebase: ',''));}
+function logout(){auth.signOut().then(()=>location.reload());}
 $('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 auth.onAuthStateChanged(u=>{
-  if(u){ me=u; $('login').style.display='none'; $('app').style.display='block';
-    $('who').textContent=myName()+(isAdmin()?' · admin':''); buildTabs(); render(); load();
-  } else { me=null; $('app').style.display='none'; $('login').style.display='grid'; }
+  if(u){me=u;$('login').style.display='none';$('app').style.display='block';$('who').textContent=myName()+(isAdmin()?' · admin':'');buildNav();render();load();}
+  else{me=null;$('app').style.display='none';$('login').style.display='grid';}
 });
 
-/* tabs */
-function buildTabs(){
-  const t=[['mine',IC.contact,'Meri Calls'],['logs',IC.list,'Logs']];
-  if(isAdmin()) t.push(['all',IC.users,'Sabke']);
-  $('tabs').innerHTML=t.map(([k,ic,l])=>`<button role="tab" aria-selected="${cl.tab===k}" class="${cl.tab===k?'on':''}" onclick="setTab('${k}')">${ic}${l}</button>`).join('');
+/* nav */
+function buildNav(){
+  const t=[['home',IC.home,'Home'],['logs',IC.list,'Logs'],['due',IC.bell,'Follow-ups'],['contacts',IC.contact,'Contacts']];
+  if(isAdmin())t.push(['team',IC.users,'Team']);
+  $('bnav').innerHTML=t.map(([k,ic,l])=>`<button class="${cl.tab===k?'on':''}" onclick="setTab('${k}')" aria-label="${l}">${ic}<span>${l}</span></button>`).join('');
 }
-function setTab(k){ cl.tab=k; buildTabs(); render(); }
+function setTab(k){cl.tab=k;buildNav();render();}
 
 /* data */
 async function load(){
-  cl.loading=true; render();
+  cl.loading=true;render();
   try{
     const cs=await db.collection('callcontacts').where('done','==',false).get();
     cl.contacts=cs.docs.map(d=>({id:d.id,...d.data()}));
-    const lq= isAdmin() ? db.collection('calllogs').orderBy('ts','desc').limit(200)
-                        : db.collection('calllogs').where('uidKey','==',myKey());
+    const lq=isAdmin()?db.collection('calllogs').orderBy('ts','desc').limit(300):db.collection('calllogs').where('uidKey','==',myKey());
     const ls=await lq.get();
     cl.logs=ls.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.ts||0)-(a.ts||0));
-  }catch(e){ toast('Load error: '+e.message); }
-  cl.loading=false; render();
+  }catch(e){toast('Load error: '+e.message);}
+  cl.loading=false;render();
 }
-
-/* stats */
-function renderStats(){
-  const mineC=cl.contacts.filter(c=>(c.assignKey||'')===myKey());
-  const pending=(isAdmin()?cl.contacts:mineC).length;
-  const overdue=(isAdmin()?cl.contacts:mineC).filter(c=>c.callDate&&c.callDate<today()).length;
-  const todayCalls=cl.logs.filter(l=>l.date===today()).length;
-  $('stats').innerHTML=`<div class="stats">
-    <div class="stat d"><div class="n">${todayCalls}</div><div class="l">Aaj calls</div></div>
-    <div class="stat p"><div class="n">${pending}</div><div class="l">Pending</div></div>
-    <div class="stat o"><div class="n">${overdue}</div><div class="l">Overdue</div></div></div>`;
-}
+const myLogs=()=>isAdmin()?cl.logs:cl.logs.filter(l=>l.uidKey===myKey());
+const myContacts=()=>isAdmin()?cl.contacts:cl.contacts.filter(c=>(c.assignKey||'')===myKey());
 
 /* render */
 function render(){
-  renderStats();
   const v=$('view');
-  if(cl.loading){ v.innerHTML=`<div class="sk"><div class="l" style="width:55%"></div><div class="l" style="width:80%;margin-top:10px"></div></div>`.repeat(3); return; }
-  if(cl.tab==='mine') v.innerHTML=mineView();
-  else if(cl.tab==='all') v.innerHTML=allView();
-  else v.innerHTML=logsView();
+  if(cl.loading){v.innerHTML=`<div class="sk"><div class="l" style="width:55%"></div><div class="l" style="width:80%;margin-top:10px"></div></div>`.repeat(3);return;}
+  if(cl.tab==='home')v.innerHTML=homeView();
+  else if(cl.tab==='logs')v.innerHTML=logsView();
+  else if(cl.tab==='due')v.innerHTML=dueView();
+  else if(cl.tab==='contacts')v.innerHTML=contactsView();
+  else if(cl.tab==='team')v.innerHTML=teamView();
 }
-function mineView(){
-  const list=cl.contacts.filter(c=>(c.assignKey||'')===myKey()).sort((a,b)=>(a.callDate||'').localeCompare(b.callDate||''));
-  return `<div class="sec">${IC.contact} Mujhe assign <span class="cnt">${list.length}</span></div>
-    ${list.length? list.map(c=>contactCard(c)).join('') : empty(IC.contact,'Koi pending number nahi','＋ Number se add karo, ya admin assign karega')}`;
+
+function homeView(){
+  const t=today(), lg=myLogs(), todayL=lg.filter(l=>l.date===t);
+  const cust=todayL.filter(l=>l.cat==='Customer').length, agent=todayL.filter(l=>l.cat==='Agent').length;
+  const due=myContacts().filter(c=>c.callDate&&c.callDate<=t).length;
+  let admin='';
+  if(isAdmin()){
+    const rows=EXECS.map(nm=>{const k=nm.toLowerCase();const ul=cl.logs.filter(l=>l.uidKey===k);const tod=ul.filter(l=>l.date===t).length;
+      const cs=cl.contacts.filter(c=>(c.assignKey||'')===k);const od=cs.filter(c=>c.callDate&&c.callDate<=t).length;
+      return `<tr><td><b>${esc(nm)}</b></td><td class="tnum" style="color:var(--green)">${tod}</td><td class="tnum">${ul.length}</td><td class="tnum" style="color:${od?'var(--red)':'inherit'}">${od}</td><td class="tnum">${cs.length}</td></tr>`;}).join('');
+    admin=`<div class="sec">${IC.users} Team — Aaj</div><div class="cc" style="overflow-x:auto;padding:12px"><table class="tt"><tr><th>Member</th><th>Aaj</th><th>Total</th><th>Due</th><th>Contacts</th></tr>${rows}</table></div>`;
+  }
+  return `<h1 class="pt">Dashboard</h1><p class="ps">Aaj ki calling activity</p>
+    <div class="stats">
+      <div class="hero"><div class="l">AAJ KI TOTAL CALLS</div><div class="n">${todayL.length}</div><div class="s">${todayL.length?todayL.length+' call'+(todayL.length>1?'s':'')+' logged':'Abhi koi call nahi'}</div></div>
+      <div class="stat c"><div class="n">${cust}</div><div class="l">Customer</div></div>
+      <div class="stat a"><div class="n">${agent}</div><div class="l">Agent</div></div>
+      <div class="stat d"><div class="n">${due}</div><div class="l">Due</div></div>
+    </div>
+    ${admin}
+    <div class="sec">${IC.clock} Aaj ki activity</div>
+    ${todayL.length?todayL.map(logCard).join(''):empty(IC.phone,'Aaj koi call log nahi','Neeche + Call Log se add karo, ya Contacts se call karo')}`;
 }
-function allView(){
-  const list=cl.contacts.slice().sort((a,b)=>(a.assignName||'').localeCompare(b.assignName||''));
-  return `<div class="sec">${IC.users} Sabke pending <span class="cnt">${list.length}</span></div>
-    ${list.length? list.map(c=>contactCard(c,true)).join('') : empty(IC.users,'Koi pending number nahi','＋ Number se assign karo')}`;
+
+function logsView(){
+  let list=myLogs();
+  const cats=['All',...CATS,'Other'];
+  const chips=cats.map(c=>`<button class="chip ${cl.logFilter===c?'on':''}" onclick="cl.logFilter='${c}';render()">${c}</button>`).join('');
+  let userChips='';
+  if(isAdmin()){
+    userChips=`<div class="chips">${['All',...EXECS].map(n=>`<button class="chip sm ${cl.userFilter===n?'on':''}" onclick="cl.userFilter='${esc(n)}';render()">${esc(n)}</button>`).join('')}</div>`;
+    if(cl.userFilter!=='All')list=list.filter(l=>l.uidKey===cl.userFilter.toLowerCase());
+  }
+  if(cl.logFilter!=='All')list=cl.logFilter==='Other'?list.filter(l=>!KNOWN.includes(l.cat)||l.cat==='Other'):list.filter(l=>l.cat===cl.logFilter);
+  return `<h1 class="pt">${isAdmin()?'All Call Logs':'Mere Call Logs'}</h1><p class="ps">${list.length} logs</p>
+    <div class="chips">${chips}</div>${userChips}
+    ${list.length?list.map(logCard).join(''):empty(IC.list,'Koi log nahi','Filter badlo ya naya call log banao')}`;
 }
+
+function dueView(){
+  const t=today(), lg=myLogs().filter(l=>l.next);
+  const due=lg.filter(l=>l.next<=t).sort((a,b)=>a.next.localeCompare(b.next));
+  const up=lg.filter(l=>l.next>t).sort((a,b)=>a.next.localeCompare(b.next)).slice(0,40);
+  return `<h1 class="pt">Follow-ups</h1><p class="ps">Aaj due + aage aane wale</p>
+    <div class="sec">${IC.bell} Due / Overdue <span class="cnt">${due.length}</span></div>
+    ${due.length?due.map(logCard).join(''):empty(IC.check,'Koi follow-up due nahi','Sab up to date 👍')}
+    ${up.length?`<div class="sec">${IC.clock} Aage aane wale <span class="cnt">${up.length}</span></div>${up.map(logCard).join('')}`:''}`;
+}
+
+function contactsView(){
+  let list=myContacts();
+  const cats=['All',...CATS,'Other'];
+  const chips=cats.map(c=>`<button class="chip ${cl.logFilter===c?'on':''}" onclick="cl.logFilter='${c}';render()">${c}</button>`).join('');
+  let userChips='';
+  if(isAdmin()){
+    userChips=`<div class="chips">${['All',...EXECS].map(n=>`<button class="chip sm ${cl.userFilter===n?'on':''}" onclick="cl.userFilter='${esc(n)}';render()">${esc(n)}</button>`).join('')}</div>`;
+    if(cl.userFilter!=='All')list=list.filter(c=>(c.assignKey||'')===cl.userFilter.toLowerCase());
+  }
+  if(cl.logFilter!=='All')list=cl.logFilter==='Other'?list.filter(c=>!KNOWN.includes(c.cat)||c.cat==='Other'):list.filter(c=>c.cat===cl.logFilter);
+  list=list.slice().sort((a,b)=>(a.callDate||'').localeCompare(b.callDate||''));
+  return `<h1 class="pt">Contacts</h1><p class="ps">Call karne wale numbers — feedback ke saath</p>
+    <div class="row2"><button class="btn primary" onclick="openAssign()">${IC.contact} Number add</button><button class="btn dark" onclick="openImport()">${IC.up} Import</button></div>
+    <div class="chips" style="margin-top:14px">${chips}</div>${userChips}
+    ${list.length?list.map(c=>contactCard(c,isAdmin())).join(''):empty(IC.contact,'Koi pending number nahi','Number add ya Import karo')}`;
+}
+
+function teamView(){
+  const t=today();
+  const rows=EXECS.map(nm=>{const k=nm.toLowerCase();const ul=cl.logs.filter(l=>l.uidKey===k);
+    return `<tr><td><b>${esc(nm)}</b></td><td class="tnum" style="color:var(--green)">${ul.filter(l=>l.date===t).length}</td><td class="tnum">${ul.length}</td><td class="tnum">${cl.contacts.filter(c=>(c.assignKey||'')===k).length}</td></tr>`;}).join('');
+  return `<h1 class="pt">Team</h1><p class="ps">Sabki calling performance</p>
+    <div class="cc" style="overflow-x:auto;padding:12px"><table class="tt"><tr><th>Member</th><th>Aaj</th><th>Total</th><th>Pending</th></tr>${rows}</table></div>`;
+}
+
 function contactCard(c,showWho){
   const over=c.callDate&&c.callDate<today();
-  const who= showWho&&c.assignName ? `<div class="assignedby">${IC.users} ${esc(c.assignName)}</div>` : '';
-  const by= c.assignedBy&&c.assignedBy!==c.assignName ? `<div class="assignedby">Assigned by ${esc(c.assignedBy)}</div>` : '';
   return `<article class="cc">
     <div class="r1"><div class="av">${esc(initials(c.name))}</div>
-      <div style="flex:1;min-width:0"><div class="nm">${esc(c.name||'—')}</div>
-        ${c.mob?`<div class="mb">${IC.phone} ${esc(c.mob)}</div>`:''}</div></div>
+      <div style="flex:1;min-width:0"><div class="nm">${esc(c.name||'—')}</div>${c.mob?`<div class="mb">${IC.phone} ${esc(c.mob)}</div>`:''}</div>${catBadge(c.cat)}</div>
     ${c.feedback?`<div class="fb"><div class="l">${IC.msg} Kya baat karni hai</div>${esc(c.feedback)}</div>`:''}
     ${c.callDate?`<div class="cdate ${over?'over':''}">${IC.cal} ${fmt(c.callDate)}${over?' · pending':''}</div>`:''}
-    ${who}${by}
+    ${showWho&&c.assignName?`<div class="assignedby">${IC.users} ${esc(c.assignName)}${c.assignedBy&&c.assignedBy!==c.assignName?' · by '+esc(c.assignedBy):''}</div>`:''}
     <div class="acts">
-      ${c.mob?`<button class="ca call" onclick="startCall('${esc(c.name)}','${esc(c.mob)}','${c.id}')" aria-label="Call">${IC.phone} Call</button>
-      <button class="ca wa" onclick="wa('${esc(c.mob)}')" aria-label="WhatsApp">${IC.wa} WhatsApp</button>`:''}
-      <button class="ca log" onclick="openLog('${esc(c.name)}','${esc(c.mob)}','${c.id}')">${IC.edit} Log</button>
+      ${c.mob?`<button class="ca call" onclick="startCall('${esc(c.name)}','${esc(c.mob)}','${c.id}','${esc(c.cat||'')}')">${IC.phone} Call</button><button class="ca wa" onclick="wa('${esc(c.mob)}')">${IC.wa} WhatsApp</button>`:''}
+      <button class="ca log" onclick="openLog(null,{name:'${esc(c.name)}',mob:'${esc(c.mob)}',cat:'${esc(c.cat||'')}',cid:'${c.id}'})">${IC.edit} Log</button>
       <button class="ca done" onclick="markDone('${c.id}')">${IC.check} Ho gaya</button>
     </div></article>`;
 }
-function logsView(){
-  const list=cl.logs;
-  return `<div class="sec">${IC.list} ${isAdmin()?'Sabke logs':'Mere logs'} <span class="cnt">${list.length}</span></div>
-    ${list.length? list.map(logCard).join('') : empty(IC.inbox,'Koi log nahi','Call karke log banao')}`;
-}
 function logCard(l){
-  const who= isAdmin()&&l.user ? ' · '+esc(l.user) : '';
-  const stLabel={connected:'Connected',notpicked:'Not picked',other:'Other'}[l.status]||l.status||'';
-  return `<article class="lg"><div class="h"><div class="nm">${esc(l.name||'—')}</div>${l.status?`<span class="st ${esc(l.status)}">${esc(stLabel)}</span>`:''}</div>
-    ${l.mob?`<div class="meta"><b>Mobile:</b> ${esc(l.mob)}</div>`:''}
+  const over=l.next&&l.next<=today();
+  const who=isAdmin()&&l.user?' · '+esc(l.user):'';
+  const stLabel={connected:'Connected',notpicked:'Not picked',other:'Other'}[l.status]||'';
+  const rec=l.hasRec?`<button class="ca rec" onclick="playRec('${l.id}',this)">${IC.play} Recording</button>`:'';
+  return `<article class="cc">
+    <div class="r1"><div class="av">${esc(initials(l.name))}</div>
+      <div style="flex:1;min-width:0"><div class="nm">${esc(l.name||'—')}</div>${l.mob?`<div class="mb">${IC.phone} ${esc(l.mob)}</div>`:''}</div>
+      ${l.status?`<span class="st ${esc(l.status)}">${esc(stLabel)}</span>`:catBadge(l.cat)}</div>
     ${l.purpose?`<div class="meta"><b>Purpose:</b> ${esc(l.purpose)}</div>`:''}
     ${l.resp?`<div class="meta"><b>Baat:</b> ${esc(l.resp)}</div>`:''}
     ${l.action?`<div class="meta"><b>Next:</b> ${esc(l.action)}</div>`:''}
-    <div class="foot"><span>${fmt(l.date)}${who}</span>${l.next?`<span class="nx">${IC.clock} ${fmt(l.next)}</span>`:''}</div></article>`;
+    ${l.comment?`<div class="meta" style="color:var(--muted)">${esc(l.comment)}</div>`:''}
+    <div class="foot"><span>${fmt(l.date)}${who}</span>${l.next?`<span class="nx ${over?'over':''}">${IC.clock} ${fmt(l.next)}${over?' DUE':''}</span>`:''}</div>
+    <div class="acts" style="grid-template-columns:${l.mob?'1fr 1fr 1fr':'1fr 1fr'}">
+      ${l.mob?`<button class="ca call" onclick="startCall('${esc(l.name)}','${esc(l.mob)}','','${esc(l.cat||'')}')">${IC.phone} Call</button><button class="ca wa" onclick="wa('${esc(l.mob)}')">${IC.wa} WA</button>`:''}
+      <button class="ca edit" onclick="openLog('${l.id}')">${IC.edit} Edit</button>
+    </div>
+    ${rec}
+    <div class="recwrap" id="rw_${l.id}"><audio controls></audio></div></article>`;
 }
 function empty(ic,t,s){return `<div class="empty"><div class="ei">${ic}</div><div class="e2">${t}</div><div class="e3">${s}</div></div>`;}
 
-/* assign */
+/* assign contact */
 function openAssign(){
-  ['a_name','a_mob','a_fb'].forEach(i=>$(i).value='');
-  $('a_date').value=today();
-  const w=$('a_assignWrap'), sel=$('a_assign');
-  sel.innerHTML=EXECS.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  sel.value=myName();
-  w.style.display=isAdmin()?'block':'none';
+  ['a_name','a_mob','a_fb'].forEach(i=>$(i).value='');$('a_date').value=today();
+  buildSeg($('a_cat'),CATS,'Customer');
+  const sel=$('a_assign');sel.innerHTML=EXECS.map(n=>`<option>${esc(n)}</option>`).join('');sel.value=myName();
+  $('a_assignWrap').style.display=isAdmin()?'block':'none';
   openModal('assignModal');
 }
 function saveAssign(){
-  const name=$('a_name').value.trim(), mob=$('a_mob').value.trim().replace(/\s+/g,'');
-  const fb=$('a_fb').value.trim(), date=$('a_date').value||today();
-  if(!name&&!mob){ toast('Naam ya number daalo'); return; }
-  const assignName= isAdmin()? ($('a_assign').value||myName()) : myName();
-  db.collection('callcontacts').add({name,mob,feedback:fb,callDate:date,
-    assignName, assignKey:assignName.toLowerCase(), assignedBy:myName(), done:false, ts:Date.now()})
-   .then(()=>{ toast('Assign ho gaya ✓'); closeModal('assignModal'); load(); })
-   .catch(e=>toast('Save error: '+e.message));
+  const name=$('a_name').value.trim(),mob=$('a_mob').value.trim().replace(/\s+/g,''),fb=$('a_fb').value.trim(),date=$('a_date').value||today();
+  if(!name&&!mob){toast('Naam ya number daalo');return;}
+  const an=isAdmin()?($('a_assign').value||myName()):myName();
+  db.collection('callcontacts').add({name,mob,cat:segVal($('a_cat')),feedback:fb,callDate:date,assignName:an,assignKey:an.toLowerCase(),assignedBy:myName(),done:false,ts:Date.now()})
+   .then(()=>{toast('Assign ho gaya ✓');closeModal('assignModal');load();}).catch(e=>toast('Error: '+e.message));
 }
-function markDone(id){
-  if(!confirm('Ye number "ho gaya" mark karein? List se hat jayega.')) return;
-  db.collection('callcontacts').doc(id).set({done:true,doneTs:Date.now()},{merge:true})
-   .then(()=>{ toast('Ho gaya ✓'); load(); }).catch(e=>toast(e.message));
+function markDone(id){if(!confirm('Ye number "ho gaya" mark karein?'))return;db.collection('callcontacts').doc(id).set({done:true,doneTs:Date.now()},{merge:true}).then(()=>{toast('Ho gaya ✓');load();}).catch(e=>toast(e.message));}
+
+/* import */
+function openImport(){const sel=$('imp_assign');sel.innerHTML=EXECS.map(n=>`<option>${esc(n)}</option>`).join('');sel.value=myName();$('imp_assignWrap').style.display=isAdmin()?'block':'none';$('impFile').value='';openModal('importModal');}
+function importCSV(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const an=isAdmin()?($('imp_assign').value||myName()):myName();
+  const r=new FileReader();
+  r.onload=async()=>{
+    const lines=String(r.result).replace(/\r/g,'').split('\n').filter(x=>x.trim());
+    let start=0;if(lines.length){const f=lines[0].toLowerCase();if(f.includes('name')||f.includes('mobile')||f.includes('number'))start=1;}
+    let n=0;const batch=db.batch();
+    for(let i=start;i<lines.length;i++){
+      const p=lines[i].split(',').map(s=>s.replace(/^"|"$/g,'').trim());
+      const name=p[0]||'',mob=(p[1]||'').replace(/[^\d+]/g,''),fb=p[2]||'',date=p[3]||today(),cat=p[4]||'Customer';
+      if(!name&&!mob)continue;
+      const ref=db.collection('callcontacts').doc();
+      batch.set(ref,{name,mob,cat,feedback:fb,callDate:date,assignName:an,assignKey:an.toLowerCase(),assignedBy:myName(),done:false,ts:Date.now()+i});
+      n++;if(n>=450)break;
+    }
+    try{await batch.commit();toast(n+' contact import ✓');}catch(e){toast('Import error: '+e.message);}
+    input.value='';closeModal('importModal');load();
+  };
+  r.readAsText(file);
 }
 
 /* call + log */
-let _logCtx=null;
-function startCall(name,mob,cid){ _logCtx={name,mob,cid,start:Date.now()}; window.location.href='tel:'+mob; }
-function wa(m){ let n=String(m).replace(/\D/g,''); if(n.length===10)n='91'+n; window.open('https://wa.me/'+n,'_blank'); }
+function wa(m){let n=String(m).replace(/\D/g,'');if(n.length===10)n='91'+n;window.open('https://wa.me/'+n,'_blank');}
+function startCall(name,mob,cid,cat){_logCtx={name,mob,cid,cat,start:Date.now()};window.location.href='tel:'+mob;}
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible' && _logCtx){
-    const away=Math.round((Date.now()-_logCtx.start)/1000); const c=_logCtx; _logCtx=null;
-    if(away>=4) openLog(c.name,c.mob,c.cid);
-  }
+  if(document.visibilityState==='visible'&&_logCtx){const a=Math.round((Date.now()-_logCtx.start)/1000);const c=_logCtx;_logCtx=null;if(a>=4)openLog(null,c);}
 });
-function openLog(name,mob,cid){
-  $('logTitle').textContent='Call log'+(name?' — '+name:'');
-  $('logModal')._ctx={name,mob,cid};
+function openLog(editId,ctx){
+  cl.editId=editId||null; $('logModal')._ctx=ctx||null;
   $('l_status').querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-  ['l_purpose','l_resp','l_action','l_next'].forEach(i=>$(i).value='');
+  let L={};
+  if(editId){L=cl.logs.find(x=>x.id===editId)||{};$('logTitle').textContent='Edit Call Log';$('logSub').textContent='Detail badlo';
+    if(L.status){const b=$('l_status').querySelector('[data-v="'+L.status+'"]');if(b)b.classList.add('on');}}
+  else{$('logTitle').textContent='Naya Call Log';$('logSub').textContent=ctx&&ctx.name?('Call: '+ctx.name):'Call ki detail bharo';}
+  buildSeg($('l_cat'),CATS,L.cat||(ctx&&ctx.cat)||'Customer');
+  $('l_date').value=L.date||today();$('l_next').value=L.next||'';
+  $('l_name').value=L.name||(ctx&&ctx.name)||'';$('l_mob').value=L.mob||(ctx&&ctx.mob)||'';
+  $('l_purpose').value=L.purpose||'';$('l_resp').value=L.resp||'';$('l_action').value=L.action||'';$('l_comment').value=L.comment||'';
+  $('l_rec').value='';
   openModal('logModal');
 }
-$('l_status').querySelectorAll('button').forEach(b=>b.onclick=()=>{
-  $('l_status').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-});
-function saveLog(){
+async function saveLog(){
+  const on=$('l_status').querySelector('button.on');const status=on?on.dataset.v:'';
+  const name=$('l_name').value.trim(),purpose=$('l_purpose').value.trim();
+  if(!status){toast('Call status chuno');return;}
+  if(!name){toast('Naam daalo');return;}
+  if(!purpose){toast('Purpose daalo');return;}
+  const date=$('l_date').value||today(), next=$('l_next').value||plusDays(date,7);
   const ctx=$('logModal')._ctx||{};
-  const on=$('l_status').querySelector('button.on');
-  const status=on?on.dataset.v:'';
-  const purpose=$('l_purpose').value.trim();
-  if(!status){ toast('Call status chuno'); return; }
-  if(!purpose){ toast('Purpose daalo'); return; }
-  const next=$('l_next').value||plusDays(today(),7);
-  db.collection('calllogs').add({uid:me.uid, uidKey:myKey(), user:myName(), date:today(),
-    name:ctx.name||'', mob:ctx.mob||'', status, purpose, resp:$('l_resp').value.trim(),
-    action:$('l_action').value.trim(), next, ts:Date.now()})
-   .then(()=>{
-     if(status==='connected'&&ctx.cid) db.collection('callcontacts').doc(ctx.cid).set({done:true,doneTs:Date.now()},{merge:true});
-     toast('Log saved ✓'); closeModal('logModal'); load();
-   }).catch(e=>toast('Save error: '+e.message));
+  const recFile=$('l_rec').files&&$('l_rec').files[0];
+  const data={date,next,cat:segVal($('l_cat')),name,mob:$('l_mob').value.trim(),purpose,resp:$('l_resp').value.trim(),action:$('l_action').value.trim(),comment:$('l_comment').value.trim(),status,ts:Date.now()};
+  try{
+    let id=cl.editId;
+    if(id){ if(recFile)data.hasRec=true; await db.collection('calllogs').doc(id).set(data,{merge:true}); }
+    else{ data.uid=me.uid;data.uidKey=myKey();data.user=myName();data.hasRec=!!recFile;
+      const ref=await db.collection('calllogs').add(data);id=ref.id;
+      if(status==='connected'&&ctx.cid)db.collection('callcontacts').doc(ctx.cid).set({done:true,doneTs:Date.now()},{merge:true});
+    }
+    if(recFile&&id)saveRec(id,recFile);
+    toast(cl.editId?'Updated ✓':'Log saved ✓');cl.editId=null;closeModal('logModal');load();
+  }catch(e){toast('Save error: '+e.message);}
+}
+
+/* recordings — local IndexedDB (per-device) */
+let rdb=null;
+function openRdb(){if(rdb)return Promise.resolve(rdb);return new Promise((res,rej)=>{const q=indexedDB.open('callRecs',1);q.onupgradeneeded=e=>e.target.result.createObjectStore('r',{keyPath:'id'});q.onsuccess=e=>{rdb=e.target.result;res(rdb);};q.onerror=()=>rej(new Error('idb'));});}
+function saveRec(id,file){openRdb().then(d=>{d.transaction('r','readwrite').objectStore('r').put({id,blob:file});}).catch(()=>{});}
+function playRec(id,btn){const w=$('rw_'+id);if(w.style.display==='block'){w.style.display='none';return;}
+  openRdb().then(d=>{const q=d.transaction('r','readonly').objectStore('r').get(id);q.onsuccess=()=>{if(!q.result){toast('Recording sirf usi phone pe hai jisne save ki');return;}w.querySelector('audio').src=URL.createObjectURL(q.result.blob);w.style.display='block';};}).catch(()=>toast('Recording error'));}
+
+/* export */
+function exportCSV(){
+  const logs=myLogs();if(!logs.length){toast('Koi log nahi');return;}
+  const head=['User','Date','Category','Name','Mobile','Purpose','Response','Next Action','Next Date','Status','Comment'];
+  const rows=logs.map(l=>[l.user,l.date,l.cat,l.name,l.mob,l.purpose,l.resp,l.action,l.next,l.status,l.comment].map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(','));
+  const csv=head.join(',')+'\n'+rows.join('\n');const fn='call_log_'+today()+'.csv';
+  const blob=new Blob(['﻿'+csv],{type:'text/csv'});
+  try{const f=new File([blob],fn,{type:'text/csv'});if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:fn});return;}}catch(_){}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();setTimeout(()=>{try{URL.revokeObjectURL(a.href)}catch(_){}} ,5000);
 }
 </script>
 </body>
