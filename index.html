@@ -507,6 +507,7 @@ function sideHTML(){
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
+      <button class="nav-item" onclick="location.href='calllog.html'">${IC.phone} Call Log</button>
     </nav>
     <div class="side-foot">
       <div class="stats"${crm?'':' style="display:none"'}>
@@ -1512,6 +1513,7 @@ function bottomNavHTML(){
     ${it('kanban',IC.board,'Board',"tab('kanban')",'')}
     ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
     ${it('att',IC.check,'Attend.','openAtt()','')}
+    <button class="bn-item" onclick="location.href='calllog.html'">${IC.phone}<span>Call Log</span></button>
   </nav>`;
 }
 
