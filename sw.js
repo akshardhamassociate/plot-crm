@@ -1,5 +1,5 @@
 // Plot CRM service worker — FCM background push + FAST caching
-// Fast: Firebase SDK + Google Fonts cache-first (dobara download nahi), app shell stale-while-revalidate.
+// HTML pages = network-first (update turant dikhe), baaki assets = cache-first / SWR (fast).
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
 
@@ -14,7 +14,7 @@ firebase.initializeApp({
 firebase.messaging();   // background notifications (auto-display)
 
 const APP_URL = 'https://akshardhamassociate.github.io/plot-crm/';
-const CACHE = 'plotcrm-v2';
+const CACHE = 'plotcrm-v3';   // bump → purani cache (stale calllog.html) apne aap saaf
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil((async () => {
@@ -61,8 +61,24 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // app ki apni files (index.html waghairah) → cache turant do, background me update (fast + fresh)
   if (url.origin === self.location.origin) {
+    // HTML pages (index.html / calllog.html / navigations) → NETWORK-FIRST:
+    // hamesha latest lao; net na ho to cache se. Isse koi bhi update turant dikhta hai.
+    const isPage = req.mode === 'navigate' || req.destination === 'document' || url.pathname.endsWith('.html');
+    if (isPage) {
+      e.respondWith((async () => {
+        const c = await caches.open(CACHE);
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) c.put(req, res.clone());
+          return res;
+        } catch (_) {
+          return (await c.match(req)) || (await c.match(APP_URL));
+        }
+      })());
+      return;
+    }
+    // baaki app files (icons, manifest, etc.) → stale-while-revalidate (fast + background update)
     e.respondWith(caches.open(CACHE).then(async c => {
       const hit = await c.match(req);
       const net = fetch(req).then(res => { if (res && res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
