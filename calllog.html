@@ -552,7 +552,8 @@ const ADMIN_EMAILS=['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];
 ========================================================= */
 const SYNC_URL = "https://script.google.com/macros/s/AKfycbzg03zxLfHawG5NG4fK4bkOd7kZAdKz9lJS2t-UkAhVFc-9xsEADcLWQGpOo-dZtPiV/exec";
 
-const LS={logs:"acl4_logs",contacts:"acl4_contacts",sess:"acl4_sess",url:"acl4_url",users:"acl4_users",cats:"acl4_cats",delContacts:"acl4_delContacts"};
+// contacts key "_v2" → fresh start: har phone ki purani contact-cache apne aap khali (logs history safe rehti hai)
+const LS={logs:"acl4_logs",contacts:"acl4_contacts_v2",sess:"acl4_sess",url:"acl4_url",users:"acl4_users",cats:"acl4_cats",delContacts:"acl4_delContacts_v2"};
 function db(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 function arr(k){const v=db(k);return Array.isArray(v)?v:[]}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
