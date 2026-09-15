@@ -582,6 +582,7 @@ function sideHTML(){
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
       <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
       <div class="hdr-actions">
+        ${isNative()?`<button class="iconbtn" onclick="openUpdate()" title="Update App" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}>${IC.download}</button>`:''}
         <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
@@ -610,6 +611,7 @@ function sideHTML(){
       <div class="hdr-actions">
         ${crm?`<button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
         <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>`:''}
+        ${isNative()?`<button class="iconbtn" onclick="openUpdate()" title="Update App" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}>${IC.download}</button>`:''}
         <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
@@ -1731,10 +1733,33 @@ function render(){
                   route.view==='kanban' ? kanbanHTML() :
                   route.view==='reminders' ? remindersHTML() :
                   route.view==='today' ? todayHTML() : listHTML();
-  document.getElementById('app').innerHTML = `<div class="shell">${sideHTML()}<main class="main">${content}</main></div>${bottomNavHTML()}`;
+  const updBanner = apkUpdateAvailable() ? `<div onclick="openUpdate()" style="background:#f59e0b;color:#fff;padding:11px 16px;font-weight:700;font-size:.86rem;display:flex;align-items:center;gap:8px;cursor:pointer">${IC.download}<span>Naya app update aaya (${esc(_apkLatest.versionName)}) — tap karke update karein</span></div>` : '';
+  document.getElementById('app').innerHTML = `<div class="shell">${sideHTML()}<main class="main">${updBanner}${content}</main></div>${bottomNavHTML()}`;
 }
 // ── Back button: galti se poora app exit na ho ──
 // Modal khula ho to band; detail/dusre tab par ho to Home; Home par double-back = exit.
+// ── In-app APK update (native only) — version.json check + 1-tap download ──
+let _apkLatest=null;
+function apkUpdateAvailable(){ return isNative() && _apkLatest && _apkLatest.versionName && _apkLatest.versionName!==localStorage.getItem('apkInstalled'); }
+async function apkCheck(){
+  if(!isNative()) return;
+  try{ const r=await fetch('version.json?cb='+Date.now(),{cache:'no-store'}); _apkLatest=await r.json();
+    if(apkUpdateAvailable()) render(); }catch(_){}
+}
+function _apkAbsUrl(u){ if(!u) return ''; if(/^https?:/.test(u)) return u; return location.origin+location.pathname.replace(/[^/]*$/,'')+u; }
+function openUpdate(){
+  const go=v=>{
+    if(!v||!v.url){ toast('Update info nahi mili (version.json)'); return; }
+    const cur=localStorage.getItem('apkInstalled');
+    if(v.versionName===cur){ if(!confirm('Aapke paas latest version ('+v.versionName+') pehle se hai.\nFir bhi APK download karein?')) return; }
+    else if(!confirm('Naya version: '+v.versionName+(v.note?'\n\n'+v.note:'')+'\n\nDownload karein? (download hone ke baad "Install" dabana.)')) return;
+    localStorage.setItem('apkInstalled', v.versionName);
+    window.open(_apkAbsUrl(v.url),'_blank');
+    render();
+  };
+  if(_apkLatest) go(_apkLatest);
+  else fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(go).catch(()=>toast('Update check fail — net dekho'));
+}
 let _backArm=0, _backReady=false;
 // true = app ke andar hi handle ho gaya (ruko); false = bahar jaane do (exit)
 function handleBack(){
@@ -1767,7 +1792,7 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
-    setupBackHandler();
+    setupBackHandler(); apkCheck();
     if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
     attLoadOffices();
     if(!unsub){
