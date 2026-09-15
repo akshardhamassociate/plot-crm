@@ -539,6 +539,9 @@ const EMAIL_TO_SHEETID={
   'shanu.akshardham@gmail.com':'rashid'
 };
 const ADMIN_EMAILS=['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com'];
+// Assign hone par notification ab Google Sheet ke Apps Script se jaata hai (sheet + app dono assign cover),
+// isliye yahan app-side notify nahi (double avoid). notifyAssignee = no-op.
+function notifyAssignee(){}
 /* =========================================================
    TEAM SHEET CONNECTION  (inbuilt — har device auto-connect)
    Apps Script deploy karke jo /exec URL mile, wo niche
@@ -1120,6 +1123,7 @@ function saveContact(){
     return;
   }
   closeModal('contactModal');toast('Contact saved — '+tUser+' ko assign ✓');renderContacts();
+  notifyAssignee(tUid,tUser,name);   // assigned user ko notification
 }
 function addContact(name,mob,cat,tUid,tUser,feedback,callDate){
   const uid=tUid||me.id,user=tUser||me.name;
@@ -1168,6 +1172,7 @@ async function importPhone(){
     list.forEach(c=>{const nm=(c.name&&c.name[0])||'Unknown';const tel=(c.tel&&c.tel[0])||'';if(tel){const r=addContact(nm,tel.replace(/[^\d+]/g,''),'Customer',tUid,tUser);if(r&&r.blocked)skipped++;else n++;}});
     closeModal('importModal');renderContacts();
     toast(n+' contact'+(n!==1?'s':'')+' imported ✓'+(skipped?' · '+skipped+' skipped (already assigned)':''));
+    if(n>0) notifyAssignee(tUid,tUser,n+' naye number assign hue');
   }catch(e){toast('Import cancelled');}
 }
 function importCSV(input){
@@ -1177,7 +1182,7 @@ function importCSV(input){
     const text=r.result.replace(/\r/g,'');const lines=text.split('\n').filter(x=>x.trim());
     let start=0;
     if(lines.length){const first=lines[0].toLowerCase();if(first.includes('name')||first.includes('mobile')||first.includes('phone'))start=1;}
-    let n=0,skipped=0;
+    let n=0,skipped=0;const notif={};
     let defUid=me.id,defUser=me.name;
     if(isAdmin()){
       const selVal=document.getElementById('imp_assignUser').value;
@@ -1193,10 +1198,11 @@ function importCSV(input){
       const fb=parts[4]||'';const callDate=parts[5]||'';
       if(!mob)continue;
       const r2=addContact(name,mob,cat,tUid,tUser,fb,callDate);
-      if(r2&&r2.blocked)skipped++;else n++;
+      if(r2&&r2.blocked)skipped++;else { n++; notif[tUid]=(notif[tUid]||{c:0,u:tUser}); notif[tUid].c++; notif[tUid].u=tUser; }
     }
     input.value='';closeModal('importModal');renderContacts();
     toast(n+' contact'+(n!==1?'s':'')+' imported ✓'+(skipped?' · '+skipped+' skipped (already assigned)':''));
+    Object.keys(notif).forEach(uid=>notifyAssignee(uid,notif[uid].u,notif[uid].c+' naye number assign hue'));
   };
   r.readAsText(file);
 }

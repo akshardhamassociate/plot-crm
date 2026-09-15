@@ -247,6 +247,12 @@
   @media(min-width:1000px){ .grab{display:none} .modal{padding-top:20px} }
   .modal h2{margin:0 0 4px;font-size:1.08rem;font-weight:800}
   .modal .msub{font-size:.78rem;color:var(--muted);margin-bottom:16px}
+  /* WhatsApp message module */
+  .wa-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:760px){ .wa-grid{grid-template-columns:1fr 1fr} }
+  .wa-card{border:1px solid var(--line);border-radius:12px;padding:10px 11px;margin-bottom:8px;cursor:pointer;transition:.12s;background:#fff}
+  .wa-card:hover{border-color:var(--brand);box-shadow:var(--sh)}
+  .wa-panel{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px}
 
   .detail-head{background:linear-gradient(135deg,var(--side1),var(--side2));color:#fff;
     padding:14px 18px;position:sticky;top:0;z-index:20;box-shadow:0 4px 20px rgba(17,24,39,.25)}
@@ -376,6 +382,114 @@ const STATUSES = [
 const stMap = Object.fromEntries(STATUSES.map(s=>[s.k,s]));
 const OPEN = ['fresh','warm','hot','visit'];
 const SOURCES = ['Walk-in','Telecaller','Agent','Reference','Hoarding/Ad','Other'];
+// ── WhatsApp Message module (Sahi-CRM style): preview + team templates (Firestore) ──
+// Default seed templates (Hindi). {name}/{colony}/{plot} auto-fill; baaki { } user khud edit kare.
+const WA_SEED = [
+  {title:'Stage 1: पहली बातचीत के बाद', body:'🙏 नमस्कार {name} जी,\n😊 Akshardham Associates की ओर से आपका हार्दिक स्वागत है। आज आपसे बात करके बहुत अच्छा लगा।\nहमारा उद्देश्य केवल प्रॉपर्टी बेचना नहीं, बल्कि आपको सही निर्णय लेने में सहयोग देना है।\n💬 कोई भी प्रश्न हो तो बेझिझक पूछें।\nधन्यवाद,\nTeam Akshardham Associates'},
+  {title:'Stage 2: साइट विजिट कन्फर्मेशन', body:'🙏 नमस्कार {name} जी,\n🎉 आपकी {colony} साइट विजिट कन्फर्म हो गई है।\n📅 तारीख : {तारीख}\n⏰ समय : {समय}\n📍 स्थान : {पता}\nयदि किसी बदलाव या रास्ते में सहायता की आवश्यकता हो तो कृपया संपर्क करें।\nTeam Akshardham Associates'},
+  {title:'Stage 3: रेट व प्लॉट जानकारी', body:'{name} जी, {colony} प्लॉट की जानकारी:\n📍 लोकेशन: {colony}\n📐 प्लॉट: {plot}\n💰 रेट व पेमेंट प्लान: {रेट}\nअधिक जानकारी के लिए कॉल करें।\nTeam Akshardham Associates'},
+  {title:'Stage 4: साइट विजिट के बाद', body:'🙏 नमस्कार {name} जी,\n😊 आज आपने {colony} को अपना समय दिया, इसके लिए आपका हार्दिक धन्यवाद।\n🏡 हम समझते हैं कि प्रॉपर्टी में निवेश एक महत्वपूर्ण निर्णय है।\n💬 कोई प्रश्न हो तो बताइए — हम हमेशा आपके साथ हैं।\nTeam Akshardham Associates'},
+  {title:'Stage 5: निर्णय मार्गदर्शन', body:'🙏 नमस्कार {name} जी,\n🏡 ज़मीन या घर में निवेश का निर्णय जल्दबाज़ी में नहीं लिया जाता, और ऐसा होना भी नहीं चाहिए।\n😊 हमारा उद्देश्य आपको सही जानकारी व मार्गदर्शन देना है।\n📞 किसी भी सहायता के लिए हम सदैव उपलब्ध हैं।\nTeam Akshardham Associates'},
+  {title:'Stage 6: निष्क्रिय लीड / फॉलो-अप', body:'🙏 नमस्कार {name} जी,\n😊 काफ़ी समय से बात नहीं हुई। {colony} में नए प्लॉट व आकर्षक ऑफर आए हैं।\n💬 क्या मैं आपको ताज़ा जानकारी भेज दूँ?\nTeam Akshardham Associates'},
+  {title:'बुकिंग कन्फर्मेशन', body:'🎉 बधाई हो {name} जी!\nआपकी {colony} प्लॉट बुकिंग कन्फर्म हो गई है।\n📄 आगे के दस्तावेज़ व किश्त की जानकारी जल्द भेजते हैं।\nTeam Akshardham Associates'},
+  {title:'Quick Hello', body:'🙏 नमस्कार {name} जी, आपसे बात करके अच्छा लगा। किसी भी जानकारी के लिए हम उपलब्ध हैं।\nTeam Akshardham Associates'}
+];
+let waTpls=[], _waLead=null, _waDraft='', _waSearch='', _waMode='list', _waEditId=null;
+function waFill(text){ const L=_waLead||{}; return String(text||'')
+  .replace(/\{name\}/g,(L.name||'').trim()||'जी')
+  .replace(/\{colony\}/g,(L.colony||'').trim()||'हमारे प्रोजेक्ट')
+  .replace(/\{plot\}/g,(L.plot||'').trim()||'—'); }
+async function waLoadTemplates(){
+  try{
+    let s=await db.collection('watemplates').orderBy('order').get();
+    if(s.empty){ const b=db.batch(); WA_SEED.forEach((t,i)=>b.set(db.collection('watemplates').doc(), {title:t.title,body:t.body,order:i+1,ts:Date.now()})); await b.commit(); s=await db.collection('watemplates').orderBy('order').get(); }
+    waTpls=s.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){ waTpls=WA_SEED.map((t,i)=>({id:'seed'+i,order:i,...t})); }   // rules na ho to read-only fallback
+}
+function openWaTemplates(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  _waLead=L; _waDraft=''; _waSearch=''; _waMode='list'; _waEditId=null;
+  const bg=document.createElement('div'); bg.className='modal-bg'; bg.id='wa_bg';
+  bg.innerHTML='<div class="modal" id="wa_modal" style="max-width:860px" onclick="event.stopPropagation()"></div>';
+  bg.onclick=()=>bg.remove(); document.body.appendChild(bg);
+  waRerender();
+  if(!waTpls.length) waLoadTemplates().then(()=>{ if(document.getElementById('wa_modal')) waRerender(); });
+}
+function waCapture(){ const ta=document.getElementById('wa_text'); if(ta) _waDraft=ta.value; const s=document.getElementById('wa_search'); if(s) _waSearch=s.value; }
+function waRerender(){ waCapture(); const m=document.getElementById('wa_modal'); if(m) m.innerHTML=waModalInner(); }
+function waListHTML(){
+  const q=_waSearch.toLowerCase().trim();
+  const list=waTpls.filter(t=>!q||(t.title||'').toLowerCase().includes(q)||(t.body||'').toLowerCase().includes(q));
+  if(!list.length) return '<div class="tiny" style="padding:16px;text-align:center">Koi template nahi. "Add New" se banao.</div>';
+  return list.map(t=>`<div class="wa-card" onclick="waPick('${t.id}')">
+      <div class="row" style="justify-content:space-between;gap:6px">
+        <div class="ell" style="font-weight:700;font-size:.85rem;min-width:0">${esc(t.title)}</div>
+        <div style="flex:none;display:flex;gap:6px" onclick="event.stopPropagation()">
+          <button class="tbtn" title="Edit" onclick="waEditTpl('${t.id}')">${IC.edit}</button>
+          <button class="tbtn" title="Delete" style="color:var(--danger)" onclick="waDelTpl('${t.id}')">✕</button>
+        </div>
+      </div>
+      <div class="tiny" style="white-space:pre-wrap;line-height:1.5;margin-top:4px;max-height:42px;overflow:hidden">${esc(waFill(t.body))}</div>
+    </div>`).join('');
+}
+function waRightHTML(){
+  if(_waMode==='form'){
+    const t=_waEditId?waTpls.find(x=>x.id===_waEditId):null;
+    return `<div class="wa-panel">
+      <b>${_waEditId?'Edit Template':'Naya Template'}</b>
+      <label style="margin-top:10px">Title</label><input id="wa_ftitle" value="${esc(t?t.title:'')}" placeholder="e.g. Stage 2: Site visit">
+      <label style="margin-top:10px">Message (Hindi)</label><textarea id="wa_fbody" style="min-height:170px" placeholder="Message… {name} {colony} {plot} auto-fill honge">${esc(t?t.body:'')}</textarea>
+      <div class="tiny" style="margin:6px 0 10px">Placeholder: <b>{name}</b> <b>{colony}</b> <b>{plot}</b> lead se auto bhar jaate hain. Baaki { } customer ko bhejne se pehle preview me edit kar lena.</div>
+      <div class="row" style="gap:9px"><button class="btn grow" onclick="waSaveTpl()">${IC.check} Save</button>
+        <button class="btn ghost" onclick="_waMode='list';waRerender()">Cancel</button></div>
+    </div>`;
+  }
+  return `<div class="row" style="justify-content:space-between;align-items:center">
+      <b>Quick Templates</b>
+      <button class="btn sm" onclick="waNewTpl()">${IC.add} Add New</button>
+    </div>
+    <div class="search-wrap" style="margin:10px 0">${IC.search}<input id="wa_search" placeholder="Template search…" value="${esc(_waSearch)}" oninput="waFilter()"></div>
+    <div id="wa_listbox" style="max-height:340px;overflow:auto">${waListHTML()}</div>`;
+}
+function waModalInner(){
+  const L=_waLead||{}; const noMob=!digits(L.mobile);
+  const left=`<div>
+      <div style="font-weight:800">Message Preview</div>
+      <div class="tiny" style="margin:2px 0 8px">To: <b>${esc(L.name||'')}</b>${L.mobile?' · '+esc(L.mobile):''} · ${esc(stMap[L.status]?.l||'')}</div>
+      ${noMob?'<div class="tiny" style="color:var(--danger);margin-bottom:6px">⚠ Is lead ka mobile number nahi hai</div>':''}
+      <textarea id="wa_text" style="min-height:240px;font-size:.92rem;line-height:1.55" placeholder="Template chuno ya yahan seedha likho…">${esc(_waDraft)}</textarea>
+      <div class="tiny" style="margin:6px 0 10px">Preview edit kar sakte ho — {तारीख}/{समय} jaise custom fields yahin bhar do.</div>
+      <div class="row" style="gap:9px">
+        <button class="btn wa grow" onclick="waSend()">${IC.wa} Send Message</button>
+        <button class="btn ghost" onclick="document.getElementById('wa_bg').remove()">Cancel</button>
+      </div>
+    </div>`;
+  return `<div class="grab"></div>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0">Send WhatsApp Message</h2>
+      <button class="tbtn" style="width:34px;height:34px" onclick="document.getElementById('wa_bg').remove()">✕</button>
+    </div>
+    <div class="wa-grid" style="margin-top:14px">${left}<div>${waRightHTML()}</div></div>`;
+}
+function waFilter(){ const s=document.getElementById('wa_search'); if(s)_waSearch=s.value; const lb=document.getElementById('wa_listbox'); if(lb) lb.innerHTML=waListHTML(); }
+function waPick(tid){ const t=waTpls.find(x=>x.id===tid); if(!t)return; waCapture(); _waDraft=waFill(t.body); waRerender(); }
+function waSend(){ waCapture(); const L=_waLead||{}; let n=digits(L.mobile); if(!n){ alert('Is lead ka mobile number nahi hai'); return; } if(n.length===10) n='91'+n;
+  if(!(_waDraft||'').trim()){ alert('Message khali hai'); return; }
+  window.open('https://wa.me/'+n+'?text='+encodeURIComponent(_waDraft),'_blank'); }
+function waNewTpl(){ waCapture(); _waMode='form'; _waEditId=null; waRerender(); }
+function waEditTpl(id){ waCapture(); _waMode='form'; _waEditId=id; waRerender(); }
+function waDelTpl(id){ if(!confirm('Ye template delete karein?'))return;
+  db.collection('watemplates').doc(id).delete().then(()=>{ toast('Template deleted'); waLoadTemplates().then(()=>{ if(document.getElementById('wa_modal')) waRerender(); }); }).catch(e=>alert('Delete failed: '+e.message)); }
+async function waSaveTpl(){
+  const title=(document.getElementById('wa_ftitle').value||'').trim();
+  const body=(document.getElementById('wa_fbody').value||'').trim();
+  if(!title||!body){ alert('Title aur message dono bharo'); return; }
+  try{
+    if(_waEditId) await db.collection('watemplates').doc(_waEditId).set({title,body,ts:Date.now()},{merge:true});
+    else await db.collection('watemplates').add({title,body,order:Date.now(),ts:Date.now()});
+    await waLoadTemplates(); _waMode='list'; _waEditId=null; if(document.getElementById('wa_modal')) waRerender(); toast('Template saved ✓');
+  }catch(e){ alert('Save failed: '+e.message+'\n(watemplates rule check karo)'); }
+}
 const KEY = 'plot_crm_v1';
 const uid = () => 'id'+Date.now()+Math.random().toString(36).slice(2,7);
 const today = () => new Date().toISOString().slice(0,10);
@@ -714,6 +828,7 @@ function detailHTML(){
         <a class="plain grow" href="tel:${esc(L.mobile)}"><button class="btn call wide">${IC.phone} Call</button></a>
         <a class="plain grow" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="btn wa wide">${IC.wa} WhatsApp</button></a>
       </div>
+      <button class="btn wide" style="background:#0ea5e9;margin-top:11px" onclick="openWaTemplates('${L.id}')">${IC.wa} WhatsApp Template bhejein (Hindi)</button>
 
       <div class="sec">Lead details ${badge(L.status)}</div>
       <div class="card" style="padding:4px 15px">
@@ -1618,10 +1733,32 @@ function render(){
                   route.view==='today' ? todayHTML() : listHTML();
   document.getElementById('app').innerHTML = `<div class="shell">${sideHTML()}<main class="main">${content}</main></div>${bottomNavHTML()}`;
 }
+// ── Back button: galti se poora app exit na ho ──
+// Modal khula ho to band; detail/dusre tab par ho to Home; Home par double-back = exit.
+let _backArm=0, _backReady=false;
+function setupBackHandler(){
+  if(_backReady) return; _backReady=true;
+  try{ history.pushState({p:'app'},''); }catch(_){}
+  window.addEventListener('popstate', ()=>{
+    const reseed=()=>{ try{ history.pushState({p:'app'},''); }catch(_){} };
+    const m=document.querySelector('.modal-bg');
+    if(m){ m.remove(); reseed(); return; }                       // modal band karo
+    if(route.view==='detail'){ tab('list'); reseed(); return; }  // detail -> list
+    const home = isHuddleOnly() ? 'huddle' : 'today';
+    if(user && route.view!==home){ tab(home); reseed(); return; }// dusra tab -> Home
+    if(Date.now()-_backArm < 2000){                              // Home par: dobara back = exit
+      try{ const A=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.App; if(A&&A.exitApp){ A.exitApp(); return; } }catch(_){}
+      try{ history.back(); }catch(_){}                            // fallback (browser)
+      return;
+    }
+    _backArm=Date.now(); if(typeof toast==='function') toast('Bahar jaane ke liye dobara back dabao'); reseed();
+  });
+}
 document.getElementById('app').innerHTML = '<div class="login"><div class="login-card">Loading…</div></div>';
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
+    setupBackHandler();
     if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
     attLoadOffices();
     if(!unsub){
