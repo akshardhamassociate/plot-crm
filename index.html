@@ -1428,6 +1428,9 @@ const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster)
   jhalawar:['Sunil Meghwal Ji','Raghavendra Ji'],
   khanpur:['Rupesh Ji','Leeladhar ji']
 };
+// Office location set access — admin (sir+Luv) sab office; niche wale sirf apne office ke liye
+const OFFICE_SETTERS = { khanpur:['akdrupesh@gmail.com'] };   // Rupesh Ji -> Khanpur
+function canSetOffice(oid){ if(isAdmin()) return true; const e=(user&&user.email||'').toLowerCase(); return (OFFICE_SETTERS[oid]||[]).includes(e); }
 const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
 const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
 let att = { date: today(), offices:{}, mineToday:null, mine:[], items:[] };
@@ -1488,7 +1491,7 @@ async function attCapture(oid, oname){
     await db.collection('config').doc('offices').set({ [oid]:{ name:oname, lat:c.latitude, lng:c.longitude,
       acc:Math.round(c.accuracy||0), setBy:(user&&user.email||''), setAt:Date.now() } }, {merge:true});
     await attLoadOffices(); toast(oname+' location set ✓'); render();
-  }catch(e){ alert('Save error (sirf sir set kar sakte hain): '+e.message); }
+  }catch(e){ alert('Location save nahi hui — is office ka access nahi (Firestore rules). '+e.message); }
 }
 
 async function attPunchIn(){
@@ -1537,13 +1540,17 @@ function attView(){
         <div class="att-time">${esc(a.inTime||'—')}${a.outTime?' → '+esc(a.outTime):''}</div>
       </div>`).join('') : '<div class="empty">Abhi koi attendance nahi.</div>'}`;
 
+  const offRowHTML=(o)=>{ const c=att.offices[o.id]; const set=c&&c.lat!=null;
+    return `<div class="off-set"><div class="grow"><b>${esc(o.name)}</b>
+      <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location set nahi'}</div></div>
+      <button class="btn ${set?'ghost ':''}sm" onclick="attCapture('${o.id}','${esc(o.name)}')">${set?'Re-set':'Set location'}</button></div>`; };
+  const myOffices = OFFICES.filter(o=>canSetOffice(o.id));
+  const mySetSection = (!admin && myOffices.length) ? `<div class="sec" style="margin-top:20px">📍 Office Location</div>
+    <div class="tiny" style="margin:-4px 2px 10px">${esc(myOffices.map(o=>o.name).join(', '))} office me jaake "Set location" dabao — bas ek baar.</div>
+    ${myOffices.map(offRowHTML).join('')}` : '';
   let adminPart='';
   if(admin){
-    const offRows = OFFICES.map(o=>{ const c=att.offices[o.id]; const set=c&&c.lat!=null;
-      return `<div class="off-set"><div class="grow"><b>${esc(o.name)}</b>
-        <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location set nahi'}</div></div>
-        <button class="btn ${set?'ghost ':''}sm" onclick="attCapture('${o.id}','${esc(o.name)}')">${set?'Re-set':'Set location'}</button></div>`;
-    }).join('');
+    const offRows = OFFICES.map(offRowHTML).join('');
     const byKey={}; att.items.forEach(a=>{ byKey[(a.nameKey||'').toLowerCase()]=a; });
     const attRow=(nm,a)=>`<div class="att-row">
         <div class="avatar" style="width:36px;height:36px;font-size:.85rem;background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
@@ -1575,7 +1582,7 @@ function attView(){
     <div class="page-sub">Office pahunch ke Punch In karo${admin?' · aur team ki attendance dekho':''}.</div>
     ${admin
       ? `<div class="hud-wrap"><div class="hud-left"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div><div>${adminPart}</div></div>`
-      : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div>`}
+      : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}${mySetSection}</div>`}
   </div>`;
 }
 
