@@ -1767,9 +1767,8 @@ function handleBack(){
   if(route.view==='detail'){ tab('list'); return true; }                            // detail -> list
   const home = isHuddleOnly() ? 'huddle' : 'today';
   if(user && route.view!==home){ tab(home); return true; }                          // dusra tab -> Home
-  if(Date.now()-_backArm < 2000) return false;                                      // Home par dobara = exit
-  _backArm=Date.now(); if(typeof toast==='function') toast('Bahar jaane ke liye dobara back dabao');
-  return true;                                                                       // ruko
+  // Home par: quit confirmation (general apps jaisa) — OK = band, Cancel = ruko
+  return !confirm('Kya aap app band karna chahte hain?');
 }
 function setupBackHandler(){
   if(_backReady) return; _backReady=true;
