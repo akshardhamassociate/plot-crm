@@ -472,7 +472,7 @@ function waModalInner(){
     <div class="wa-grid" style="margin-top:14px">${left}<div>${waRightHTML()}</div></div>`;
 }
 function waFilter(){ const s=document.getElementById('wa_search'); if(s)_waSearch=s.value; const lb=document.getElementById('wa_listbox'); if(lb) lb.innerHTML=waListHTML(); }
-function waPick(tid){ const t=waTpls.find(x=>x.id===tid); if(!t)return; waCapture(); _waDraft=waFill(t.body); waRerender(); }
+function waPick(tid){ const t=waTpls.find(x=>x.id===tid); if(!t)return; _waDraft=waFill(t.body); const ta=document.getElementById('wa_text'); if(ta){ ta.value=_waDraft; ta.focus(); } }
 function waSend(){ waCapture(); const L=_waLead||{}; let n=digits(L.mobile); if(!n){ alert('Is lead ka mobile number nahi hai'); return; } if(n.length===10) n='91'+n;
   if(!(_waDraft||'').trim()){ alert('Message khali hai'); return; }
   window.open('https://wa.me/'+n+'?text='+encodeURIComponent(_waDraft),'_blank'); }
@@ -1736,22 +1736,31 @@ function render(){
 // ── Back button: galti se poora app exit na ho ──
 // Modal khula ho to band; detail/dusre tab par ho to Home; Home par double-back = exit.
 let _backArm=0, _backReady=false;
+// true = app ke andar hi handle ho gaya (ruko); false = bahar jaane do (exit)
+function handleBack(){
+  const m=document.querySelector('.modal-bg'); if(m){ m.remove(); return true; }   // modal band
+  if(route.view==='detail'){ tab('list'); return true; }                            // detail -> list
+  const home = isHuddleOnly() ? 'huddle' : 'today';
+  if(user && route.view!==home){ tab(home); return true; }                          // dusra tab -> Home
+  if(Date.now()-_backArm < 2000) return false;                                      // Home par dobara = exit
+  _backArm=Date.now(); if(typeof toast==='function') toast('Bahar jaane ke liye dobara back dabao');
+  return true;                                                                       // ruko
+}
 function setupBackHandler(){
   if(_backReady) return; _backReady=true;
+  // 1) Capacitor APK: hardware back (sabse reliable — app band hone se rokta hai)
+  try{
+    const A=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App;
+    if(A && A.addListener){
+      A.addListener('backButton', ()=>{
+        if(!handleBack()){ try{ A.exitApp(); }catch(_){} }   // sirf Home par dobara back = exit
+      });
+    }
+  }catch(_){}
+  // 2) Browser / PWA: history guard (popstate)
   try{ history.pushState({p:'app'},''); }catch(_){}
   window.addEventListener('popstate', ()=>{
-    const reseed=()=>{ try{ history.pushState({p:'app'},''); }catch(_){} };
-    const m=document.querySelector('.modal-bg');
-    if(m){ m.remove(); reseed(); return; }                       // modal band karo
-    if(route.view==='detail'){ tab('list'); reseed(); return; }  // detail -> list
-    const home = isHuddleOnly() ? 'huddle' : 'today';
-    if(user && route.view!==home){ tab(home); reseed(); return; }// dusra tab -> Home
-    if(Date.now()-_backArm < 2000){                              // Home par: dobara back = exit
-      try{ const A=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.App; if(A&&A.exitApp){ A.exitApp(); return; } }catch(_){}
-      try{ history.back(); }catch(_){}                            // fallback (browser)
-      return;
-    }
-    _backArm=Date.now(); if(typeof toast==='function') toast('Bahar jaane ke liye dobara back dabao'); reseed();
+    if(handleBack()){ try{ history.pushState({p:'app'},''); }catch(_){} }  // ruke to state wapas
   });
 }
 document.getElementById('app').innerHTML = '<div class="login"><div class="login-card">Loading…</div></div>';
