@@ -1738,7 +1738,7 @@ function render(){
 // Modal khula ho to band; detail/dusre tab par ho to Home; Home par double-back = exit.
 // ── In-app APK update (native only) — version.json check + 1-tap download ──
 let _apkLatest=null;
-function apkUpdateAvailable(){ return isNative() && _apkLatest && _apkLatest.versionName && _apkLatest.versionName!==localStorage.getItem('apkInstalled'); }
+function apkUpdateAvailable(){ return isNative() && _apkLatest && _apkLatest.versionName && _apkLatest.versionName!==localStorage.getItem('apkVer'); }
 async function apkCheck(){
   if(!isNative()) return;
   try{ const r=await fetch('version.json?cb='+Date.now(),{cache:'no-store'}); _apkLatest=await r.json();
@@ -1748,11 +1748,9 @@ function _apkAbsUrl(u){ if(!u) return ''; if(/^https?:/.test(u)) return u; retur
 function openUpdate(){
   const go=v=>{
     if(!v||!v.url){ toast('Update info nahi mili (version.json)'); return; }
-    const cur=localStorage.getItem('apkInstalled');
-    if(v.versionName===cur){ if(!confirm('Aapke paas latest version ('+v.versionName+') pehle se hai.\nFir bhi APK download karein?')) return; }
-    else if(!confirm('Naya version: '+v.versionName+(v.note?'\n\n'+v.note:'')+'\n\nDownload karein? (download hone ke baad "Install" dabana.)')) return;
-    localStorage.setItem('apkInstalled', v.versionName);
+    if(!confirm('Naya app version: '+(v.versionName||'')+(v.note?'\n\n'+v.note:'')+'\n\nDownload karein? Download ke baad file/notification par tap karke "Install" dabana.')) return;
     window.open(_apkAbsUrl(v.url),'_blank');
+    if(v.versionName) localStorage.setItem('apkVer', v.versionName);
     render();
   };
   if(_apkLatest) go(_apkLatest);
