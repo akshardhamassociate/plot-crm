@@ -1766,14 +1766,23 @@ function handleBack(){
   // Home par: quit confirmation (general apps jaisa) — OK = band, Cancel = ruko
   return !confirm('Kya aap app band karna chahte hain?');
 }
+// Remote-URL APK par Capacitor.Plugins.App populate nahi hota — registerPlugin se proxy lo
+function _capApp(){
+  try{
+    if(!window.Capacitor) return null;
+    if(Capacitor.Plugins && Capacitor.Plugins.App) return Capacitor.Plugins.App;
+    if(Capacitor.registerPlugin) return Capacitor.registerPlugin('App');
+  }catch(_){}
+  return null;
+}
 function setupBackHandler(){
   if(_backReady) return; _backReady=true;
-  // 1) Capacitor APK: hardware back (sabse reliable — app band hone se rokta hai)
+  // 1) Capacitor APK: hardware/gesture back (app band hone se rokta hai)
   try{
-    const A=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App;
+    const A=_capApp();
     if(A && A.addListener){
       A.addListener('backButton', ()=>{
-        if(!handleBack()){ try{ A.exitApp(); }catch(_){} }   // sirf Home par dobara back = exit
+        if(!handleBack()){ try{ A.exitApp(); }catch(_){} }   // sirf Home par confirm ke baad exit
       });
     }
   }catch(_){}
