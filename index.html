@@ -390,11 +390,11 @@ const FORMS = [
   {name:'Site Visit Form', icon:'📍', url:'https://akdpankaj-design.github.io/site-visit-form/'},
 ];
 function formsHTML(){
-  const cards=FORMS.map(f=>{ const ok=f.url && /^https?:/.test(f.url);
+  const cards=FORMS.map((f,i)=>{ const ok=f.url && /^https?:/.test(f.url);
     return `<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px;margin-bottom:10px">
       <div style="font-size:1.7rem;flex:none">${f.icon||'📄'}</div>
       <div class="grow" style="min-width:0"><b>${esc(f.name)}</b><div class="tiny">${ok?'खोलने के लिए टैप करें':'लिंक अभी नहीं जोड़ा गया'}</div></div>
-      ${ok?`<button class="btn sm" onclick="window.open('${esc(f.url)}','_blank')">खोलें</button>`:`<span class="tiny" style="color:var(--danger)">link?</span>`}</div>`;
+      ${ok?`<button class="btn sm" onclick="openForm(${i})">खोलें</button>`:`<span class="tiny" style="color:var(--danger)">link?</span>`}</div>`;
   }).join('');
   return `<div class="main-inner">
     <button class="btn ghost sm" style="margin-bottom:10px" onclick="tab('${isHuddleOnly()?'huddle':'today'}')">${IC.back} Back</button>
@@ -448,6 +448,20 @@ function helpHTML(){
     <div class="tiny" style="margin-bottom:12px">${lang==='hi'?'App kaise use karein — aasan steps':'How to use the app — easy steps'}</div>
     ${secs}</div>`;
 }
+// Form ko app ke andar hi fullscreen kholo (upar Back button ke saath)
+function openForm(i){
+  const f=FORMS[i]; if(!f||!f.url) return;
+  const bg=document.createElement('div'); bg.id='formOverlay';
+  bg.style.cssText='position:fixed;inset:0;z-index:200;background:#fff;display:flex;flex-direction:column';
+  bg.innerHTML=`<div class="row" style="gap:8px;padding:12px 14px;padding-top:max(12px,env(safe-area-inset-top));background:linear-gradient(165deg,var(--side1),var(--side2));color:#fff">
+      <button class="iconbtn" onclick="closeForm()" title="Back">${IC.back}</button>
+      <b class="grow ell">${esc(f.name)}</b>
+      <button class="iconbtn" onclick="window.open('${esc(f.url)}','_blank')" title="Browser me kholo">${IC.upload}</button>
+    </div>
+    <iframe src="${esc(f.url)}" style="flex:1;width:100%;border:none" allow="geolocation; camera"></iframe>`;
+  document.body.appendChild(bg);
+}
+function closeForm(){ const o=document.getElementById('formOverlay'); if(o) o.remove(); }
 // ── "More" menu (mobile header clutter kam karne ke liye) ──
 function closeMore(){ const m=document.querySelector('.modal-bg'); if(m) m.remove(); }
 function openMore(){
@@ -1840,6 +1854,7 @@ function openUpdate(){
 let _backArm=0, _backReady=false;
 // true = app ke andar hi handle ho gaya (ruko); false = bahar jaane do (exit)
 function handleBack(){
+  const fo=document.getElementById('formOverlay'); if(fo){ fo.remove(); return true; }   // form overlay band
   const m=document.querySelector('.modal-bg'); if(m){ m.remove(); return true; }   // modal band
   if(route.view==='detail'){ tab('list'); return true; }                            // detail -> list
   const home = isHuddleOnly() ? 'huddle' : 'today';
