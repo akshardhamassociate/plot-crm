@@ -382,6 +382,68 @@ const STATUSES = [
 const stMap = Object.fromEntries(STATUSES.map(s=>[s.k,s]));
 const OPEN = ['fresh','warm','hot','visit'];
 const SOURCES = ['Walk-in','Telecaller','Agent','Reference','Hoarding/Ad','Other'];
+// ── Forms (GitHub par live forms ke links yahan paste karo) ──
+const FORMS = [
+  {name:'Booking Form',    icon:'📝', url:'https://akshardhamassociate.github.io/booking-form/'},
+  {name:'Site Visit Form', icon:'📍', url:'https://akdpankaj-design.github.io/site-visit-form/'},
+];
+function formsHTML(){
+  const cards=FORMS.map(f=>{ const ok=f.url && /^https?:/.test(f.url);
+    return `<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px;margin-bottom:10px">
+      <div style="font-size:1.7rem;flex:none">${f.icon||'📄'}</div>
+      <div class="grow" style="min-width:0"><b>${esc(f.name)}</b><div class="tiny">${ok?'खोलने के लिए टैप करें':'लिंक अभी नहीं जोड़ा गया'}</div></div>
+      ${ok?`<button class="btn sm" onclick="window.open('${esc(f.url)}','_blank')">खोलें</button>`:`<span class="tiny" style="color:var(--danger)">link?</span>`}</div>`;
+  }).join('');
+  return `<div class="main-inner">
+    <b style="font-size:1.1rem">📄 Forms</b>
+    <div class="page-sub" style="display:block;margin:4px 0 14px">बुकिंग, साइट विज़िट — सब एक जगह</div>
+    ${FORMS.length?cards:'<div class="card"><div class="empty">अभी कोई फॉर्म नहीं</div></div>'}
+    <div class="tiny" style="margin-top:8px;color:var(--muted)">नया फॉर्म जोड़ना हो तो FORMS सूची में नाम और लिंक डालें।</div>
+  </div>`;
+}
+// ── Madad / Help (Hindi ⇄ English) ──
+let helpLang = localStorage.getItem('helpLang')||'hi';
+function setHelpLang(l){ helpLang=l; try{localStorage.setItem('helpLang',l)}catch(_){}; render(); }
+const HELP=[
+ {icon:'🔑',hi:{t:'लॉगिन',s:['ऐप खोलें।','अपना ईमेल और पासवर्ड डालें।','"Sign in" दबाएँ। पासवर्ड एडमिन (सर) से मिलेगा।']},
+             en:{t:'Login',s:['Open the app.','Enter your email and password.','Tap "Sign in". Get the password from admin.']}},
+ {icon:'➕',hi:{t:'नई लीड जोड़ना',s:['नीचे "Add Lead" बटन दबाएँ।','नाम और मोबाइल ज़रूरी हैं — बाकी जानकारी भी भरें।','एग्ज़ीक्यूटिव चुनें (किसे असाइन करनी है)।','"Save" दबाएँ।']},
+            en:{t:'Add a lead',s:['Tap "Add Lead" at the bottom.','Name & mobile required — fill other details too.','Choose the executive (assign to).','Tap "Save".']}},
+ {icon:'📞',hi:{t:'कॉल / व्हाट्सएप',s:['किसी लीड पर टैप करें → उसकी पूरी जानकारी खुलेगी।','"Call" या "WhatsApp" बटन दबाएँ।','तैयार मैसेज के लिए "WhatsApp Template" दबाएँ → मैसेज चुनें → Send करें।']},
+            en:{t:'Call / WhatsApp',s:['Tap a lead → detail opens.','Tap "Call" or "WhatsApp".','For templates tap "WhatsApp Template" → pick message → Send.']}},
+ {icon:'🔁',hi:{t:'फॉलो-अप',s:['लीड की जानकारी में "Add Follow-up" दबाएँ।','ग्राहक से क्या बात हुई, वह लिखें।','अगली तारीख (Next date) डालें — वह Today/Reminders में दिखेगी।','स्टेटस अपडेट करें (Hot / Warm / Booked)।']},
+            en:{t:'Follow-up',s:['In lead detail tap "Add Follow-up".','Write what was discussed.','Set next date — shows in Today/Reminders.','Update status (Hot/Warm/Booked).']}},
+ {icon:'⏰',hi:{t:'Today और Reminders',s:['"Today" में आज के फॉलो-अप दिखते हैं।','"Reminders" में नई और तारीख निकल चुकी (overdue) लीड दिखती हैं।','रोज़ इन्हें देखें ताकि कोई लीड न छूटे।']},
+            en:{t:'Today & Reminders',s:['"Today" shows follow-ups for today.','"Reminders" shows new + overdue leads.','Check daily so no lead is missed.']}},
+ {icon:'📋',hi:{t:'हडल (Standup)',s:['"Huddle" खोलें।','कल क्या किया (स्टेटस के साथ), आज के काम, और Issues भरें।','"Save Standup" दबाएँ। सर पूरी टीम का बोर्ड देखते हैं।']},
+            en:{t:'Huddle (Standup)',s:['Open "Huddle".','Fill yesterday (with status), tasks for today, issues.','Tap "Save Standup". Admin sees the team board.']}},
+ {icon:'✅',hi:{t:'अटेंडेंस',s:['ऑफिस पहुँचकर "Attendance" खोलें।','"Punch In" दबाएँ (GPS ऑफिस के अंदर होना चाहिए)।','जाते समय "Punch Out" दबाएँ।']},
+            en:{t:'Attendance',s:['Reach office, open "Attendance".','Tap "Punch In" (must be within office GPS).','Tap "Punch Out" when leaving.']}},
+ {icon:'☎️',hi:{t:'कॉल लॉग',s:['"Call Log" खोलें (अलग पेज, वही लॉगिन)।','आपको असाइन किए गए नंबर + फीडबैक + तारीख दिखेंगे।','कॉल करके लॉग भरें।']},
+            en:{t:'Call Log',s:['Open "Call Log" (separate page, same login).','See assigned numbers + feedback + date.','Call and fill the log.']}},
+ {icon:'📄',hi:{t:'फॉर्म्स',s:['"Forms" खोलें।','Booking / Site Visit फॉर्म पर टैप करें → फॉर्म खुल जाएगा।']},
+            en:{t:'Forms',s:['Open "Forms".','Tap Booking / Site Visit form → it opens.']}},
+ {icon:'🔔',hi:{t:'नोटिफिकेशन चालू करें',s:['हेडर में 🔔 दबाएँ → अपना नाम चुनें → Enable करें।','इससे असाइन/रिमाइंडर का नोटिफिकेशन आएगा।']},
+            en:{t:'Notifications ON',s:['Tap 🔔 in header → choose your name → Enable.','You get assign/reminder notifications.']}},
+];
+function helpHTML(){
+  const lang=helpLang;
+  const secs=HELP.map(h=>{ const c=h[lang];
+    return `<div class="card" style="padding:13px 15px;margin-bottom:10px">
+      <div style="font-weight:800;margin-bottom:6px">${h.icon} ${esc(c.t)}</div>
+      <ol style="margin:0;padding-left:20px">${c.s.map(x=>`<li style="margin:4px 0;font-size:.9rem;line-height:1.5">${esc(x)}</li>`).join('')}</ol></div>`;
+  }).join('');
+  return `<div class="main-inner">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:1.15rem">📖 Help</b>
+      <div style="display:flex;gap:6px;flex:none">
+        <button class="btn sm ${lang==='hi'?'':'ghost'}" onclick="setHelpLang('hi')">हिंदी</button>
+        <button class="btn sm ${lang==='en'?'':'ghost'}" onclick="setHelpLang('en')">English</button>
+      </div>
+    </div>
+    <div class="tiny" style="margin-bottom:12px">${lang==='hi'?'App kaise use karein — aasan steps':'How to use the app — easy steps'}</div>
+    ${secs}</div>`;
+}
 // ── WhatsApp Message module (Sahi-CRM style): preview + team templates (Firestore) ──
 // Default seed templates (Hindi). {name}/{colony}/{plot} auto-fill; baaki { } user khud edit kare.
 const WA_SEED = [
@@ -583,13 +645,15 @@ function sideHTML(){
       <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
       <div class="hdr-actions">
         ${isNative()?`<button class="iconbtn" onclick="openUpdate()" title="Update App" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}>${IC.download}</button>`:''}
+        <button class="iconbtn" onclick="tab('help')" title="Help" style="font-weight:800">?</button>
         <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
     </div>
     <nav class="nav">
-      <button class="nav-item ${route.view==='att'?'':'on'}" onclick="openHuddle()">${IC.inbox} Huddle</button>
+      <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
+      <button class="nav-item ${route.view==='help'?'on':''}" onclick="tab('help')">❓ Help</button>
     </nav>
     <div class="side-foot">
       <button class="btn light logout-d" onclick="enableNotifs()">${IC.bell} Reminder notifications ON</button>
@@ -612,6 +676,8 @@ function sideHTML(){
         ${crm?`<button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
         <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>`:''}
         ${isNative()?`<button class="iconbtn" onclick="openUpdate()" title="Update App" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}>${IC.download}</button>`:''}
+        <button class="iconbtn" onclick="tab('forms')" title="Forms">📄</button>
+        <button class="iconbtn" onclick="tab('help')" title="Help" style="font-weight:800">?</button>
         <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
         <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
       </div>
@@ -624,6 +690,8 @@ function sideHTML(){
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
       <button class="nav-item" onclick="location.href='calllog.html'">${IC.phone} Call Log</button>
+      <button class="nav-item ${route.view==='forms'?'on':''}" onclick="tab('forms')">📄 Forms</button>
+      <button class="nav-item ${route.view==='help'?'on':''}" onclick="tab('help')">❓ Help</button>
     </nav>
     <div class="side-foot">
       <div class="stats"${crm?'':' style="display:none"'}>
@@ -1724,10 +1792,12 @@ function bottomNavHTML(){
 
 function render(){
   if(!user){ renderLogin(); return; }
-  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att') route.view='huddle';   // huddle-only: sirf Huddle + Attendance
+  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att' && route.view!=='help') route.view='huddle';   // huddle-only: Huddle + Attendance + Help
   const content = route.view==='detail' ? detailHTML() :
                   route.view==='att' ? attView() :
                   route.view==='huddle' ? huddleHTML() :
+                  route.view==='forms' ? formsHTML() :
+                  route.view==='help' ? helpHTML() :
                   route.view==='kanban' ? kanbanHTML() :
                   route.view==='reminders' ? remindersHTML() :
                   route.view==='today' ? todayHTML() : listHTML();
