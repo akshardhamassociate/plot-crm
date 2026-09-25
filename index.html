@@ -31,10 +31,12 @@
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);
+  body{margin:0;background:var(--bg);color:var(--ink);overflow-x:hidden;
     font-family:'Inter',-apple-system,'Segoe UI',system-ui,Roboto,sans-serif;
     -webkit-tap-highlight-color:transparent;font-size:15px;line-height:1.5;
     -webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+  .hdr-actions{flex:none}
+  .brand h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   svg{width:20px;height:20px;flex-shrink:0}
 
   /* ── responsive shell ── */
@@ -444,6 +446,22 @@ function helpHTML(){
     <div class="tiny" style="margin-bottom:12px">${lang==='hi'?'App kaise use karein — aasan steps':'How to use the app — easy steps'}</div>
     ${secs}</div>`;
 }
+// ── "More" menu (mobile header clutter kam karne ke liye) ──
+function closeMore(){ const m=document.querySelector('.modal-bg'); if(m) m.remove(); }
+function openMore(){
+  const na=isNative(), ho=isHuddleOnly();
+  const b=(txt,fn)=>`<button class="btn ghost" style="justify-content:flex-start" onclick="closeMore();${fn}">${txt}</button>`;
+  modal(`<h2>More</h2><div class="msub">Zyada options</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${!ho?b('📄 Forms',"tab('forms')"):''}
+      ${b('❓ Help',"tab('help')")}
+      ${!ho?b('⬆ Import CSV',"importCSV()"):''}
+      ${!ho?b('⬇ Export CSV',"exportCSV()"):''}
+      ${na?b('🔄 Update App',"openUpdate()"):''}
+      ${b('🔔 Reminder notifications ON',"enableNotifs()")}
+      ${b('↩ Log out',"doLogout()")}
+    </div>`);
+}
 // ── WhatsApp Message module (Sahi-CRM style): preview + team templates (Firestore) ──
 // Default seed templates (Hindi). {name}/{colony}/{plot} auto-fill; baaki { } user khud edit kare.
 const WA_SEED = [
@@ -644,10 +662,7 @@ function sideHTML(){
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
       <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
       <div class="hdr-actions">
-        ${isNative()?`<button class="iconbtn" onclick="openUpdate()" title="Update App" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}>${IC.download}</button>`:''}
-        <button class="iconbtn" onclick="tab('help')" title="Help" style="font-weight:800">?</button>
-        <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
-        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+        <button class="iconbtn" onclick="openMore()" title="More" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
       </div>
     </div>
     <nav class="nav">
@@ -673,13 +688,7 @@ function sideHTML(){
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
       <div class="grow"><h1>Plot CRM</h1><div class="sub">${crm?`${leads.length} leads${overdue?` · ${overdue} overdue`:''}`:(route.view==='att'?'Attendance':'Daily Huddle')}</div></div>
       <div class="hdr-actions">
-        ${crm?`<button class="iconbtn" onclick="importCSV()" title="Import CSV">${IC.upload}</button>
-        <button class="iconbtn" onclick="exportCSV()" title="Export CSV">${IC.download}</button>`:''}
-        ${isNative()?`<button class="iconbtn" onclick="openUpdate()" title="Update App" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}>${IC.download}</button>`:''}
-        <button class="iconbtn" onclick="tab('forms')" title="Forms">📄</button>
-        <button class="iconbtn" onclick="tab('help')" title="Help" style="font-weight:800">?</button>
-        <button class="iconbtn" onclick="enableNotifs()" title="Reminder notifications ON">${IC.bell}</button>
-        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+        <button class="iconbtn" onclick="openMore()" title="More" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
       </div>
     </div>
     <nav class="nav">
