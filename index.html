@@ -397,6 +397,7 @@ function formsHTML(){
       ${ok?`<button class="btn sm" onclick="window.open('${esc(f.url)}','_blank')">खोलें</button>`:`<span class="tiny" style="color:var(--danger)">link?</span>`}</div>`;
   }).join('');
   return `<div class="main-inner">
+    <button class="btn ghost sm" style="margin-bottom:10px" onclick="tab('${isHuddleOnly()?'huddle':'today'}')">${IC.back} Back</button>
     <b style="font-size:1.1rem">📄 Forms</b>
     <div class="page-sub" style="display:block;margin:4px 0 14px">बुकिंग, साइट विज़िट — सब एक जगह</div>
     ${FORMS.length?cards:'<div class="card"><div class="empty">अभी कोई फॉर्म नहीं</div></div>'}
@@ -436,6 +437,7 @@ function helpHTML(){
       <ol style="margin:0;padding-left:20px">${c.s.map(x=>`<li style="margin:4px 0;font-size:.9rem;line-height:1.5">${esc(x)}</li>`).join('')}</ol></div>`;
   }).join('');
   return `<div class="main-inner">
+    <button class="btn ghost sm" style="margin-bottom:10px" onclick="tab('${isHuddleOnly()?'huddle':'today'}')">${IC.back} Back</button>
     <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
       <b style="font-size:1.15rem">📖 Help</b>
       <div style="display:flex;gap:6px;flex:none">
