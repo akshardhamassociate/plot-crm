@@ -656,10 +656,14 @@ const isOverdue = L => { const d=dueDate(L); return d && d<today(); };
 const isNew = L => OPEN.includes(L.status) && !(L.followUps && L.followUps.length);   // assigned, abhi tak koi kaam nahi
 const needsAction = L => isNew(L) || isDue(L);                                        // pending = naya ya due
 function addDays(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
-// Lead ka creation time (nayi lead upar dikhane ke liye). ts se, warna id me chhipe Date.now se, warna date se.
-function leadTime(L){ if(L&&L.ts) return L.ts;
-  if(L&&L.id&&/^id\d/.test(L.id)){ const n=parseInt(L.id.slice(2,15),10); if(n) return n; }
-  return (L&&L.createdAt)? new Date(L.createdAt+'T00:00').getTime():0; }
+// Lead ka "last update" time — nayi lead ya jisme koi naya kaam (follow-up/edit/status) hua, wo upar.
+function _idTime(id){ return (id&&/^id\d/.test(id))? (parseInt(id.slice(2,15),10)||0) : 0; }
+function leadTime(L){
+  if(!L) return 0;
+  let t = L.ts || _idTime(L.id) || (L.createdAt? new Date(L.createdAt+'T00:00').getTime() : 0);
+  (L.followUps||[]).forEach(fu=>{ const ft=_idTime(fu.id) || (fu.date? new Date(fu.date+'T00:00').getTime():0); if(ft>t) t=ft; });
+  return t;
+}
 
 function filtered(){
   return leads.filter(L=>{
@@ -1023,7 +1027,7 @@ function kdrop(e,st){
   e.preventDefault();
   const id = dragId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
   const L = leads.find(x=>x.id===id);
-  if(L && L.status!==st){ L.status=st; putLead(L); }   // ponytail: bare stage move; detailed change logs history via follow-up
+  if(L && L.status!==st){ L.status=st; L.ts=Date.now(); putLead(L); }   // stage move → upar aaye
   dragId=null; render();
 }
 
@@ -1126,7 +1130,7 @@ async function saveLead(id){
   let L;
   if(id){
     if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
-    L=leads.find(x=>x.id===id); Object.assign(L, data);
+    L=leads.find(x=>x.id===id); Object.assign(L, data); L.ts=Date.now();
   } else {
     L={ id:uid(), ...data, ts:Date.now(), need:{}, followUps:[] }; leads.unshift(L);
     // pehli baat-cheet ko first follow-up bana do (agar bhari ho)
@@ -1176,7 +1180,7 @@ function saveNeed(id){
   const L=leads.find(x=>x.id===id);
   L.need = { timeline:val('n_time'), budget:val('n_budget'),
     purpose:val('n_purpose'), ready:val('n_ready'), remarks:val('n_remarks') };
-  putLead(L); document.querySelector('.modal-bg').remove(); render();
+  L.ts=Date.now(); putLead(L); document.querySelector('.modal-bg').remove(); render();
 }
 
 function openFU(id){
@@ -1215,7 +1219,7 @@ async function saveFU(id){
     purpose:val('fu_purpose'), response:val('fu_response'),
     nextDate:val('fu_ndate'), nextAction:val('fu_naction'),
     prev:L.status, next, rec, photo });
-  L.status = next;
+  L.status = next; L.ts=Date.now();
   await putLead(L);
   const m=document.querySelector('.modal-bg'); if(m) m.remove();
   render();
@@ -1408,6 +1412,9 @@ const ADMIN_EMAILS = ['krishan.sr1974@gmail.com','trainer.akshardham@gmail.com']
 const isAdmin = () => !!(user && ADMIN_EMAILS.includes((user.email||'').toLowerCase()));
 // huddle-only logins: SIRF Huddle dikhega, CRM (leads/board) nahi. (Firebase rules bhi inhe leads se rokti hain.)
 const HUDDLE_ONLY_EMAILS = ['akdpankaj@gmail.com','bhaveshakd3@gmail.com','techakshardham@gmail.com'];
+// Ye log normal user hain PAR Huddle + Attendance me SABKA dekh sakte hain (reporting ke liye) — office set nahi
+const HA_VIEW_ALL_EMAILS = ['telecaller1.akd@gmail.com'];   // Kamana ji
+const canViewAllHA = () => isAdmin() || !!(user && HA_VIEW_ALL_EMAILS.includes((user.email||'').toLowerCase()));
 const isHuddleOnly = () => !!(user && HUDDLE_ONLY_EMAILS.includes((user.email||'').toLowerCase()));
 // login pe standup ka naam apne aap set — member ko manually na chunna pade
 const NAME_BY_EMAIL = {
@@ -1480,7 +1487,7 @@ async function hudLoad(){
     else hud.mine=[];
     // Form bharo: is date ka doc ho to load, warna "Kal kya kiya" pichhle din se auto-fill
     if(!hud.editing) hudFillDraftFor(hud.draft.date);
-    if(isAdmin()){ const s=await db.collection('standups').where('date','==',hud.date).get();
+    if(canViewAllHA()){ const s=await db.collection('standups').where('date','==',hud.date).get();
       hud.items=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'')); }
   }catch(e){ alert('Huddle load error: '+e.message); }
   if(route.view==='huddle') render();
@@ -1553,7 +1560,7 @@ function hudCard(s, editable, own){
 }
 
 function huddleHTML(){
-  const admin=isAdmin();
+  const admin=canViewAllHA();   // Kamana + sir: sabka board
   const myName=hudMyName();
   const d=hud.draft;
   const posted=new Set(hud.items.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
@@ -1692,7 +1699,7 @@ async function attLoad(){
       const s=await db.collection('attendance').where('nameKey','==',mine).get();
       att.mine=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     }
-    if(isAdmin()){ const s=await db.collection('attendance').where('date','==',att.date).get();
+    if(canViewAllHA()){ const s=await db.collection('attendance').where('date','==',att.date).get();
       att.items=s.docs.map(x=>({id:x.id,...x.data()})); }
   }catch(e){ alert('Attendance load error: '+e.message); }
   if(route.view==='att') render();
@@ -1736,7 +1743,8 @@ async function attPunchOut(){
 }
 
 function attView(){
-  const admin=isAdmin();
+  const admin=isAdmin();               // office location set — sirf sir/Luv
+  const viewAll=canViewAllHA();        // sabki attendance dekhna — sir + Kamana
   const myName=hudMyName();
   const rec=att.mineToday, inDone=rec&&rec.inTime, outDone=rec&&rec.outTime;
   const status = inDone
@@ -1765,8 +1773,8 @@ function attView(){
     <div class="tiny" style="margin:-4px 2px 10px">${esc(myOffices.map(o=>o.name).join(', '))} office me jaake "Set location" dabao — bas ek baar.</div>
     ${myOffices.map(offRowHTML).join('')}` : '';
   let adminPart='';
-  if(admin){
-    const offRows = OFFICES.map(offRowHTML).join('');
+  if(viewAll){
+    const offRows = admin? OFFICES.map(offRowHTML).join('') : '';
     const byKey={}; att.items.forEach(a=>{ byKey[(a.nameKey||'').toLowerCase()]=a; });
     const attRow=(nm,a)=>`<div class="att-row">
         <div class="avatar" style="width:36px;height:36px;font-size:.85rem;background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
@@ -1781,9 +1789,9 @@ function attView(){
     const others=att.items.filter(a=>!rosterKeys.has((a.nameKey||'').toLowerCase()));
     const othersHTML = others.length?`<div class="sec" style="margin-top:16px">Other</div>${others.map(a=>attRow(a.name||'?',a)).join('')}`:'';
     adminPart = `
-      <div class="sec">📍 Office Locations <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">(ek baar set — sir only)</span></div>
+      ${admin?`<div class="sec">📍 Office Locations <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">(ek baar set — sir only)</span></div>
       <div class="tiny" style="margin:-4px 2px 10px">Har office me jaake ek baar "Set location" dabao. Uske baad punch-in sirf wahin ~${OFFICE_RADIUS}m ke andar hoga.</div>
-      ${offRows}
+      ${offRows}`:''}
       <div class="sec" style="margin-top:24px">${IC.users} Attendance Board</div>
       <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap">
         <button class="btn ghost sm" onclick="attShiftDay(-1)">${IC.back}</button>
@@ -1795,8 +1803,8 @@ function attView(){
   }
   return `<div class="main-inner">
     <div class="page-title">Attendance</div>
-    <div class="page-sub">Office pahunch ke Punch In karo${admin?' · aur team ki attendance dekho':''}.</div>
-    ${admin
+    <div class="page-sub">Office pahunch ke Punch In karo${viewAll?' · aur team ki attendance dekho':''}.</div>
+    ${viewAll
       ? `<div class="hud-wrap"><div class="hud-left"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div><div>${adminPart}</div></div>`
       : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}${mySetSection}</div>`}
   </div>`;
