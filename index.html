@@ -466,16 +466,16 @@ function closeForm(){ const o=document.getElementById('formOverlay'); if(o) o.re
 function closeMore(){ const m=document.querySelector('.modal-bg'); if(m) m.remove(); }
 function openMore(){
   const na=isNative(), ho=isHuddleOnly();
-  const b=(txt,fn)=>`<button class="btn ghost" style="justify-content:flex-start" onclick="closeMore();${fn}">${txt}</button>`;
-  modal(`<h2>More</h2><div class="msub">Zyada options</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${!ho?b('📄 Forms',"tab('forms')"):''}
-      ${b('❓ Help',"tab('help')")}
-      ${!ho?b('⬆ Import CSV',"importCSV()"):''}
-      ${!ho?b('⬇ Export CSV',"exportCSV()"):''}
-      ${na?b('🔄 Update App',"openUpdate()"):''}
-      ${b('🔔 Reminder notifications ON',"enableNotifs()")}
-      ${b('↩ Log out',"doLogout()")}
+  const tile=(icon,label,fn,hl)=>`<button onclick="closeMore();${fn}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 6px;border:1px solid ${hl?'#f59e0b':'var(--line)'};border-radius:16px;background:${hl?'#fff7ed':'#fff'};cursor:pointer;box-shadow:var(--sh);transition:.12s">
+      <span style="font-size:1.7rem;line-height:1">${icon}</span>
+      <span style="font-size:.76rem;font-weight:700;color:var(--ink);text-align:center;line-height:1.2">${label}</span></button>`;
+  modal(`<h2>Menu</h2><div class="msub">Baaki options</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${tile('📖','Help',"tab('help')")}
+      ${tile('🔔','Notif ON',"enableNotifs()")}
+      ${na?tile('🔄','Update'+(apkUpdateAvailable()?' •':''),"openUpdate()",apkUpdateAvailable()):''}
+      ${!ho?tile('⬆️','Import',"importCSV()"):''}
+      ${!ho?tile('⬇️','Export',"exportCSV()"):''}
     </div>`);
 }
 // ── WhatsApp Message module (Sahi-CRM style): preview + team templates (Firestore) ──
@@ -682,7 +682,8 @@ function sideHTML(){
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
       <div class="grow"><h1>Daily Huddle</h1><div class="sub">Team standup</div></div>
       <div class="hdr-actions">
-        <button class="iconbtn" onclick="openMore()" title="More" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+        <button class="iconbtn" onclick="openMore()" title="Menu" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
     </div>
     <nav class="nav">
@@ -708,7 +709,9 @@ function sideHTML(){
       <img src="logo.png" class="brand-logo" alt="Akshardham Associates" onerror="this.style.display='none'">
       <div class="grow"><h1>Plot CRM</h1><div class="sub">${crm?`${leads.length} leads${overdue?` · ${overdue} overdue`:''}`:(route.view==='att'?'Attendance':'Daily Huddle')}</div></div>
       <div class="hdr-actions">
-        <button class="iconbtn" onclick="openMore()" title="More" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+        <button class="iconbtn" onclick="tab('forms')" title="Forms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></button>
+        <button class="iconbtn" onclick="doLogout()" title="Log out">${IC.logout}</button>
+        <button class="iconbtn" onclick="openMore()" title="Menu" ${apkUpdateAvailable()?'style="background:#f59e0b"':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
     </div>
     <nav class="nav">
