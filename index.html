@@ -656,6 +656,10 @@ const isOverdue = L => { const d=dueDate(L); return d && d<today(); };
 const isNew = L => OPEN.includes(L.status) && !(L.followUps && L.followUps.length);   // assigned, abhi tak koi kaam nahi
 const needsAction = L => isNew(L) || isDue(L);                                        // pending = naya ya due
 function addDays(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+// Lead ka creation time (nayi lead upar dikhane ke liye). ts se, warna id me chhipe Date.now se, warna date se.
+function leadTime(L){ if(L&&L.ts) return L.ts;
+  if(L&&L.id&&/^id\d/.test(L.id)){ const n=parseInt(L.id.slice(2,15),10); if(n) return n; }
+  return (L&&L.createdAt)? new Date(L.createdAt+'T00:00').getTime():0; }
 
 function filtered(){
   return leads.filter(L=>{
@@ -668,7 +672,7 @@ function filtered(){
     if(f.from && d < f.from) return false;
     if(f.to && d > f.to) return false;
     return true;
-  }).sort((a,b)=>((lastFU(b)?.date)||b.createdAt||'').localeCompare((lastFU(a)?.date)||a.createdAt||''));
+  }).sort((a,b)=>leadTime(b)-leadTime(a));   // nayi add ki hui lead sabse upar
 }
 
 // ── SIDEBAR (mobile header / desktop sidebar) ────────────────────────────────
@@ -1121,7 +1125,7 @@ async function saveLead(id){
     if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
     L=leads.find(x=>x.id===id); Object.assign(L, data);
   } else {
-    L={ id:uid(), ...data, need:{}, followUps:[] }; leads.unshift(L);
+    L={ id:uid(), ...data, ts:Date.now(), need:{}, followUps:[] }; leads.unshift(L);
     // pehli baat-cheet ko first follow-up bana do (agar bhari ho)
     const g=i=>document.getElementById(i)?document.getElementById(i).value.trim():'';
     const p=g('l_purpose'), r=g('l_response'), nd=g('l_ndate'), na=g('l_naction');
@@ -1409,7 +1413,8 @@ const NAME_BY_EMAIL = {
   'akdpankaj@gmail.com':'Rahul',
   'bhaveshakd3@gmail.com':'Bhavesh',
   'shanu.akshardham@gmail.com':'Rashid Ji',  // CRM + Huddle dono (huddle-only NAHI)
-  'trainer.akshardham@gmail.com':'Luv'       // Lov — backup admin
+  'trainer.akshardham@gmail.com':'Luv',      // Lov — backup admin
+  'telecaller1.akd@gmail.com':'Kamana ji'    // Kamana — Huddle + Attendance (naam auto-set)
 };
 // ---- Huddle task/issue helpers (numbered entries + status reporting) ----
 const HUD_ST={done:{l:'✓ Done',c:'#047857',bg:'#d1fae5'},partial:{l:'~ Partial',c:'#b45309',bg:'#fef3c7'},notdone:{l:'✕ Not Done',c:'#b91c1c',bg:'#fee2e2'}};
@@ -1637,7 +1642,7 @@ const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster)
   khanpur:['Rupesh Ji','Leeladhar ji']
 };
 // Office location set access — admin (sir+Luv) sab office; niche wale sirf apne office ke liye
-const OFFICE_SETTERS = { khanpur:['akdrupesh@gmail.com'] };   // Rupesh Ji -> Khanpur
+const OFFICE_SETTERS = {};   // sirf admin (sir + Luv) office location set kar sakte hain
 function canSetOffice(oid){ if(isAdmin()) return true; const e=(user&&user.email||'').toLowerCase(); return (OFFICE_SETTERS[oid]||[]).includes(e); }
 const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
 const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
