@@ -1117,6 +1117,10 @@ async function saveLead(id){
   const name=val('l_name'), mobile=val('l_mobile');
   if(!name){ alert('Name is required'); return; }
   if(!mobile){ alert('Mobile is required'); return; }
+  if(!id){   // nayi lead — same mobile pehle se ho to warn
+    const dup=leads.find(L=>digits(L.mobile)&&digits(L.mobile)===digits(mobile));
+    if(dup && !confirm('⚠ Ye number pehle se "'+dup.name+'" ('+(stMap[dup.status]?.l||'')+' · '+execStr(dup)+') ke naam par hai.\n\nFir bhi nayi lead add karein?')) return;
+  }
   const main = val('l_exec');
   const extra = [...document.querySelectorAll('.l_extra:checked')].map(c=>c.value);
   const execs = [...new Set([main, ...extra].filter(Boolean))];   // main + assigned executives
