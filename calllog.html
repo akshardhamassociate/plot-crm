@@ -415,7 +415,7 @@
 <!-- auto call-log -->
 <div class="modal" id="auditReportModal"><div class="sheet"><div class="grab"></div>
   <button class="modal-close-btn" onclick="closeModal('auditReportModal')" title="Close">✕</button>
-  <h2 class="secttl" style="margin-top:4px">🎧 AI Call Audit — Team</h2>
+  <h2 class="secttl" style="margin-top:4px" id="auditReportTitle">🎧 AI Call Audit — Team</h2>
   <div id="auditReportBody"></div>
   <button onclick="auditShareReport()" style="margin-top:16px;width:100%;padding:12px;border:none;border-radius:12px;background:#22c55e;color:#fff;font:inherit;font-weight:700;font-size:14px">📤 WhatsApp pe Report bhejo</button>
 </div></div>
@@ -839,7 +839,7 @@ function renderHome(){
 function renderLogs(){
   document.getElementById('logsHead').textContent=isAdmin()?'All Call Logs':'My Call Logs';
   document.getElementById('logsSub').textContent=isAdmin()?'Every logged call across the team':'Your logged calls';
-  document.getElementById('auditReportBtn').style.display=isAdmin()?'inline-block':'none';
+  document.getElementById('auditReportBtn').style.display='inline-block';
   let all=myLogs();
   const f=document.getElementById('logFilters');
   f.innerHTML=['All',...getCats(),'Other'].map(c=>`<button class="filt ${f.dataset.active===c||(!f.dataset.active&&c==='All')?'on':''}" onclick="setF('logFilters',this);renderLogs()">${esc(c)}<\/button>`).join('');
@@ -892,7 +892,7 @@ function entryHTML(l){
 function auditAgg(){
   const LBL={intro:'Intro',rapport:'Rapport',Q:'Sawaal',req:'Requirement',tone:'Tone',next:'Next-step'};
   const g={};
-  arr(LS.logs).filter(l=>l.audScore&&/\d/.test(l.audScore)).forEach(l=>{
+  myLogs().filter(l=>l.audScore&&/\d/.test(l.audScore)).forEach(l=>{
     const uid=l.uid||'?', sc=parseInt(l.audScore)||0;
     if(!g[uid])g[uid]={uid,n:0,sum:0,fail:{}};
     g[uid].n++; g[uid].sum+=sc;
@@ -909,6 +909,7 @@ function auditAgg(){
 }
 function showAuditReport(){
   const rows=auditAgg(), body=document.getElementById('auditReportBody');
+  document.getElementById('auditReportTitle').textContent=isAdmin()?'🎧 AI Call Audit — Team':'🎧 Meri Call Audit';
   if(!rows.length){ body.innerHTML='<p class="pagesub" style="padding:10px 4px">Abhi koi audited call nahi mili. Pehle recordings audit hone do.</p>'; }
   else body.innerHTML=rows.map((r,i)=>{
     const col=r.avg>=5?'#16a34a':(r.avg>=3?'#d97706':'#dc2626');
