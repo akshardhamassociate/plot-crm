@@ -343,6 +343,7 @@
       <!-- LOGS -->
       <section id="logs">
         <h1 class="pagehead" id="logsHead">All Call Logs</h1><p class="pagesub" id="logsSub">Every logged call across the team</p>
+        <button id="auditReportBtn" onclick="showAuditReport()" style="display:none;margin:0 2px 12px;padding:9px 14px;border:none;border-radius:10px;background:#16a34a;color:#fff;font:inherit;font-weight:700;font-size:13px">🎧 AI Audit Report</button>
         <div class="filters" id="logFilters"></div>
         <div class="user-filters" id="logUserFilters" style="display:none"></div>
         <div class="cards" id="allList"></div>
@@ -412,6 +413,13 @@
 </div>
 
 <!-- auto call-log -->
+<div class="modal" id="auditReportModal"><div class="sheet"><div class="grab"></div>
+  <button class="modal-close-btn" onclick="closeModal('auditReportModal')" title="Close">✕</button>
+  <h2 class="secttl" style="margin-top:4px">🎧 AI Call Audit — Team</h2>
+  <div id="auditReportBody"></div>
+  <button onclick="auditShareReport()" style="margin-top:16px;width:100%;padding:12px;border:none;border-radius:12px;background:#22c55e;color:#fff;font:inherit;font-weight:700;font-size:14px">📤 WhatsApp pe Report bhejo</button>
+</div></div>
+
 <div class="modal" id="callModal"><div class="sheet"><div class="grab"></div>
   <button class="modal-close-btn" onclick="closeModal('callModal')" title="Close">✕</button>
   <div class="callhead"><div class="av" id="cl_av">?</div><div><div class="cn" id="cl_name">—</div><div class="cd" id="cl_dur">Call done — fill the details</div></div></div>
@@ -831,6 +839,7 @@ function renderHome(){
 function renderLogs(){
   document.getElementById('logsHead').textContent=isAdmin()?'All Call Logs':'My Call Logs';
   document.getElementById('logsSub').textContent=isAdmin()?'Every logged call across the team':'Your logged calls';
+  document.getElementById('auditReportBtn').style.display=isAdmin()?'inline-block':'none';
   let all=myLogs();
   const f=document.getElementById('logFilters');
   f.innerHTML=['All',...getCats(),'Other'].map(c=>`<button class="filt ${f.dataset.active===c||(!f.dataset.active&&c==='All')?'on':''}" onclick="setF('logFilters',this);renderLogs()">${esc(c)}<\/button>`).join('');
@@ -877,6 +886,75 @@ function entryHTML(l){
     <div class="foot"><span>📅 ${fmt(l.date)}${l.dur?' · '+l.dur:''}${who}<\/span>${l.next?`<span class="nx ${over?'over':''}">↻ ${fmt(l.next)}${over?' DUE':''}<\/span>`:''}<\/div>
     <div class="erow">${l.mob?`<button class="mini call" onclick="startCall('${esc(l.name)}','${esc(l.mob)}','${esc(l.cat)}')">📞 Call<\/button><button class="mini wa" onclick="waNum('${esc(l.mob)}')">💬 WA<\/button>`:''}<button class="mini edit" onclick="editLog('${l.id}')">✎ Edit<\/button>${recBtn}<\/div>
     <div class="rec-wrap" id="recplay_${l.id}"><div class="rec-label">🎙 Call Recording<\/div><audio controls style="width:100%;height:34px"><\/audio><\/div>${audHTML}<\/div>`;
+}
+
+// ── AI Audit — team summary report (admin) ──
+function auditAgg(){
+  const LBL={intro:'Intro',rapport:'Rapport',Q:'Sawaal',req:'Requirement',tone:'Tone',next:'Next-step'};
+  const g={};
+  arr(LS.logs).filter(l=>l.audScore&&/\d/.test(l.audScore)).forEach(l=>{
+    const uid=l.uid||'?', sc=parseInt(l.audScore)||0;
+    if(!g[uid])g[uid]={uid,n:0,sum:0,fail:{}};
+    g[uid].n++; g[uid].sum+=sc;
+    (l.audChecks||'').split(/\s+/).forEach(tok=>{
+      if(!tok)return; const mark=tok.slice(-1),key=tok.slice(0,-1);
+      if(mark==='✗'&&key)g[uid].fail[key]=(g[uid].fail[key]||0)+1;
+    });
+  });
+  return Object.values(g).map(x=>{
+    let worst='',wc=0; Object.keys(x.fail).forEach(k=>{if(x.fail[k]>wc){wc=x.fail[k];worst=k;}});
+    const u=allUsers().find(u=>u.id===x.uid);
+    return {name:u?u.name:x.uid, n:x.n, avg:x.sum/x.n, worst:worst?(LBL[worst]||worst):'—'};
+  }).sort((a,b)=>b.avg-a.avg);
+}
+function showAuditReport(){
+  const rows=auditAgg(), body=document.getElementById('auditReportBody');
+  if(!rows.length){ body.innerHTML='<p class="pagesub" style="padding:10px 4px">Abhi koi audited call nahi mili. Pehle recordings audit hone do.</p>'; }
+  else body.innerHTML=rows.map((r,i)=>{
+    const col=r.avg>=5?'#16a34a':(r.avg>=3?'#d97706':'#dc2626');
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:0"><div style="font-weight:700">${i+1}. ${esc(r.name)}<\/div>
+        <div class="mb" style="color:var(--muted);font-size:12px">${r.n} calls · kami: ${esc(r.worst)}<\/div><\/div>
+      <div style="font-weight:800;font-size:18px;color:${col}">${r.avg.toFixed(1)}/6<\/div><\/div>`;
+  }).join('');
+  openModal('auditReportModal');
+}
+function auditReportText(rows,dateStr){
+  let t='🎧 *AI Call Audit Report*\n'+dateStr+'\n\n';
+  rows.forEach((r,i)=>{ t+=(i+1)+'. '+r.name+' — '+r.avg.toFixed(1)+'/6 ('+r.n+' calls) · kami: '+r.worst+'\n'; });
+  return t+'\nPer-call detail app ke Logs me dekhein.';
+}
+function _auditCanvas(rows,dateStr){
+  const W=620,rowH=58,top=128,pad=24,H=top+rows.length*rowH+24;
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+  x.fillStyle='#15242c'; x.fillRect(0,0,W,96);
+  x.fillStyle='#fff'; x.font='bold 26px Arial'; x.fillText('Call Audit Report',pad,44);
+  x.fillStyle='#9fb3c0'; x.font='15px Arial'; x.fillText(dateStr,pad,74);
+  rows.forEach((r,i)=>{
+    const y=top+i*rowH;
+    if(i%2){x.fillStyle='#f1f5f9'; x.fillRect(0,y-32,W,rowH);}
+    x.fillStyle='#0f172a'; x.font='bold 18px Arial'; x.textAlign='left'; x.fillText((i+1)+'. '+r.name,pad,y-4);
+    x.fillStyle='#64748b'; x.font='13px Arial'; x.fillText(r.n+' calls · kami: '+r.worst,pad,y+16);
+    x.fillStyle=r.avg>=5?'#16a34a':(r.avg>=3?'#d97706':'#dc2626');
+    x.font='bold 22px Arial'; x.textAlign='right'; x.fillText(r.avg.toFixed(1)+'/6',W-pad,y+4);
+  });
+  return c;
+}
+async function auditShareReport(){
+  const rows=auditAgg();
+  if(!rows.length){toast('Abhi koi audited call nahi');return;}
+  const dateStr=fmt(today()), text=auditReportText(rows,dateStr);
+  try{
+    const blob=await new Promise(res=>_auditCanvas(rows,dateStr).toBlob(res,'image/png'));
+    if(blob){
+      const file=new File([blob],'audit-report.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],text}); return; }
+    }
+    if(navigator.share){ await navigator.share({text}); return; }
+  }catch(e){}
+  window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
 }
 
 function contactCardHTML(c){
