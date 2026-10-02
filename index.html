@@ -1440,6 +1440,7 @@ function stdIssues(s){ if(Array.isArray(s.issues)) return s.issues.map(x=>String
 function stdYesterday(s){ if(Array.isArray(s.yesterday)) return s.yesterday.map(x=>({t:x.t||'',st:x.st||'',rm:x.rm||'',proof:x.proof||'',proofUrl:x.proofUrl||''}));
   if(typeof s.yesterday==='string'&&s.yesterday) return s.yesterday.split(/\n+/).map(x=>x.trim()).filter(Boolean).map(t=>({t,st:'',rm:'',proof:'',proofUrl:''})); return []; }
 function _blankTask(){ return {t:'',st:'',rm:'',proof:'',proofUrl:''}; }
+function _isImg(u){ return /\.(jpe?g|png|gif|webp|bmp|heic|svg)(\?|$)/i.test(u) || /\/image\/upload\//.test(u); }
 function blankDraft(){ return { date: today(), yesterday:[], tasks:[_blankTask(),_blankTask(),_blankTask()], issues:[''] }; }
 // Kisi date ke liye form bharo: doc ho to load, warna Kal-ka-task pichhle standup se auto (carry-forward)
 function hudFillDraftFor(date){
@@ -1601,7 +1602,7 @@ function hudCard(s, editable, own){
         <div style="flex:1;min-width:0"><div style="font-size:.9rem">${esc(t.t)}</div>
           ${t.rm?`<div class="tiny" style="margin-top:2px">📝 ${esc(t.rm)}</div>`:''}
           ${t.proof?`<div class="tiny" style="margin-top:2px">📊 ${/^https?:/.test(t.proof)?`<a href="${esc(t.proof)}" target="_blank" style="color:var(--brand)">${esc(t.proof)}</a>`:esc(t.proof)}</div>`:''}
-          ${t.proofUrl?`<div class="tiny" style="margin-top:2px"><a href="${esc(t.proofUrl)}" target="_blank" style="color:var(--brand)">📎 Proof file</a></div>`:''}
+          ${t.proofUrl?`<div style="margin-top:4px">${_isImg(t.proofUrl)?`<a href="${esc(t.proofUrl)}" target="_blank"><img src="${esc(t.proofUrl)}" loading="lazy" style="max-width:130px;max-height:130px;border-radius:8px;border:1px solid var(--line)"></a>`:`<a href="${esc(t.proofUrl)}" target="_blank" class="tiny" style="color:var(--brand)">📎 Proof file</a>`}</div>`:''}
         </div>
         ${t.st?hudStBadge(t.st):''}
       </div>`).join('');
@@ -1641,7 +1642,7 @@ function huddleHTML(){
   const proofRow=(grp,i,t,prefix)=>`
         <input placeholder="Proof/Result — text ya link (optional)" value="${esc(t.proof||'')}" oninput="hud.draft.${grp}[${i}].proof=this.value" style="margin-top:6px;font-size:.82rem">
         <input id="${prefix}${i}" type="file" style="margin-top:6px;font-size:.72rem;padding:7px">
-        ${t.proofUrl?`<a href="${esc(t.proofUrl)}" target="_blank" class="tiny" style="color:var(--brand);display:inline-block;margin-top:4px">📎 attached file</a>`:''}`;
+        ${t.proofUrl?(_isImg(t.proofUrl)?`<a href="${esc(t.proofUrl)}" target="_blank" style="display:inline-block;margin-top:4px"><img src="${esc(t.proofUrl)}" loading="lazy" style="max-width:90px;max-height:90px;border-radius:6px;border:1px solid var(--line)"></a>`:`<a href="${esc(t.proofUrl)}" target="_blank" class="tiny" style="color:var(--brand);display:inline-block;margin-top:4px">📎 attached file</a>`):''}`;
   const yestRows=d.yesterday.map((t,i)=>`
       <div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px">
         <div class="row" style="gap:6px;align-items:center">
