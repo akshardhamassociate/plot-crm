@@ -1433,25 +1433,26 @@ const NAME_BY_EMAIL = {
 // ---- Huddle task/issue helpers (numbered entries + status reporting) ----
 const HUD_ST={done:{l:'✓ Done',c:'#047857',bg:'#d1fae5'},partial:{l:'~ Partial',c:'#b45309',bg:'#fef3c7'},notdone:{l:'✕ Not Done',c:'#b91c1c',bg:'#fee2e2'}};
 function hudStBadge(st){ const o=HUD_ST[st]; return o?`<span class="badge" style="background:${o.bg};color:${o.c};font-size:.6rem">${o.l}</span>`:`<span class="badge" style="background:#eef1f5;color:#6b7280;font-size:.6rem">pending</span>`; }
-function stdTasks(s){ if(Array.isArray(s.tasks)) return s.tasks.map(x=>({t:x.t||'',st:x.st||'',rm:x.rm||''}));
-  if(s.today) return String(s.today).split(/\n+/).map(x=>x.trim()).filter(Boolean).map(t=>({t,st:'',rm:''})); return []; }
+function stdTasks(s){ if(Array.isArray(s.tasks)) return s.tasks.map(x=>({t:x.t||'',st:x.st||'',rm:x.rm||'',proof:x.proof||'',proofUrl:x.proofUrl||''}));
+  if(s.today) return String(s.today).split(/\n+/).map(x=>x.trim()).filter(Boolean).map(t=>({t,st:'',rm:'',proof:'',proofUrl:''})); return []; }
 function stdIssues(s){ if(Array.isArray(s.issues)) return s.issues.map(x=>String(x==null?'':x)).filter(Boolean);
   if(typeof s.issues==='string'&&s.issues) return s.issues.split(/\n+/).map(x=>x.trim()).filter(Boolean); return []; }
-function stdYesterday(s){ if(Array.isArray(s.yesterday)) return s.yesterday.map(x=>({t:x.t||'',st:x.st||'',rm:x.rm||''}));
-  if(typeof s.yesterday==='string'&&s.yesterday) return s.yesterday.split(/\n+/).map(x=>x.trim()).filter(Boolean).map(t=>({t,st:'',rm:''})); return []; }
-function blankDraft(){ return { date: today(), yesterday:[], tasks:[{t:'',st:'',rm:''},{t:'',st:'',rm:''},{t:'',st:'',rm:''}], issues:[''] }; }
+function stdYesterday(s){ if(Array.isArray(s.yesterday)) return s.yesterday.map(x=>({t:x.t||'',st:x.st||'',rm:x.rm||'',proof:x.proof||'',proofUrl:x.proofUrl||''}));
+  if(typeof s.yesterday==='string'&&s.yesterday) return s.yesterday.split(/\n+/).map(x=>x.trim()).filter(Boolean).map(t=>({t,st:'',rm:'',proof:'',proofUrl:''})); return []; }
+function _blankTask(){ return {t:'',st:'',rm:'',proof:'',proofUrl:''}; }
+function blankDraft(){ return { date: today(), yesterday:[], tasks:[_blankTask(),_blankTask(),_blankTask()], issues:[''] }; }
 // Kisi date ke liye form bharo: doc ho to load, warna Kal-ka-task pichhle standup se auto (carry-forward)
 function hudFillDraftFor(date){
   hud.draft.date=date;
   const doc=hud.mine.find(s=>s.date===date);
   if(doc){ hud.draft.yesterday=stdYesterday(doc); hud.draft.tasks=stdTasks(doc); hud.draft.issues=stdIssues(doc); }
   else {
-    hud.draft.yesterday=[]; hud.draft.tasks=[{t:'',st:'',rm:''},{t:'',st:'',rm:''},{t:'',st:'',rm:''}]; hud.draft.issues=[''];
+    hud.draft.yesterday=[]; hud.draft.tasks=[_blankTask(),_blankTask(),_blankTask()]; hud.draft.issues=[''];
     const lim=(()=>{const dt=new Date(date+'T00:00');dt.setDate(dt.getDate()-10);return dt.toISOString().slice(0,10);})();
     for(const s of hud.mine){ if(s.date>=date||s.date<lim) continue; const tks=stdTasks(s);
-      if(tks.length){ hud.draft.yesterday=tks.map(t=>({t:t.t,st:'',rm:''})); break; } }   // pichhle din ke task -> auto
+      if(tks.length){ hud.draft.yesterday=tks.map(t=>({t:t.t,st:'',rm:'',proof:'',proofUrl:''})); break; } }   // pichhle din ke task -> auto
   }
-  if(!hud.draft.tasks.length) hud.draft.tasks=[{t:'',st:'',rm:''}];
+  if(!hud.draft.tasks.length) hud.draft.tasks=[_blankTask()];
   if(!hud.draft.issues.length) hud.draft.issues=[''];
 }
 let hud = { date: today(), items: [], mine: [], draft: blankDraft(), report:null, editing:false, execFilter:'' };
@@ -1463,18 +1464,68 @@ function toast(msg){ let t=document.getElementById('_toast');
   if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
   t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
+// ── Report → WhatsApp (canvas image + text, koi library nahi) ──
+function _reportCanvas(title, sub, rows){
+  const W=760, pad=30, lh=32, head=100;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=head + rows.length*lh + pad*2;
+  const x=cv.getContext('2d');
+  x.fillStyle='#ffffff'; x.fillRect(0,0,cv.width,cv.height);
+  x.fillStyle='#111827'; x.fillRect(0,0,W,head);
+  x.fillStyle='#fff'; x.font='bold 27px Arial'; x.fillText(title,pad,44);
+  x.fillStyle='#cbd5e1'; x.font='16px Arial'; x.fillText(sub,pad,76);
+  let y=head+pad+6; x.font='18px Arial';
+  rows.forEach(r=>{ x.fillStyle=r.c||'#111827'; x.font=(r.b?'bold ':'')+'18px Arial'; x.fillText((r.t||'').slice(0,70),pad+(r.pad||0),y); y+=lh; });
+  return cv;
+}
+function shareReport(title, sub, rows, text){
+  try{
+    _reportCanvas(title,sub,rows).toBlob(async(blob)=>{
+      const file=new File([blob],'report.png',{type:'image/png'});
+      try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],text}); return; } }catch(_){}
+      try{ if(navigator.share){ await navigator.share({text}); return; } }catch(_){}
+      window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+    },'image/png');
+  }catch(_){ window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
+}
+function attShareReport(){
+  const byKey={}; att.items.forEach(a=>byKey[(a.nameKey||'').toLowerCase()]=a);
+  const rows=[], lines=[]; let present=0,total=0;
+  OFFICES.forEach(o=>{ const staff=OFFICE_STAFF[o.id]||[]; if(!staff.length) return;
+    rows.push({t:o.name,b:true,c:'#4f46e5'}); lines.push('*'+o.name+'*');
+    staff.forEach(nm=>{ total++; const a=byKey[nm.toLowerCase()]; if(a)present++;
+      rows.push({t:(a?'✅ ':'❌ ')+nm+(a?'  '+a.inTime+(a.late?' (Late)':''):'  Absent'),pad:12,c:a?(a.late?'#b45309':'#047857'):'#b91c1c'});
+      lines.push((a?'✅ ':'❌ ')+nm+(a?' '+a.inTime+(a.late?' (Late)':''):' — Absent')); });
+  });
+  const dt=fmtDate(att.date);
+  const text='📋 *Attendance — '+dt+'*\n'+present+'/'+total+' present\n\n'+lines.join('\n')+'\n\n🙏 Jinhone attendance nahi lagayi, kripya abhi app me Punch In kar lein.';
+  shareReport('Attendance — '+dt, present+'/'+total+' present', rows, text);
+}
+function hudShareReport(){
+  const posted=hud.items.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const pk=new Set(posted.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
+  const missing=EXECS.filter(n=>!pk.has(n.toLowerCase()));
+  const rows=[], lines=[]; const mk=st=>st==='done'?'✅':st==='partial'?'🟡':st==='notdone'?'❌':'•';
+  posted.forEach(s=>{ rows.push({t:(s.name||'?'),b:true}); lines.push('*'+(s.name||'?')+'*');
+    stdTasks(s).forEach(t=>{ rows.push({t:mk(t.st)+' '+t.t+(t.proof?' ('+t.proof+')':''),pad:12}); lines.push(mk(t.st)+' '+t.t+(t.proof?' — '+t.proof:'')); });
+  });
+  if(missing.length){ rows.push({t:'Pending: '+missing.join(', '),c:'#b91c1c'}); }
+  const dt=fmtDate(hud.date);
+  const text='📋 *Daily Huddle — '+dt+'*\n\n'+lines.join('\n')+(missing.length?'\n\n⏳ *Pending standup:* '+missing.join(', ')+'\n🙏 Kripya apna standup bhar dein.':'');
+  shareReport('Daily Huddle — '+dt, posted.length+' posted'+(missing.length?' · '+missing.length+' pending':''), rows, text);
+}
+
 function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft=blankDraft(); hud.report=null; hud.editing=false; hud.execFilter=''; render(); hudLoad(); window.scrollTo(0,0); }
 function hudEdit(id){ const s=hud.mine.find(x=>x.id===id); if(!s) return;
   hud.draft={ date:s.date, yesterday:stdYesterday(s), tasks:stdTasks(s), issues:stdIssues(s) };
-  if(!hud.draft.tasks.length) hud.draft.tasks=[{t:'',st:'',rm:''}];
+  if(!hud.draft.tasks.length) hud.draft.tasks=[_blankTask()];
   if(!hud.draft.issues.length) hud.draft.issues=[''];
   hud.editing=true; render();
   const f=document.getElementById('hud_date'); if(f) f.scrollIntoView({behavior:'smooth',block:'center'}); }
 function hudCancelEdit(){ hud.draft=blankDraft(); hud.editing=false; hudLoad(); }
-function hudAddYest(){ hud.draft.yesterday.push({t:'',st:'',rm:''}); render(); }
+function hudAddYest(){ hud.draft.yesterday.push(_blankTask()); render(); }
 function hudDelYest(i){ hud.draft.yesterday.splice(i,1); render(); }
-function hudAddTask(){ hud.draft.tasks.push({t:'',st:'',rm:''}); render(); }
-function hudDelTask(i){ hud.draft.tasks.splice(i,1); if(!hud.draft.tasks.length) hud.draft.tasks.push({t:'',st:'',rm:''}); render(); }
+function hudAddTask(){ hud.draft.tasks.push(_blankTask()); render(); }
+function hudDelTask(i){ hud.draft.tasks.splice(i,1); if(!hud.draft.tasks.length) hud.draft.tasks.push(_blankTask()); render(); }
 function hudAddIssue(){ hud.draft.issues.push(''); render(); }
 function hudDelIssue(i){ hud.draft.issues.splice(i,1); if(!hud.draft.issues.length) hud.draft.issues.push(''); render(); }
 function hudFormDate(dstr){ hud.editing=false; hudFillDraftFor(dstr); render(); }
@@ -1506,12 +1557,20 @@ function hudPickName(){
 function hudSaveName(){ const n=val('hud_name'); if(!n){ alert('Pehle naam chuno'); return; }
   hudSetMyName(n); const m=document.querySelector('.modal-bg'); if(m) m.remove(); render(); hudLoad(); }
 
-function hudSaveStandup(){
+async function hudSaveStandup(){
   const name=hudMyName();
   if(!name){ alert('Pehle apna naam chuno'); hudPickName(); return; }
   const date=hud.draft.date||today();
-  const yesterday=hud.draft.yesterday.map(x=>({t:(x.t||'').trim(),st:x.st||'',rm:(x.rm||'').trim()})).filter(x=>x.t);
-  const tasks=hud.draft.tasks.map(x=>({t:(x.t||'').trim(),st:x.st||'',rm:(x.rm||'').trim()})).filter(x=>x.t);
+  // proof file ho to Cloudinary pe upload, phir array banao
+  const build=async(arr,prefix)=>{ const out=[];
+    for(let i=0;i<arr.length;i++){ const x=arr[i]; const t=(x.t||'').trim(); if(!t) continue;
+      let proofUrl=x.proofUrl||'';
+      const fin=document.getElementById(prefix+i);
+      if(fin && fin.files && fin.files[0]){ const u=await uploadFile(prefix+i); if(u) proofUrl=u; }
+      out.push({t,st:x.st||'',rm:(x.rm||'').trim(),proof:(x.proof||'').trim(),proofUrl});
+    } return out; };
+  const yesterday=await build(hud.draft.yesterday,'yfile');
+  const tasks=await build(hud.draft.tasks,'tfile');
   const issues=hud.draft.issues.map(x=>(x||'').trim()).filter(Boolean);
   if(!tasks.length && !issues.length && !yesterday.length){ alert('Kuch to bharo — kal ka kaam, aaj ke task ya issue'); return; }
   const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
@@ -1539,7 +1598,11 @@ function hudCard(s, editable, own){
   const rowsHTML = arr => arr.map((t,i)=>`
       <div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)">
         <span style="font-weight:800;color:var(--muted);font-size:.8rem">${i+1}.</span>
-        <div style="flex:1;min-width:0"><div style="font-size:.9rem">${esc(t.t)}</div>${t.rm?`<div class="tiny" style="margin-top:2px">📝 ${esc(t.rm)}</div>`:''}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:.9rem">${esc(t.t)}</div>
+          ${t.rm?`<div class="tiny" style="margin-top:2px">📝 ${esc(t.rm)}</div>`:''}
+          ${t.proof?`<div class="tiny" style="margin-top:2px">📊 ${/^https?:/.test(t.proof)?`<a href="${esc(t.proof)}" target="_blank" style="color:var(--brand)">${esc(t.proof)}</a>`:esc(t.proof)}</div>`:''}
+          ${t.proofUrl?`<div class="tiny" style="margin-top:2px"><a href="${esc(t.proofUrl)}" target="_blank" style="color:var(--brand)">📎 Proof file</a></div>`:''}
+        </div>
         ${t.st?hudStBadge(t.st):''}
       </div>`).join('');
   const issueHTML = issues.map((x,i)=>`<div style="font-size:.88rem;padding:2px 0">${i+1}. ${esc(x)}</div>`).join('');
@@ -1575,6 +1638,10 @@ function huddleHTML(){
             <option value="partial" ${st==='partial'?'selected':''}>~ Partial</option>
             <option value="notdone" ${st==='notdone'?'selected':''}>✕ Not Done</option>
           </select>`;
+  const proofRow=(grp,i,t,prefix)=>`
+        <input placeholder="Proof/Result — text ya link (optional)" value="${esc(t.proof||'')}" oninput="hud.draft.${grp}[${i}].proof=this.value" style="margin-top:6px;font-size:.82rem">
+        <input id="${prefix}${i}" type="file" style="margin-top:6px;font-size:.72rem;padding:7px">
+        ${t.proofUrl?`<a href="${esc(t.proofUrl)}" target="_blank" class="tiny" style="color:var(--brand);display:inline-block;margin-top:4px">📎 attached file</a>`:''}`;
   const yestRows=d.yesterday.map((t,i)=>`
       <div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px">
         <div class="row" style="gap:6px;align-items:center">
@@ -1585,12 +1652,16 @@ function huddleHTML(){
         <div class="row" style="gap:6px;margin-top:6px">${stSelect('yesterday',i,t.st)}
           <input placeholder="Remark" value="${esc(t.rm)}" oninput="hud.draft.yesterday[${i}].rm=this.value" style="flex:1;font-size:.85rem">
         </div>
+        ${proofRow('yesterday',i,t,'yfile')}
       </div>`).join('');
   const taskRows=d.tasks.map((t,i)=>`
-      <div class="row" style="gap:6px;align-items:center;margin-bottom:7px">
-        <span style="font-weight:800;color:var(--muted);width:16px;flex:none">${i+1}.</span>
-        <input placeholder="Aaj ka task ${i+1}" value="${esc(t.t)}" oninput="hud.draft.tasks[${i}].t=this.value">
-        ${d.tasks.length>1?`<button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelTask(${i})">✕</button>`:''}
+      <div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px">
+        <div class="row" style="gap:6px;align-items:center">
+          <span style="font-weight:800;color:var(--muted);width:16px;flex:none">${i+1}.</span>
+          <input placeholder="Aaj ka task ${i+1}" value="${esc(t.t)}" oninput="hud.draft.tasks[${i}].t=this.value">
+          ${d.tasks.length>1?`<button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelTask(${i})">✕</button>`:''}
+        </div>
+        ${proofRow('tasks',i,t,'tfile')}
       </div>`).join('');
   const issueRows=d.issues.map((x,i)=>`
       <div class="row" style="gap:6px;align-items:center;margin-bottom:7px">
@@ -1629,6 +1700,7 @@ function huddleHTML(){
         <input type="date" value="${hud.date}" onchange="hudSetDate(this.value)" style="width:auto">
         <button class="btn ghost sm" onclick="hudShiftDay(1)">${IC.chev}</button>
         <button class="btn ghost sm" onclick="hudSetDate(today())">Today</button>
+        <button class="btn sm" style="background:#22c55e;margin-left:auto" onclick="hudShareReport()">${IC.wa} Report</button>
       </div>
       <div class="field" style="margin-bottom:12px"><label>Executive</label>
         <select onchange="hud.execFilter=this.value;render()">
@@ -1802,6 +1874,7 @@ function attView(){
         <input type="date" value="${att.date}" onchange="attSetDate(this.value)" style="width:auto">
         <button class="btn ghost sm" onclick="attShiftDay(1)">${IC.chev}</button>
         <button class="btn ghost sm" onclick="attSetDate(today())">Today</button>
+        <button class="btn sm" style="background:#22c55e;margin-left:auto" onclick="attShareReport()">${IC.wa} Report</button>
       </div>
       ${groups}${othersHTML}`;
   }
