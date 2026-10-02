@@ -858,6 +858,15 @@ function entryHTML(l){
   const over=l.next&&l.next<=today();
   const who=isAdmin()&&l.uid!==me.id?` · <b>${esc((allUsers().find(u=>u.id===l.uid)||{}).name||l.uid)}<\/b>`:'';
   const recBtn=l.hasRec?`<button class="mini rec" onclick="playRec('${l.id}',this)">▶ Recording<\/button>`:'';
+  let audHTML='';
+  if(l.audScore){
+    const an=parseInt(l.audScore)||0, ac=an>=5?'#16a34a':(an>=3?'#d97706':'#dc2626');
+    audHTML=`<div style="border:1px solid var(--line);border-left:3px solid ${ac};border-radius:8px;padding:7px 9px;margin-top:8px;font-size:12px">
+      <div style="font-weight:700;color:${ac}">🎧 AI Audit · ${esc(l.audScore)}<\/div>
+      ${l.audChecks?`<div style="color:var(--muted);margin-top:3px">${esc(l.audChecks)}<\/div>`:''}
+      ${l.audNote?`<div style="margin-top:4px">📝 ${esc(l.audNote)}<\/div>`:''}
+      ${l.audIssues?`<div style="margin-top:3px;color:${ac}">⚠ ${esc(l.audIssues)}<\/div>`:''}<\/div>`;
+  }
   return `<div class="entry"><div class="r1"><div style="display:flex;gap:11px;min-width:0">
     <div class="av">${initials(l.name)}<\/div><div style="min-width:0"><div class="nm">${esc(l.name)||'—'}<\/div>${l.mob?`<div class="mb">📱 ${esc(l.mob)}<\/div>`:''}<\/div>
     <\/div>${catBadge(l.cat)}<\/div>
@@ -867,7 +876,7 @@ function entryHTML(l){
     ${l.comment?`<div class="meta" style="color:var(--muted)">${esc(l.comment)}<\/div>`:''}
     <div class="foot"><span>📅 ${fmt(l.date)}${l.dur?' · '+l.dur:''}${who}<\/span>${l.next?`<span class="nx ${over?'over':''}">↻ ${fmt(l.next)}${over?' DUE':''}<\/span>`:''}<\/div>
     <div class="erow">${l.mob?`<button class="mini call" onclick="startCall('${esc(l.name)}','${esc(l.mob)}','${esc(l.cat)}')">📞 Call<\/button><button class="mini wa" onclick="waNum('${esc(l.mob)}')">💬 WA<\/button>`:''}<button class="mini edit" onclick="editLog('${l.id}')">✎ Edit<\/button>${recBtn}<\/div>
-    <div class="rec-wrap" id="recplay_${l.id}"><div class="rec-label">🎙 Call Recording<\/div><audio controls style="width:100%;height:34px"><\/audio><\/div><\/div>`;
+    <div class="rec-wrap" id="recplay_${l.id}"><div class="rec-label">🎙 Call Recording<\/div><audio controls style="width:100%;height:34px"><\/audio><\/div>${audHTML}<\/div>`;
 }
 
 function contactCardHTML(c){
