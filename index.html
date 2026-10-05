@@ -633,17 +633,29 @@ function _jsonp(url){return new Promise((res,rej)=>{
 function _ckStr(r){ return 'intro'+(r.intro?'✓':'✗')+' rapport'+(r.rapport?'✓':'✗')+' Q'+(r.questions?'✓':'✗')+' req'+(r.requirement?'✓':'✗')+' tone'+(r.tone?'✓':'✗')+' next'+(r.nextstep?'✓':'✗'); }
 // recUrl ko audit karke lead (ya uske followup) pe save karo. fuId diya to wahi followup, warna lead-level.
 async function auditRec(leadId, recUrl, fuId){
-  if(!AUDIT_URL || !recUrl) return;
+  if(!AUDIT_URL || !recUrl) return false;
   try{
     const r = await _jsonp(AUDIT_URL + (AUDIT_URL.includes('?')?'&':'?') + 'audit=' + encodeURIComponent(recUrl));
-    if(!r || r.error) return;
-    const L = leads.find(x=>x.id===leadId); if(!L) return;
+    if(!r || r.error) return false;
+    const L = leads.find(x=>x.id===leadId); if(!L) return false;
     const a = { score:r.score||'', checks:_ckStr(r), note:r.note||'', issues:r.issues||'' };
-    if(fuId){ const fu=(L.followUps||[]).find(f=>f.id===fuId); if(!fu) return; fu.audit=a; }
+    if(fuId){ const fu=(L.followUps||[]).find(f=>f.id===fuId); if(!fu) return false; fu.audit=a; }
     else L.audit=a;
     await putLead(L);
     try{ render(); }catch(e){}
-  }catch(e){}
+    return true;
+  }catch(e){ return false; }
+}
+// purani recording ko manually audit karne ka button
+async function manualAudit(leadId, fuId, btn){
+  if(!AUDIT_URL){ alert('AUDIT_URL set nahi hai (index.html me daalo).'); return; }
+  const L = leadId ? leads.find(x=>x.id===leadId) : leads.find(x=>(x.followUps||[]).some(f=>f.id===fuId));
+  if(!L) return;
+  const recUrl = fuId ? ((L.followUps||[]).find(f=>f.id===fuId)||{}).rec : L.rec;
+  if(!recUrl){ alert('Recording nahi mili'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='⏳ ho raha…'; }
+  const ok = await auditRec(L.id, recUrl, fuId);
+  if(!ok && btn){ btn.disabled=false; btn.textContent='🎧 Audit'; alert('Audit nahi ho payi — dobara try karo'); }
 }
 function auditBox(a){
   if(!a||!a.score) return '';
@@ -979,6 +991,7 @@ function detailHTML(){
         ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
         ${kv('Executive',execStr(L))}${kv('Added on',fmtDate(L.createdAt))}
         ${(L.rec||L.photo)?`<div style="padding:10px 0 6px">${attHTML(L.rec,IC.mic,'Recording')}${attHTML(L.photo,IC.cam,'Photo')}</div>`:''}
+        ${(L.rec && !(L.audit&&L.audit.score))?`<button class="btn ghost sm" style="margin:2px 0 8px" onclick="manualAudit('${L.id}',null,this)">🎧 Audit</button>`:''}
         ${auditBox(L.audit)}
       </div>
 
@@ -1011,6 +1024,7 @@ function fuCard(fu){
     ${fu.response?`<div class="fu-line"><b>Response:</b> ${esc(fu.response)}</div>`:''}
     ${fu.nextDate?`<div class="fu-line"><b>Next:</b> ${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}</div>`:''}
     ${atts?`<div>${atts}</div>`:''}
+    ${(fu.rec && !(fu.audit&&fu.audit.score))?`<button class="btn ghost sm" style="margin:4px 0 2px" onclick="manualAudit(null,'${fu.id}',this)">🎧 Audit</button>`:''}
     ${auditBox(fu.audit)}
   </div>`;
 }
