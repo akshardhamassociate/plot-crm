@@ -613,10 +613,47 @@ let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
 let swReg = null;
 const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];   // executives — dropdown me pehle se dikhenge
 const NOTIFY_URL = 'https://plot-crm-notify.vercel.app/api/notify';   // instant-notification server (Vercel) — deploy ke baad apni URL daalna
+const AUDIT_URL  = 'https://script.google.com/macros/s/AKfycbzg03zxLfHawG5NG4fK4bkOd7kZAdKz9lJS2t-UkAhVFc-9xsEADcLWQGpOo-dZtPiV/exec';   // Smart Call Log ka Apps Script /exec URL (calllog wala same). Khaali = recording auto-audit OFF.
 
 let leads = [], user = null, unsub = null;
 
 function putLead(L){ return col().doc(L.id).set(L).catch(e=>alert('Save failed: '+e.message)); }
+
+// ── AI call-audit (recording upload hote hi, background me) ──
+function _jsonp(url){return new Promise((res,rej)=>{
+  const cb='_acb'+Math.random().toString(36).slice(2);
+  const s=document.createElement('script');
+  const to=setTimeout(()=>{cleanup();rej(new Error('timeout'));},60000);
+  function cleanup(){clearTimeout(to);try{delete window[cb];}catch(e){}s.remove();}
+  window[cb]=d=>{cleanup();res(d);};
+  s.onerror=()=>{cleanup();rej(new Error('load error'));};
+  s.src=url+(url.includes('?')?'&':'?')+'callback='+cb+'&t='+Date.now();
+  document.body.appendChild(s);
+});}
+function _ckStr(r){ return 'intro'+(r.intro?'✓':'✗')+' rapport'+(r.rapport?'✓':'✗')+' Q'+(r.questions?'✓':'✗')+' req'+(r.requirement?'✓':'✗')+' tone'+(r.tone?'✓':'✗')+' next'+(r.nextstep?'✓':'✗'); }
+// recUrl ko audit karke lead (ya uske followup) pe save karo. fuId diya to wahi followup, warna lead-level.
+async function auditRec(leadId, recUrl, fuId){
+  if(!AUDIT_URL || !recUrl) return;
+  try{
+    const r = await _jsonp(AUDIT_URL + (AUDIT_URL.includes('?')?'&':'?') + 'audit=' + encodeURIComponent(recUrl));
+    if(!r || r.error) return;
+    const L = leads.find(x=>x.id===leadId); if(!L) return;
+    const a = { score:r.score||'', checks:_ckStr(r), note:r.note||'', issues:r.issues||'' };
+    if(fuId){ const fu=(L.followUps||[]).find(f=>f.id===fuId); if(!fu) return; fu.audit=a; }
+    else L.audit=a;
+    await putLead(L);
+    try{ render(); }catch(e){}
+  }catch(e){}
+}
+function auditBox(a){
+  if(!a||!a.score) return '';
+  const n=parseInt(a.score)||0, c=n>=5?'#16a34a':(n>=3?'#d97706':'#dc2626');
+  return `<div style="border:1px solid var(--line);border-left:3px solid ${c};border-radius:8px;padding:7px 9px;margin:8px 0;font-size:12px">
+    <div style="font-weight:700;color:${c}">🎧 AI Audit · ${esc(a.score)}</div>
+    ${a.checks?`<div class="tiny" style="margin-top:3px">${esc(a.checks)}</div>`:''}
+    ${a.note?`<div style="margin-top:4px">📝 ${esc(a.note)}</div>`:''}
+    ${a.issues?`<div style="margin-top:3px;color:${c}">⚠ ${esc(a.issues)}</div>`:''}</div>`;
+}
 async function uploadFile(inputId){                // uploads to Cloudinary, returns a playable URL
   const fl = document.getElementById(inputId).files[0];
   if(!fl) return '';
@@ -942,6 +979,7 @@ function detailHTML(){
         ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
         ${kv('Executive',execStr(L))}${kv('Added on',fmtDate(L.createdAt))}
         ${(L.rec||L.photo)?`<div style="padding:10px 0 6px">${attHTML(L.rec,IC.mic,'Recording')}${attHTML(L.photo,IC.cam,'Photo')}</div>`:''}
+        ${auditBox(L.audit)}
       </div>
 
       <div class="sec"><span class="grow">Need analysis</span>
@@ -973,6 +1011,7 @@ function fuCard(fu){
     ${fu.response?`<div class="fu-line"><b>Response:</b> ${esc(fu.response)}</div>`:''}
     ${fu.nextDate?`<div class="fu-line"><b>Next:</b> ${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}</div>`:''}
     ${atts?`<div>${atts}</div>`:''}
+    ${auditBox(fu.audit)}
   </div>`;
 }
 
@@ -1146,6 +1185,8 @@ async function saveLead(id){
     }
   }
   await putLead(L); const m=document.querySelector('.modal-bg'); if(m) m.remove();
+  if(rec){ if(id) auditRec(L.id, rec, null);                       // edit → lead-level recording
+           else if(L.followUps&&L.followUps[0]&&L.followUps[0].rec===rec) auditRec(L.id, rec, L.followUps[0].id); }  // nayi lead → pehle followup me
   if(!id){ notifyAssignees(L); go('detail', L.id); } else render();
 }
 // lead add hote hi assigned executives ko INSTANT notification (Vercel server ke through)
@@ -1219,12 +1260,14 @@ async function saveFU(id){
   document.querySelectorAll('.modal .btn').forEach(b=>{ b.disabled=true; });   // prevent double submit during upload
   const rec = await uploadFile('fu_rec');
   const photo = await uploadFile('fu_photo');
-  L.followUps.unshift({ id:uid(), date:val('fu_date')||today(), by:val('fu_by'),
+  const fu={ id:uid(), date:val('fu_date')||today(), by:val('fu_by'),
     purpose:val('fu_purpose'), response:val('fu_response'),
     nextDate:val('fu_ndate'), nextAction:val('fu_naction'),
-    prev:L.status, next, rec, photo });
+    prev:L.status, next, rec, photo };
+  L.followUps.unshift(fu);
   L.status = next; L.ts=Date.now();
   await putLead(L);
+  if(rec) auditRec(L.id, rec, fu.id);   // followup recording → background audit
   const m=document.querySelector('.modal-bg'); if(m) m.remove();
   render();
 }
