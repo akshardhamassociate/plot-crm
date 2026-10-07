@@ -798,7 +798,6 @@ function sideHTML(){
 
 // ── LIST ─────────────────────────────────────────────────────────────────────
 function listHTML(){
-  const list = filtered();
   const colonies = uniq(leads.map(L=>L.colony));
   const execs = uniq(leads.flatMap(execsOf));
   return `<div class="main-inner">
@@ -806,7 +805,7 @@ function listHTML(){
     <div class="page-sub">${leads.length} total · ${leads.filter(isDue).length} follow-up due</div>
     ${reminderBanner()}
     <div class="search-wrap">${IC.search}
-      <input placeholder="Search by name, mobile or plot…" value="${esc(f.q)}" oninput="f.q=this.value;page=1;debouncedRender()">
+      <input placeholder="Search by name, mobile or plot…" value="${esc(f.q)}" oninput="f.q=this.value;page=1;filterLeads()">
     </div>
     <div class="scroll-x" style="margin-top:12px">
       <span class="chip ${f.status===''?'on':''}" onclick="setStatus('')">All</span>
@@ -826,15 +825,21 @@ function listHTML(){
     </div>
     ${(f.status||f.colony||f.exec||f.from||f.to||f.q)?
       `<button class="btn ghost sm" style="margin-top:11px" onclick="clearFilters()">✕ Clear filters</button>`:''}
-    <div class="tiny" style="margin:16px 2px 9px">Total ${list.length} lead${list.length!==1?'s':''}</div>
+    <div id="leadResults">${leadResultsHTML()}</div>
+  </div>
+  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+}
+function leadResultsHTML(){
+  const list = filtered();
+  return `<div class="tiny" style="margin:16px 2px 9px">Total ${list.length} lead${list.length!==1?'s':''}</div>
     ${list.length? `
       <div class="leads leads-cards">${pageSlice(list).map(leadCard).join('')}</div>
       <table class="leads-table">${tableHTML(pageSlice(list))}</table>
       ${pagerHTML(list.length)}` :
-      `<div class="card"><div class="empty">${IC.inbox}<div>No leads found.<br>Click <b>Add Lead</b> to get started.</div></div></div>`}
-  </div>
-  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+      `<div class="card"><div class="empty">${IC.inbox}<div>No leads found.<br>Click <b>Add Lead</b> to get started.</div></div></div>`}`;
 }
+// search/filter: sirf results update karo — input ko mat chhuo (keyboard khula rahe)
+function filterLeads(){ const el=document.getElementById('leadResults'); if(el) el.innerHTML=leadResultsHTML(); }
 function pageSlice(arr){
   const pages=Math.max(1,Math.ceil(arr.length/pageSize));
   if(page>pages) page=pages; if(page<1) page=1;
@@ -1039,25 +1044,36 @@ function kanbanHTML(){
       if(!(L.name.toLowerCase().includes(q)||L.mobile.includes(f.q)||(L.plot||'').toLowerCase().includes(q))) return false; }
     return true;
   });
-  const cols = STATUSES.map(s=>{
+  const cols = kanbanColsHTML();
+  return `<div class="main-inner">
+    <h2 class="page-title">Pipeline</h2>
+    <div class="page-sub">Drag a card to change its stage · ${base.length} leads</div>
+    <div class="kfilters">
+      <div class="search-wrap">${IC.search}<input placeholder="Search…" value="${esc(f.q)}" oninput="f.q=this.value;filterKanban()"></div>
+      <select onchange="f.colony=this.value;render()"><option value="">All colonies</option>${colonies.map(c=>`<option ${f.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+      <select onchange="f.exec=this.value;render()"><option value="">All executives</option>${execs.map(c=>`<option ${f.exec===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    </div>
+    <div class="kanban" id="kanbanCols">${cols}</div>
+  </div>
+  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
+}
+function kanbanColsHTML(){
+  const base=leads.filter(L=>{
+    if(f.colony && L.colony!==f.colony) return false;
+    if(f.exec && !execsOf(L).includes(f.exec)) return false;
+    if(f.q){ const q=f.q.toLowerCase();
+      if(!(L.name.toLowerCase().includes(q)||L.mobile.includes(f.q)||(L.plot||'').toLowerCase().includes(q))) return false; }
+    return true;
+  });
+  return STATUSES.map(s=>{
     const items = base.filter(L=>L.status===s.k);
     return `<div class="kcol" ondragover="kallow(event,this)" ondragleave="this.classList.remove('drop')" ondrop="kdrop(event,'${s.k}')">
       <div class="kcol-h"><span class="dotc" style="background:${s.c}"></span>${s.l}<span class="cnt">${items.length}</span></div>
       ${items.map(kcard).join('')||'<div class="tiny" style="padding:6px">No leads.</div>'}
     </div>`;
   }).join('');
-  return `<div class="main-inner">
-    <h2 class="page-title">Pipeline</h2>
-    <div class="page-sub">Drag a card to change its stage · ${base.length} leads</div>
-    <div class="kfilters">
-      <div class="search-wrap">${IC.search}<input placeholder="Search…" value="${esc(f.q)}" oninput="f.q=this.value;debouncedRender()"></div>
-      <select onchange="f.colony=this.value;render()"><option value="">All colonies</option>${colonies.map(c=>`<option ${f.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
-      <select onchange="f.exec=this.value;render()"><option value="">All executives</option>${execs.map(c=>`<option ${f.exec===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
-    </div>
-    <div class="kanban">${cols}</div>
-  </div>
-  <button class="fab" onclick="openLeadForm()">${IC.add} Add Lead</button>`;
 }
+function filterKanban(){ const el=document.getElementById('kanbanCols'); if(el) el.innerHTML=kanbanColsHTML(); }
 function kcard(L){
   const fu=lastFU(L); const wa=digits(L.mobile), waNo=wa.length===10?'91'+wa:wa; const od=isOverdue(L);
   return `<div class="kcard" draggable="true" ondragstart="kdrag(event,'${L.id}',this)" ondragend="this.classList.remove('dragging')">
