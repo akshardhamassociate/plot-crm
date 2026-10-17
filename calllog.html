@@ -756,6 +756,8 @@ function initials(n){return (n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0])
 function myLogs(){const all=arr(LS.logs);return isAdmin()?all:all.filter(l=>l.uid===me.id);}
 function catBadge(c){const cls=KNOWN.includes(c)?('b-'+c.toLowerCase()):'b-other';return `<span class="badge ${cls}">${esc(c||'Other')}<\/span>`;}
 function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+// JS-string-safe (onclick="fn('...')" ke andar — apostrophe/backslash se toot/inject na ho)
+function jsq(s){return(s==null?'':String(s)).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'\\x3C');}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
 
 function setF(id,btn){const f=document.getElementById(id);f.querySelectorAll('.filt').forEach(b=>b.classList.remove('on'));btn.classList.add('on');f.dataset.active=btn.textContent;}
@@ -884,7 +886,7 @@ function entryHTML(l){
     ${l.action?`<div class="meta"><b>Next:<\/b> ${esc(l.action)}<\/div>`:''}
     ${l.comment?`<div class="meta" style="color:var(--muted)">${esc(l.comment)}<\/div>`:''}
     <div class="foot"><span>📅 ${fmt(l.date)}${l.dur?' · '+l.dur:''}${who}<\/span>${l.next?`<span class="nx ${over?'over':''}">↻ ${fmt(l.next)}${over?' DUE':''}<\/span>`:''}<\/div>
-    <div class="erow">${l.mob?`<button class="mini call" onclick="startCall('${esc(l.name)}','${esc(l.mob)}','${esc(l.cat)}')">📞 Call<\/button><button class="mini wa" onclick="waNum('${esc(l.mob)}')">💬 WA<\/button>`:''}<button class="mini edit" onclick="editLog('${l.id}')">✎ Edit<\/button>${recBtn}<\/div>
+    <div class="erow">${l.mob?`<button class="mini call" onclick="startCall('${jsq(l.name)}','${jsq(l.mob)}','${jsq(l.cat)}')">📞 Call<\/button><button class="mini wa" onclick="waNum('${jsq(l.mob)}')">💬 WA<\/button>`:''}<button class="mini edit" onclick="editLog('${jsq(l.id)}')">✎ Edit<\/button>${recBtn}<\/div>
     <div class="rec-wrap" id="recplay_${l.id}"><div class="rec-label">🎙 Call Recording<\/div><audio controls style="width:100%;height:34px"><\/audio><\/div>${audHTML}<\/div>`;
 }
 
@@ -967,7 +969,7 @@ function contactCardHTML(c){
   return `<div class="contact">
     <div class="c1"><div class="av">${initials(c.name)}<\/div><div style="flex:1;min-width:0"><div class="nm">${esc(c.name)}<\/div><div class="mb">📱 ${esc(c.mob)}<\/div>${aTag}<\/div>${catBadge(c.cat)}<\/div>
     ${fb}${cd}
-    <div class="acts"><button class="ca call" onclick="startCall('${esc(c.name)}','${esc(c.mob)}','${esc(c.cat)}')">📞 Call<\/button><button class="ca wa" onclick="waNum('${esc(c.mob)}')">💬 WhatsApp<\/button><button class="ca log" onclick="logFromContact('${esc(c.name)}','${esc(c.mob)}','${esc(c.cat)}')">📝 Log<\/button><button class="ca done" onclick="markConnected('${esc(c.name)}','${esc(c.mob)}')">✅ Connected<\/button><\/div>
+    <div class="acts"><button class="ca call" onclick="startCall('${jsq(c.name)}','${jsq(c.mob)}','${jsq(c.cat)}')">📞 Call<\/button><button class="ca wa" onclick="waNum('${jsq(c.mob)}')">💬 WhatsApp<\/button><button class="ca log" onclick="logFromContact('${jsq(c.name)}','${jsq(c.mob)}','${jsq(c.cat)}')">📝 Log<\/button><button class="ca done" onclick="markConnected('${jsq(c.name)}','${jsq(c.mob)}')">✅ Connected<\/button><\/div>
   <\/div>`;
 }
 /* Jo contact ka Call Logs mein already "connected" wala log ban chuka hai (ya purani entry jisme

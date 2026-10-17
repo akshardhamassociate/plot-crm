@@ -1473,8 +1473,6 @@ async function confirmNotif(){
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────
-let _t;
-function debouncedRender(){ clearTimeout(_t); _t=setTimeout(render,180); }
 // app-icon badge = mere pending leads (naye + due). Assign hote hi count me aa jaata hai.
 function updateBadge(){
   try{
@@ -1661,13 +1659,6 @@ async function hudSaveStandup(){
   db.collection('standups').doc(id).set({ date, name, nameKey:name.toLowerCase(), yesterday, tasks, issues, ts:Date.now() }, {merge:true})
     .then(()=>{ toast(hud.editing?'Standup updated ✓':'Standup saved ✓'); hud.editing=false; hudLoad(); })
     .catch(e=>alert('Save failed: '+e.message));
-}
-function hudSaveReport(){
-  if(!hud.report) return;
-  const tasks=hud.report.tasks.map(x=>({t:x.t,st:x.st||'',rm:(x.rm||'').trim()}));
-  db.collection('standups').doc(hud.report.id).set({ tasks }, {merge:true})
-    .then(()=>{ toast('Reporting saved ✓'); hudLoad(); })
-    .catch(e=>alert(e.message));
 }
 function hudFeedback(id){
   const el=document.getElementById('fb_'+id); if(!el) return;
@@ -2359,7 +2350,7 @@ function openUpdate(){
   if(_apkLatest) go(_apkLatest);
   else fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(go).catch(()=>toast('Update check fail — net dekho'));
 }
-let _backArm=0, _backReady=false;
+let _backReady=false;
 // true = app ke andar hi handle ho gaya (ruko); false = bahar jaane do (exit)
 function handleBack(){
   const fo=document.getElementById('formOverlay'); if(fo){ fo.remove(); return true; }   // form overlay band
