@@ -370,6 +370,10 @@ const IC = {
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   board:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="5" height="13" rx="1"/></svg>',
   logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg>',
+  team:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+  wall:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
 };
 
 // ── config ────────────────────────────────────────────────────────────────
@@ -744,10 +748,10 @@ function sideHTML(){
       </div>
     </div>
     <nav class="nav">
-      <button class="nav-item ${route.view==='home'?'on':''}" onclick="openHome()">🏠 Home</button>
+      <button class="nav-item ${route.view==='home'?'on':''}" onclick="openHome()">${IC.home} Home</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
-      <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">📣 Wall</button>
+      <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">${IC.wall} Wall</button>
       <button class="nav-item ${route.view==='help'?'on':''}" onclick="tab('help')">❓ Help</button>
     </nav>
     <div class="side-foot">
@@ -774,16 +778,16 @@ function sideHTML(){
       </div>
     </div>
     <nav class="nav">
-      <button class="nav-item ${route.view==='home'?'on':''}" onclick="openHome()">🏠 Home</button>
+      <button class="nav-item ${route.view==='home'?'on':''}" onclick="openHome()">${IC.home} Home</button>
       <button class="nav-item ${route.view==='today'?'on':''}" onclick="tab('today')">${IC.cal} Today${dueToday?` <span class="dot" style="background:var(--brand)">${dueToday}</span>`:''}</button>
       <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
-      <button class="nav-item ${route.view==='team'?'on':''}" onclick="openTeam()">🤝 Team</button>
+      <button class="nav-item ${route.view==='team'?'on':''}" onclick="openTeam()">${IC.team} Team</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
-      ${canViewAllHA()?`<button class="nav-item ${route.view==='board'?'on':''}" onclick="openBoard()">📊 Score Board</button>`:''}
-      <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">📣 Wall</button>
+      ${canViewAllHA()?`<button class="nav-item ${route.view==='board'?'on':''}" onclick="openBoard()">${IC.board} Score Board</button>`:''}
+      <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">${IC.wall} Wall</button>
       <button class="nav-item" onclick="location.href='calllog.html'">${IC.phone} Call Log</button>
       <button class="nav-item ${route.view==='forms'?'on':''}" onclick="tab('forms')">📄 Forms</button>
       <button class="nav-item ${route.view==='help'?'on':''}" onclick="tab('help')">❓ Help</button>
@@ -2229,9 +2233,11 @@ function homeHTML(){
   const greet=h<12?'Good morning':(h<17?'Good afternoon':'Good evening');
   const dueToday=leads.filter(L=>dueDate(L)===today()).length;
   const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
-  const bdays=todaysBirthdays(), q=quoteOfDay();
+  const bdays=todaysBirthdays(), q=quoteOfDay(), st=storyOfDay();
   const metric=(n,t,onclick)=>`<div onclick="${onclick}" style="flex:1;border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center;cursor:pointer;background:#fff"><div style="font-size:1.7rem;font-weight:800;line-height:1">${n}</div><div class="tiny" style="margin-top:3px">${t}</div></div>`;
   const qa=(icon,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer"><span style="font-size:1.5rem;line-height:1">${icon}</span><span style="font-size:.74rem;font-weight:700;color:var(--ink)">${label}</span></button>`;
+  const avH=(nm,sz)=>`<div style="width:${sz}px;height:${sz}px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:${Math.round(sz*0.42)}px;background:${avatarColor(nm||'?')}">${esc((nm||'?')[0].toUpperCase())}</div>`;
+  const peek=(wall.posts||[]).slice(0,2);
   return `<div class="main-inner">
     <h2 class="page-title" style="margin-bottom:2px">${greet}${nm?', '+esc(nm):''} 👋</h2>
     <div class="page-sub">${fmtDate(today())}</div>
@@ -2245,6 +2251,13 @@ function homeHTML(){
       ${qa('📣','Wall','openWall()')}
     </div>
     ${q?`<div class="card" style="padding:12px;border-left:3px solid #6366f1;margin-top:18px"><div class="tiny" style="font-weight:800;color:#6366f1">💬 QUOTE OF THE DAY</div><div style="margin-top:4px">${esc(q)}</div></div>`:''}
+    ${st?`<div class="card" style="padding:12px;border-left:3px solid #10b981;margin-top:12px"><div class="tiny" style="font-weight:800;color:#10b981">📖 STORY OF THE DAY</div><div style="margin-top:4px;white-space:pre-wrap">${esc(st)}</div></div>`:''}
+    <div class="sec" style="margin-top:18px"><span class="grow">📣 Wall</span><button class="btn ghost sm" onclick="openWall()">Sab dekho</button></div>
+    ${peek.length? peek.map(p=>`<div class="card" style="padding:12px;margin-bottom:10px" onclick="openWall()">
+        <div class="row" style="gap:10px;align-items:center">${avH(p.byName||p.by,30)}<div class="grow" style="min-width:0"><b>${esc(p.byName||p.by||'?')}</b><div class="tiny" style="color:var(--muted)">${_ago(p.ts)}</div></div></div>
+        ${p.text?`<div style="margin-top:6px;white-space:pre-wrap">${esc(p.text.length>140?p.text.slice(0,140)+'…':p.text)}</div>`:''}
+        ${p.img?`<img src="${esc(p.img)}" loading="lazy" style="max-width:100%;border-radius:10px;margin-top:8px">`:''}
+      </div>`).join('') : `<div class="card" style="padding:14px;text-align:center"><div class="tiny" style="color:var(--muted)">Abhi koi post nahi — <a href="#" onclick="openWall();return false" style="color:var(--brand);font-weight:700">pehla post karo</a> 🎉</div></div>`}
   </div>`;
 }
 // ════ TEAM HUB ════
@@ -2294,19 +2307,19 @@ function bottomNavHTML(){
   // active = kaunse views us tab ke andar aate hain (groups)
   const nav=(views,icon,label,onclick,badge)=>`<button class="bn-item ${views.includes(route.view)?'on':''}" onclick="${onclick}">${badge?`<span class="bdot">${badge}</span>`:''}${icon}<span>${label}</span></button>`;
   if(isHuddleOnly()) return `<nav class="bottomnav">
-    ${nav(['home'],'🏠','Home','openHome()','')}
+    ${nav(['home'],IC.home,'Home','openHome()','')}
     ${nav(['huddle','team'],IC.inbox,'Huddle','openHuddle()','')}
     ${nav(['att','board'],IC.check,'Attend.','openAtt()','')}
-    ${nav(['wall'],'📣','Wall','openWall()','')}
-    <button class="bn-item" onclick="openMore()">☰<span>More</span></button>
+    ${nav(['wall'],IC.wall,'Wall','openWall()','')}
+    <button class="bn-item" onclick="openMore()">${IC.menu}<span>More</span></button>
   </nav>`;
   const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
   return `<nav class="bottomnav">
-    ${nav(['home','today'],'🏠','Home','openHome()','')}
+    ${nav(['home','today'],IC.home,'Home','openHome()','')}
     ${nav(['list','kanban','reminders','detail'],IC.users,'Leads',"tab('list')",pending||'')}
-    ${nav(['team','huddle','att','board'],IC.inbox,'Team','openTeam()','')}
-    ${nav(['wall'],'📣','Wall','openWall()','')}
-    <button class="bn-item" onclick="openMore()">☰<span>More</span></button>
+    ${nav(['team','huddle','att','board'],IC.team,'Team','openTeam()','')}
+    ${nav(['wall'],IC.wall,'Wall','openWall()','')}
+    <button class="bn-item" onclick="openMore()">${IC.menu}<span>More</span></button>
   </nav>`;
 }
 
