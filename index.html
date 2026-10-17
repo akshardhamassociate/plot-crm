@@ -1827,7 +1827,14 @@ function _dayScore(key,day){
   const report = (tasks.length>0 && tasks.every(t=>t.st)) ? 1 : 0;
   return { att, plan, report, total: att+plan+report };
 }
-function _weekScore(key){ return _weekDates(board.date).reduce((sum,d)=>sum+_dayScore(key,d).total,0); }
+function _isLeave(key,day){ return board.att.some(a=>(a.nameKey||'')===key && a.date===day && a.leave && !a.inTime); }
+// weekly: leave din ko baaki (non-leave) dino ka average milta hai → total = avg × 6
+function _weekScore(key){
+  const days=_weekDates(board.date); let sum=0, worked=0;
+  days.forEach(d=>{ if(_isLeave(key,d)) return; sum+=_dayScore(key,d).total; worked++; });
+  if(worked===0) return 0;
+  return Math.round((sum/worked)*6);
+}
 async function boardLoad(){
   const days=_weekDates(board.date);
   try{
@@ -1850,6 +1857,21 @@ function boardSetValueLever(){
     <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
     <button class="btn grow" onclick="boardSaveValueLever()">Save</button></div>`);
 }
+// admin: naam pe tap → us din leave toggle
+async function boardToggleLeave(name){
+  if(!canViewAllHA()) return;
+  const key=name.toLowerCase(), date=board.date;
+  const ex=board.att.find(a=>(a.nameKey||'')===key && a.date===date);
+  if(ex && ex.inTime){ alert(name+' ne is din attendance lagayi hai — leave nahi lag sakta.'); return; }
+  const id=attId(date,name);
+  try{
+    if(ex && ex.leave){ if(!confirm(name+' ka '+fmtDate(date)+' ka leave HATAYEN?')) return;
+      await db.collection('attendance').doc(id).delete(); toast('Leave hataya'); }
+    else{ if(!confirm(name+' ko '+fmtDate(date)+' ka LEAVE mark karein?\n(us din ka score = baaki dino ka average)')) return;
+      await db.collection('attendance').doc(id).set({ date, name, nameKey:key, leave:true, by:(user&&user.email||''), ts:Date.now() },{merge:true}); toast('Leave mark ✓'); }
+    boardLoad();
+  }catch(e){ alert('Nahi hua: '+e.message); }
+}
 function boardSaveValueLever(){
   const n=val('bvl_name'); if(!n){ alert('Naam chuno'); return; }
   const weekMon=_weekDates(board.date)[0];
@@ -1865,15 +1887,16 @@ function boardShareReport(){
   const isToday=board.date===today(), isPast=board.date<today();
   const due = isPast?{att:1,plan:1,report:1}:isToday?{att:nowH>=BOARD_PLAN_BY?1:0,plan:nowH>=BOARD_PLAN_BY?1:0,report:nowH>=BOARD_REPORT_BY?1:0}:{att:0,plan:0,report:0};
   const mk=(done,isDue)=>done?'✅':(isDue?'❌':'⏳');
-  const rows=EXECS.map(n=>{ const key=n.toLowerCase(); return {n,d:_dayScore(key,board.date),wk:_weekScore(key)}; }).sort((a,b)=>b.wk-a.wk||b.d.total-a.d.total);
+  const rows=EXECS.map(n=>{ const key=n.toLowerCase(); return {n,lv:_isLeave(key,board.date),d:_dayScore(key,board.date),wk:_weekScore(key)}; }).sort((a,b)=>b.wk-a.wk||b.d.total-a.d.total);
   const dt=fmtDate(board.date);
   const star=rows[0]&&rows[0].wk>0?rows[0]:null;
   const bvl=board.award&&board.award.valueLever;
+  const cell=r=>r.lv?'🌴 Leave        ':(mk(r.d.att,due.att)+mk(r.d.plan,due.plan)+mk(r.d.report,due.report)+'  '+r.d.total+'/3');
   const crows=[{t:'Naam            Att Plan Rep   Aaj  Week',b:true,c:'#4f46e5'}];
-  rows.forEach((r,i)=>crows.push({t:(i+1)+'. '+r.n+'  '+mk(r.d.att,due.att)+mk(r.d.plan,due.plan)+mk(r.d.report,due.report)+'  '+r.d.total+'/3  '+r.wk+'/18'}));
+  rows.forEach((r,i)=>crows.push({t:(i+1)+'. '+r.n+'  '+cell(r)+'  '+r.wk+'/18'}));
   if(star) crows.push({t:'🏆 Star: '+star.n+' ('+star.wk+'/18)',b:true,c:'#b45309'});
   if(bvl) crows.push({t:'🌟 Value Lever: '+bvl,b:true,c:'#1e40af'});
-  const lines=rows.map((r,i)=>(i+1)+'. '+r.n+' — '+mk(r.d.att,due.att)+mk(r.d.plan,due.plan)+mk(r.d.report,due.report)+'  ('+r.d.total+'/3 · wk '+r.wk+'/18)');
+  const lines=rows.map((r,i)=>(i+1)+'. '+r.n+' — '+(r.lv?'🌴 Leave':mk(r.d.att,due.att)+mk(r.d.plan,due.plan)+mk(r.d.report,due.report)+'  ('+r.d.total+'/3')+(r.lv?'':')')+' · wk '+r.wk+'/18');
   let text='📊 *Team Board — '+dt+'*\n(Attendance · Day Plan · Day Report)\n\n'+lines.join('\n');
   if(star) text+='\n\n🏆 *Star of the Week:* '+star.n+' ('+star.wk+'/18)';
   if(bvl) text+='\n🌟 *Best Value Lever:* '+bvl+(board.award.valueLeverWhy?' — '+board.award.valueLeverWhy:'');
@@ -1890,15 +1913,17 @@ function boardHTML(){
     : isToday ? {att:nowH>=BOARD_PLAN_BY?1:0, plan:nowH>=BOARD_PLAN_BY?1:0, report:nowH>=BOARD_REPORT_BY?1:0}
     : {att:0,plan:0,report:0};
   const dot=(done,isDue)=>`<span style="font-size:1.05rem;color:${done?'#16a34a':(isDue?'#dc2626':'#cbd5e1')}">●</span>`;
-  const rows=EXECS.map(n=>{ const key=n.toLowerCase(); return { n, d:_dayScore(key,board.date), wk:_weekScore(key) }; })
+  const rows=EXECS.map(n=>{ const key=n.toLowerCase(); return { n, lv:_isLeave(key,board.date), d:_dayScore(key,board.date), wk:_weekScore(key) }; })
     .sort((a,b)=> b.wk-a.wk || b.d.total-a.d.total);
   const body=rows.map((r,i)=>`
     <tr style="border-top:1px solid var(--line)">
-      <td style="padding:9px 6px;font-weight:600;white-space:nowrap">${i+1}. ${esc(r.n)}</td>
-      <td style="text-align:center">${dot(r.d.att,due.att)}</td>
+      <td style="padding:9px 6px;font-weight:600;white-space:nowrap;cursor:pointer" onclick="boardToggleLeave('${esc(r.n)}')" title="Leave mark/hatane ke liye tap">${i+1}. ${esc(r.n)}${r.lv?' 🌴':''}</td>
+      ${r.lv
+        ? `<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">🌴 On Leave</td>`
+        : `<td style="text-align:center">${dot(r.d.att,due.att)}</td>
       <td style="text-align:center">${dot(r.d.plan,due.plan)}</td>
       <td style="text-align:center">${dot(r.d.report,due.report)}</td>
-      <td style="text-align:center;font-weight:800">${r.d.total}/3</td>
+      <td style="text-align:center;font-weight:800">${r.d.total}/3</td>`}
       <td style="text-align:center;font-weight:800;color:var(--brand)">${r.wk}/18</td>
     </tr>`).join('');
   const star=rows[0]&&rows[0].wk>0?rows[0]:null;
@@ -1938,7 +1963,7 @@ function boardHTML(){
         <tbody>${body}</tbody>
       </table>
     </div>
-    <div class="tiny" style="margin:12px 2px;color:var(--muted)">Att = attendance lagi · Plan = aaj ke task bhare · Report = sab task ka status bhara</div>
+    <div class="tiny" style="margin:12px 2px;color:var(--muted)">Att = attendance lagi · Plan = aaj ke task bhare · Report = sab task ka status bhara · Naam pe tap karke 🌴 leave mark/hata sakte ho (leave din ka score = baaki dino ka average)</div>
     <div class="tiny" style="margin:8px 2px;color:var(--muted)">⚠ Abhi score sirf discipline (Att+Plan+Report = 30% hissa). KRA/KPI tasks (70%) task-system ban-ne ke baad judega.</div>
   </div>`;
 }
@@ -2096,12 +2121,106 @@ function attView(){
 }
 
 // mobile bottom nav — top tabs neeche fixed bar me
+// ════ APP ENGAGING — Social Wall · Quote/Story of Day · Birthdays · Usage ════
+let wall = { posts:[], cfg:null, todayOpens:0 };
+function _dayIdx(){ return Math.floor((Date.now()+5.5*3600e3)/864e5); }   // IST din number (rotation ke liye)
+function quoteOfDay(){ const q=(wall.cfg&&wall.cfg.quotes)||[]; return q.length?q[_dayIdx()%q.length]:''; }
+function storyOfDay(){ const s=(wall.cfg&&wall.cfg.stories)||[]; return s.length?s[_dayIdx()%s.length]:''; }
+function todaysBirthdays(){ const b=(wall.cfg&&wall.cfg.birthdays)||[]; const md=new Date(Date.now()+5.5*3600e3).toISOString().slice(5,10); return b.filter(x=>(x.date||'').slice(-5)===md); }
+function _ago(ts){ if(!ts) return ''; const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'abhi'; if(s<3600) return Math.floor(s/60)+'m'; if(s<86400) return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; }
+async function logAppOpen(){
+  if(!user||!user.email) return;
+  try{ await db.collection('applogs').doc(user.email+'__'+today()).set({ email:user.email, date:today(),
+    count:firebase.firestore.FieldValue.increment(1), ts:Date.now() },{merge:true}); }catch(_){}
+}
+function openWall(){ route.view='wall'; route.id=null; render(); engageLoad(); window.scrollTo(0,0); }
+async function engageLoad(){
+  try{
+    const [cf,ws]=await Promise.all([
+      db.collection('config').doc('engage').get(),
+      db.collection('wall').orderBy('ts','desc').limit(40).get()
+    ]);
+    wall.cfg=cf.exists?(cf.data()||{}):{quotes:[],stories:[],birthdays:[]};
+    wall.posts=ws.docs.map(d=>({id:d.id,...d.data()}));
+    if(canViewAllHA()){ const u=await db.collection('applogs').where('date','==',today()).get();
+      wall.todayOpens=u.docs.reduce((s,d)=>s+((d.data().count)||0),0); }
+  }catch(_){}
+  if(route.view==='wall') render();
+}
+async function wallPost(btn){
+  const text=(val('wall_text')||'').trim();
+  const fi=document.getElementById('wall_img'); const file=fi&&fi.files&&fi.files[0];
+  if(!text && !file){ alert('Kuch likho ya photo daalo'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='Posting…'; }
+  let img=''; if(file){ img=await uploadFile('wall_img')||''; }
+  try{
+    await db.collection('wall').add({ text, img, by:(user&&user.email||''),
+      byName:hudMyName()||((user&&user.email||'').split('@')[0]), ts:Date.now() });
+    toast('Posted ✓'); engageLoad();
+  }catch(e){ alert('Post nahi hua: '+e.message); if(btn){ btn.disabled=false; btn.textContent='Post'; } }
+}
+async function wallDelete(id){ if(!confirm('Post delete karein?')) return;
+  try{ await db.collection('wall').doc(id).delete(); toast('Deleted'); engageLoad(); }catch(e){ alert(e.message); } }
+function engageManage(){
+  const c=wall.cfg||{};
+  const quotes=(c.quotes||[]).join('\n');
+  const stories=(c.stories||[]).join('\n---\n');
+  const bdays=(c.birthdays||[]).map(b=>b.date+' '+(b.type==='anniv'?'A':'B')+' '+b.name).join('\n');
+  modal(`<h2>⚙ Wall Manage</h2>
+    <div class="field"><label>Quotes (ek line = ek quote · roz bari-bari)</label><textarea id="em_q" rows="4" placeholder="Mehnat ka koi vikalp nahi.">${esc(quotes)}</textarea></div>
+    <div class="field"><label>Stories (--- se alag karo)</label><textarea id="em_s" rows="5" placeholder="Kaala gubbara...\n---\nDoosri kahani...">${esc(stories)}</textarea></div>
+    <div class="field"><label>Birthday/Anniv — har line: MM-DD B/A Naam</label><textarea id="em_b" rows="4" placeholder="09-15 B Rupesh Ji&#10;03-21 A Sunil Ji">${esc(bdays)}</textarea></div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    <button class="btn grow" onclick="engageSave()">Save</button></div>`);
+}
+function engageSave(){
+  const quotes=(val('em_q')||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const stories=(val('em_s')||'').split(/\n-{2,}\n/).map(s=>s.trim()).filter(Boolean);
+  const birthdays=(val('em_b')||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    const m=l.match(/^(\d{2}-\d{2})\s+([ABab])\s+(.+)$/); return m?{ date:m[1], type:m[2].toUpperCase()==='A'?'anniv':'birthday', name:m[3].trim() }:null;
+  }).filter(Boolean);
+  db.collection('config').doc('engage').set({ quotes, stories, birthdays },{merge:true})
+    .then(()=>{ const m=document.querySelector('.modal-bg'); if(m)m.remove(); toast('Saved ✓'); engageLoad(); })
+    .catch(e=>alert('Save nahi hui (config access?): '+e.message));
+}
+function wallHTML(){
+  const admin=canViewAllHA();
+  const bdays=todaysBirthdays(), q=quoteOfDay(), st=storyOfDay();
+  const strip=`
+    ${bdays.length?`<div class="card" style="padding:12px;background:linear-gradient(135deg,#fde68a,#fca5a5);border:none;margin-bottom:10px">
+      <div style="font-weight:800">🎉 Aaj: ${bdays.map(b=>esc(b.name)+(b.type==='anniv'?' 💍':' 🎂')).join(' · ')}</div>
+      <div class="tiny">Team ko wish karein!</div></div>`:''}
+    ${q?`<div class="card" style="padding:12px;border-left:3px solid #6366f1;margin-bottom:10px"><div class="tiny" style="font-weight:800;color:#6366f1">💬 QUOTE OF THE DAY</div><div style="margin-top:4px">${esc(q)}</div></div>`:''}
+    ${st?`<div class="card" style="padding:12px;border-left:3px solid #10b981;margin-bottom:10px"><div class="tiny" style="font-weight:800;color:#10b981">📖 STORY OF THE DAY</div><div style="margin-top:4px;white-space:pre-wrap">${esc(st)}</div></div>`:''}`;
+  const composer=`<div class="card" style="padding:12px;margin-bottom:14px">
+      <textarea id="wall_text" rows="2" placeholder="Kuch share karo team ke saath…" style="width:100%"></textarea>
+      <input id="wall_img" type="file" accept="image/*" style="margin-top:8px;font-size:.75rem">
+      <button class="btn sm" style="margin-top:8px" onclick="wallPost(this)">${IC.add} Post</button>
+    </div>`;
+  const feed=wall.posts.length? wall.posts.map(p=>`
+      <div class="card" style="padding:12px;margin-bottom:10px">
+        <div class="row" style="justify-content:space-between;align-items:center"><b>${esc(p.byName||p.by||'?')}</b>
+          <span class="tiny">${_ago(p.ts)}${(admin||(user&&p.by===user.email))?` · <a href="#" onclick="wallDelete('${esc(p.id)}');return false" style="color:#dc2626">del</a>`:''}</span></div>
+        ${p.text?`<div style="margin-top:6px;white-space:pre-wrap">${esc(p.text)}</div>`:''}
+        ${p.img?`<a href="${esc(p.img)}" target="_blank"><img src="${esc(p.img)}" loading="lazy" style="max-width:100%;border-radius:10px;margin-top:8px"></a>`:''}
+      </div>`).join('') : '<div class="empty">Abhi koi post nahi. Pehla post karo! 🎉</div>';
+  return `<div class="main-inner">
+    <div class="row" style="align-items:center;gap:8px">
+      <h2 class="page-title" style="margin:0">📣 Social Wall</h2>
+      ${admin?`<button class="btn ghost sm" style="margin-left:auto" onclick="engageManage()">⚙ Manage</button>`:''}
+    </div>
+    ${admin&&wall.todayOpens?`<div class="tiny" style="margin:6px 2px;color:var(--muted)">📈 Aaj app ${wall.todayOpens} baar khuli</div>`:''}
+    <div style="margin-top:12px">${strip}${composer}${feed}</div>
+  </div>`;
+}
 function bottomNavHTML(){
   if(!user) return '';
   const it=(v,icon,label,onclick,badge)=>`<button class="bn-item ${route.view===v?'on':''}" onclick="${onclick}">${badge?`<span class="bdot">${badge}</span>`:''}${icon}<span>${label}</span></button>`;
   if(isHuddleOnly()) return `<nav class="bottomnav">
     ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
     ${it('att',IC.check,'Attend.','openAtt()','')}
+    ${it('wall','📣','Wall','openWall()','')}
   </nav>`;
   const dueToday=leads.filter(L=>dueDate(L)===today()).length;
   const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
@@ -2112,16 +2231,18 @@ function bottomNavHTML(){
     ${it('kanban',IC.board,'Board',"tab('kanban')",'')}
     ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
     ${it('att',IC.check,'Attend.','openAtt()','')}
+    ${it('wall','📣','Wall','openWall()','')}
     <button class="bn-item" onclick="location.href='calllog.html'">${IC.phone}<span>Call Log</span></button>
   </nav>`;
 }
 
 function render(){
   if(!user){ renderLogin(); return; }
-  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att' && route.view!=='help') route.view='huddle';   // huddle-only: Huddle + Attendance + Help
+  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att' && route.view!=='help' && route.view!=='wall') route.view='huddle';   // huddle-only: Huddle + Attendance + Help + Wall
   const content = route.view==='detail' ? detailHTML() :
                   route.view==='att' ? attView() :
                   route.view==='board' ? boardHTML() :
+                  route.view==='wall' ? wallHTML() :
                   route.view==='huddle' ? huddleHTML() :
                   route.view==='forms' ? formsHTML() :
                   route.view==='help' ? helpHTML() :
@@ -2194,7 +2315,7 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
-    setupBackHandler(); apkCheck();
+    setupBackHandler(); apkCheck(); logAppOpen();
     if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
     attLoadOffices();
     if(!unsub){
