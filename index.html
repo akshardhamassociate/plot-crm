@@ -1812,7 +1812,7 @@ const istTime = () => new Date(Date.now()+5.5*3600e3).toISOString().slice(11,16)
 const attId = (date,name) => date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
 
 // ── TEAM SCORE BOARD (Phase 1): Attendance · Day Plan · Day Report ──
-let board = { date: today(), std:[], att:[] };
+let board = { date: today(), std:[], att:[], award:{} };
 function openBoard(){ route.view='board'; route.id=null; board.date=today(); board.std=[]; board.att=[]; render(); boardLoad(); window.scrollTo(0,0); }
 function boardShiftDay(n){ const dt=new Date(board.date+'T00:00:00Z'); dt.setUTCDate(dt.getUTCDate()+n); board.date=dt.toISOString().slice(0,10); boardLoad(); }
 // hafte ke 6 din (Mon–Sat) — UTC me (stored date keys bhi UTC-based hain)
@@ -1831,14 +1831,31 @@ function _weekScore(key){ return _weekDates(board.date).reduce((sum,d)=>sum+_day
 async function boardLoad(){
   const days=_weekDates(board.date);
   try{
-    const [ss,as]=await Promise.all([
+    const [ss,as,aw]=await Promise.all([
       db.collection('standups').where('date','in',days).get(),
-      db.collection('attendance').where('date','in',days).get()
+      db.collection('attendance').where('date','in',days).get(),
+      db.collection('awards').doc(days[0]).get()
     ]);
     board.std=ss.docs.map(d=>d.data());
     board.att=as.docs.map(d=>d.data());
+    board.award=aw.exists?(aw.data()||{}):{};
   }catch(e){ alert('Board load error: '+e.message); }
   if(route.view==='board') render();
+}
+// 🌟 Best Value Lever — admin is hafte ka winner chune (values pe)
+function boardSetValueLever(){
+  modal(`<h2>🌟 Best Value Lever</h2><div class="msub">${fmtDate(_weekDates(board.date)[0])} wale hafte — kisne values best dikhayi?</div>
+    <div class="field">${execSelect('bvl_name', board.award&&board.award.valueLever||'')}</div>
+    <div class="field"><label>Reason (optional)</label><input id="bvl_why" value="${esc(board.award&&board.award.valueLeverWhy||'')}" placeholder="kyun"></div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    <button class="btn grow" onclick="boardSaveValueLever()">Save</button></div>`);
+}
+function boardSaveValueLever(){
+  const n=val('bvl_name'); if(!n){ alert('Naam chuno'); return; }
+  const weekMon=_weekDates(board.date)[0];
+  db.collection('awards').doc(weekMon).set({ valueLever:n, valueLeverWhy:(val('bvl_why')||'').trim(), by:(user&&user.email||''), ts:Date.now() },{merge:true})
+    .then(()=>{ const m=document.querySelector('.modal-bg'); if(m)m.remove(); toast('Saved ✓'); boardLoad(); })
+    .catch(e=>alert('Save nahi hui (awards access?): '+e.message));
 }
 const BOARD_PLAN_BY=11, BOARD_REPORT_BY=18;   // Att+Plan 11 baje tak, Report 6 baje tak
 function boardHTML(){
@@ -1862,11 +1879,27 @@ function boardHTML(){
       <td style="text-align:center;font-weight:800">${r.d.total}/3</td>
       <td style="text-align:center;font-weight:800;color:var(--brand)">${r.wk}/18</td>
     </tr>`).join('');
+  const star=rows[0]&&rows[0].wk>0?rows[0]:null;
+  const bvl=board.award&&board.award.valueLever;
+  const awardsHTML=`<div class="row" style="gap:10px;margin:12px 0;flex-wrap:wrap">
+      <div class="card" style="flex:1;min-width:150px;padding:12px;background:linear-gradient(135deg,#fef3c7,#fcd34d);border:none">
+        <div class="tiny" style="font-weight:800;color:#92400e">🏆 STAR OF THE WEEK</div>
+        <div style="font-weight:800;font-size:1.05rem;margin-top:3px">${star?esc(star.n):'—'}</div>
+        <div class="tiny" style="color:#92400e">${star?star.wk+'/18 · top performer':'abhi data nahi'}</div>
+      </div>
+      <div class="card" style="flex:1;min-width:150px;padding:12px;background:linear-gradient(135deg,#dbeafe,#93c5fd);border:none">
+        <div style="display:flex;align-items:center;gap:6px"><span class="tiny" style="font-weight:800;color:#1e40af">🌟 BEST VALUE LEVER</span>
+          <button class="btn ghost sm" style="margin-left:auto;padding:3px 9px;font-size:.68rem" onclick="boardSetValueLever()">${bvl?'Change':'Set'}</button></div>
+        <div style="font-weight:800;font-size:1.05rem;margin-top:3px">${bvl?esc(bvl):'—'}</div>
+        <div class="tiny" style="color:#1e40af">${board.award&&board.award.valueLeverWhy?esc(board.award.valueLeverWhy):(bvl?'values champion':'admin chune')}</div>
+      </div>
+    </div>`;
   return `<div class="main-inner">
     <div class="row" style="align-items:center;gap:8px">
       <button class="btn ghost sm" onclick="tab('huddle')">← Back</button>
       <h2 class="page-title" style="margin:0">📊 Team Score Board</h2>
     </div>
+    ${awardsHTML}
     <div class="row" style="gap:8px;align-items:center;margin:12px 0 4px">
       <button class="btn ghost sm" onclick="boardShiftDay(-1)">‹</button>
       <b style="flex:1;text-align:center">${fmtDate(board.date)}</b>
@@ -1883,6 +1916,7 @@ function boardHTML(){
       </table>
     </div>
     <div class="tiny" style="margin:12px 2px;color:var(--muted)">Att = attendance lagi · Plan = aaj ke task bhare · Report = sab task ka status bhara</div>
+    <div class="tiny" style="margin:8px 2px;color:var(--muted)">⚠ Abhi score sirf discipline (Att+Plan+Report = 30% hissa). KRA/KPI tasks (70%) task-system ban-ne ke baad judega.</div>
   </div>`;
 }
 function officeOf(name){ const k=(name||'').toLowerCase();
