@@ -471,6 +471,10 @@ function openMore(){
       <span style="font-size:.76rem;font-weight:700;color:var(--ink);text-align:center;line-height:1.2">${label}</span></button>`;
   modal(`<h2>Menu</h2><div class="msub">Baaki options</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${!ho?tile('🗂️','Board',"tab('kanban')"):''}
+      ${!ho?tile('⏰','Alerts',"tab('reminders')"):''}
+      ${!ho?tile('📞','Call Log',"location.href='calllog.html'"):''}
+      ${!ho?tile('📄','Forms',"tab('forms')"):''}
       ${tile('📖','Help',"tab('help')")}
       ${tile('🔔','Notif ON',"enableNotifs()")}
       ${na?tile('🔄','Update'+(apkUpdateAvailable()?' •':''),"openUpdate()",apkUpdateAvailable()):''}
@@ -684,7 +688,7 @@ async function uploadFile(inputId){                // uploads to Cloudinary, ret
 // (demo seed removed — data now lives in Firestore)
 
 // ── routing / filters ────────────────────────────────────────────────────────
-let route = {view:'today', id:null};
+let route = {view:'home', id:null};
 const go = (view,id=null)=>{ route={view,id}; render(); window.scrollTo(0,0); };
 function tab(v){ route.view=v; route.id=null; render(); window.scrollTo(0,0); }
 let f = {q:'', status:'', colony:'', exec:'', from:'', to:''};
@@ -740,8 +744,10 @@ function sideHTML(){
       </div>
     </div>
     <nav class="nav">
+      <button class="nav-item ${route.view==='home'?'on':''}" onclick="openHome()">🏠 Home</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
+      <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">📣 Wall</button>
       <button class="nav-item ${route.view==='help'?'on':''}" onclick="tab('help')">❓ Help</button>
     </nav>
     <div class="side-foot">
@@ -768,12 +774,16 @@ function sideHTML(){
       </div>
     </div>
     <nav class="nav">
+      <button class="nav-item ${route.view==='home'?'on':''}" onclick="openHome()">🏠 Home</button>
       <button class="nav-item ${route.view==='today'?'on':''}" onclick="tab('today')">${IC.cal} Today${dueToday?` <span class="dot" style="background:var(--brand)">${dueToday}</span>`:''}</button>
       <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
+      <button class="nav-item ${route.view==='team'?'on':''}" onclick="openTeam()">🤝 Team</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
+      ${canViewAllHA()?`<button class="nav-item ${route.view==='board'?'on':''}" onclick="openBoard()">📊 Score Board</button>`:''}
+      <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">📣 Wall</button>
       <button class="nav-item" onclick="location.href='calllog.html'">${IC.phone} Call Log</button>
       <button class="nav-item ${route.view==='forms'?'on':''}" onclick="tab('forms')">📄 Forms</button>
       <button class="nav-item ${route.view==='help'?'on':''}" onclick="tab('help')">❓ Help</button>
@@ -2166,21 +2176,18 @@ function engageManage(){
   const c=wall.cfg||{};
   const quotes=(c.quotes||[]).join('\n');
   const stories=(c.stories||[]).join('\n---\n');
-  const bdays=(c.birthdays||[]).map(b=>b.date+' '+(b.type==='anniv'?'A':'B')+' '+b.name).join('\n');
+  const bn=(c.birthdays||[]).length;
   modal(`<h2>⚙ Wall Manage</h2>
     <div class="field"><label>Quotes (ek line = ek quote · roz bari-bari)</label><textarea id="em_q" rows="4" placeholder="Mehnat ka koi vikalp nahi.">${esc(quotes)}</textarea></div>
     <div class="field"><label>Stories (--- se alag karo)</label><textarea id="em_s" rows="5" placeholder="Kaala gubbara...\n---\nDoosri kahani...">${esc(stories)}</textarea></div>
-    <div class="field"><label>Birthday/Anniv — har line: MM-DD B/A Naam</label><textarea id="em_b" rows="4" placeholder="09-15 B Rupesh Ji&#10;03-21 A Sunil Ji">${esc(bdays)}</textarea></div>
-    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
-    <button class="btn grow" onclick="engageSave()">Save</button></div>`);
+    <button class="btn ghost" style="width:100%" onclick="openBirthdays()">🎂 Birthdays / Anniversaries manage${bn?' ('+bn+')':''}</button>
+    <div class="row" style="gap:11px;margin-top:14px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    <button class="btn grow" onclick="engageSave()">Save quotes/stories</button></div>`);
 }
 function engageSave(){
   const quotes=(val('em_q')||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const stories=(val('em_s')||'').split(/\n-{2,}\n/).map(s=>s.trim()).filter(Boolean);
-  const birthdays=(val('em_b')||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
-    const m=l.match(/^(\d{2}-\d{2})\s+([ABab])\s+(.+)$/); return m?{ date:m[1], type:m[2].toUpperCase()==='A'?'anniv':'birthday', name:m[3].trim() }:null;
-  }).filter(Boolean);
-  db.collection('config').doc('engage').set({ quotes, stories, birthdays },{merge:true})
+  db.collection('config').doc('engage').set({ quotes, stories },{merge:true})
     .then(()=>{ const m=document.querySelector('.modal-bg'); if(m)m.remove(); toast('Saved ✓'); engageLoad(); })
     .catch(e=>alert('Save nahi hui (config access?): '+e.message));
 }
@@ -2193,16 +2200,21 @@ function wallHTML(){
       <div class="tiny">Team ko wish karein!</div></div>`:''}
     ${q?`<div class="card" style="padding:12px;border-left:3px solid #6366f1;margin-bottom:10px"><div class="tiny" style="font-weight:800;color:#6366f1">💬 QUOTE OF THE DAY</div><div style="margin-top:4px">${esc(q)}</div></div>`:''}
     ${st?`<div class="card" style="padding:12px;border-left:3px solid #10b981;margin-bottom:10px"><div class="tiny" style="font-weight:800;color:#10b981">📖 STORY OF THE DAY</div><div style="margin-top:4px;white-space:pre-wrap">${esc(st)}</div></div>`:''}`;
+  const meNm=hudMyName()||((user&&user.email||'?').split('@')[0]);
+  const av=(nm,sz)=>`<div style="width:${sz}px;height:${sz}px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:${Math.round(sz*0.42)}px;background:${avatarColor(nm||'?')}">${esc((nm||'?')[0].toUpperCase())}</div>`;
   const composer=`<div class="card" style="padding:12px;margin-bottom:14px">
-      <textarea id="wall_text" rows="2" placeholder="Kuch share karo team ke saath…" style="width:100%"></textarea>
-      <input id="wall_img" type="file" accept="image/*" style="margin-top:8px;font-size:.75rem">
-      <button class="btn sm" style="margin-top:8px" onclick="wallPost(this)">${IC.add} Post</button>
+      <div class="row" style="gap:10px;align-items:flex-start">${av(meNm,38)}
+        <textarea id="wall_text" rows="2" placeholder="Kuch share karo team ke saath…" style="flex:1;width:auto"></textarea></div>
+      <div class="row" style="gap:8px;align-items:center;margin-top:8px">
+        <input id="wall_img" type="file" accept="image/*" style="flex:1;font-size:.72rem">
+        <button class="btn sm" style="flex:none" onclick="wallPost(this)">${IC.add} Post</button></div>
     </div>`;
   const feed=wall.posts.length? wall.posts.map(p=>`
       <div class="card" style="padding:12px;margin-bottom:10px">
-        <div class="row" style="justify-content:space-between;align-items:center"><b>${esc(p.byName||p.by||'?')}</b>
-          <span class="tiny">${_ago(p.ts)}${(admin||(user&&p.by===user.email))?` · <a href="#" onclick="wallDelete('${esc(p.id)}');return false" style="color:#dc2626">del</a>`:''}</span></div>
-        ${p.text?`<div style="margin-top:6px;white-space:pre-wrap">${esc(p.text)}</div>`:''}
+        <div class="row" style="gap:10px;align-items:center">${av(p.byName||p.by,34)}
+          <div class="grow" style="min-width:0"><b>${esc(p.byName||p.by||'?')}</b><div class="tiny" style="color:var(--muted)">${_ago(p.ts)}</div></div>
+          ${(admin||(user&&p.by===user.email))?`<a href="#" onclick="wallDelete('${esc(p.id)}');return false" class="tiny" style="color:#dc2626;flex:none">del</a>`:''}</div>
+        ${p.text?`<div style="margin-top:8px;white-space:pre-wrap">${esc(p.text)}</div>`:''}
         ${p.img?`<a href="${esc(p.img)}" target="_blank"><img src="${esc(p.img)}" loading="lazy" style="max-width:100%;border-radius:10px;margin-top:8px"></a>`:''}
       </div>`).join('') : '<div class="empty">Abhi koi post nahi. Pehla post karo! 🎉</div>';
   return `<div class="main-inner">
@@ -2214,32 +2226,102 @@ function wallHTML(){
     <div style="margin-top:12px">${strip}${composer}${feed}</div>
   </div>`;
 }
-function bottomNavHTML(){
-  if(!user) return '';
-  const it=(v,icon,label,onclick,badge)=>`<button class="bn-item ${route.view===v?'on':''}" onclick="${onclick}">${badge?`<span class="bdot">${badge}</span>`:''}${icon}<span>${label}</span></button>`;
-  if(isHuddleOnly()) return `<nav class="bottomnav">
-    ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
-    ${it('att',IC.check,'Attend.','openAtt()','')}
-    ${it('wall','📣','Wall','openWall()','')}
-  </nav>`;
+// ════ HOME DASHBOARD ════
+function openHome(){ route.view='home'; route.id=null; render(); if(!wall.cfg) engageLoad(); window.scrollTo(0,0); }
+function homeHTML(){
+  const ho=isHuddleOnly();
+  const nm=((hudMyName()||((user&&user.email||'').split('@')[0])||'').split(' ')[0]);
+  const h=new Date(Date.now()+5.5*3600e3).getUTCHours();
+  const greet=h<12?'Good morning':(h<17?'Good afternoon':'Good evening');
   const dueToday=leads.filter(L=>dueDate(L)===today()).length;
   const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
+  const bdays=todaysBirthdays(), q=quoteOfDay();
+  const metric=(n,t,onclick)=>`<div onclick="${onclick}" style="flex:1;border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center;cursor:pointer;background:#fff"><div style="font-size:1.7rem;font-weight:800;line-height:1">${n}</div><div class="tiny" style="margin-top:3px">${t}</div></div>`;
+  const qa=(icon,label,onclick)=>`<button onclick="${onclick}" style="flex:1;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer"><span style="font-size:1.5rem;line-height:1">${icon}</span><span style="font-size:.74rem;font-weight:700;color:var(--ink)">${label}</span></button>`;
+  return `<div class="main-inner">
+    <h2 class="page-title" style="margin-bottom:2px">${greet}${nm?', '+esc(nm):''} 👋</h2>
+    <div class="page-sub">${fmtDate(today())}</div>
+    ${bdays.length?`<div class="card" style="padding:12px;background:linear-gradient(135deg,#fde68a,#fca5a5);border:none;margin-top:12px"><b>🎉 Aaj: ${bdays.map(b=>esc(b.name)+(b.type==='anniv'?' 💍':' 🎂')).join(' · ')}</b><div class="tiny">Team ko wish karein!</div></div>`:''}
+    ${!ho?`<div class="row" style="gap:10px;margin-top:14px">${metric(dueToday,'Aaj due',"tab('today')")}${metric(pending,'Alerts',"tab('reminders')")}</div>`:''}
+    <div class="sec" style="margin-top:18px">Quick actions</div>
+    <div class="row" style="gap:10px;flex-wrap:wrap">
+      ${qa('✅','Punch In','openAtt()')}
+      ${qa('📝','Standup','openHuddle()')}
+      ${!ho?qa('➕','Add Lead','openLeadForm()'):''}
+      ${qa('📣','Wall','openWall()')}
+    </div>
+    ${q?`<div class="card" style="padding:12px;border-left:3px solid #6366f1;margin-top:18px"><div class="tiny" style="font-weight:800;color:#6366f1">💬 QUOTE OF THE DAY</div><div style="margin-top:4px">${esc(q)}</div></div>`:''}
+  </div>`;
+}
+// ════ TEAM HUB ════
+function openTeam(){ route.view='team'; route.id=null; render(); window.scrollTo(0,0); }
+function teamHTML(){
+  const admin=canViewAllHA();
+  const card=(icon,label,desc,onclick)=>`<button onclick="${onclick}" style="width:100%;display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff;cursor:pointer;margin-bottom:12px;text-align:left"><span style="font-size:1.8rem;line-height:1">${icon}</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:1rem">${label}</span><span class="tiny" style="color:var(--muted)">${desc}</span></span><span style="color:var(--muted);font-size:1.3rem">›</span></button>`;
+  return `<div class="main-inner">
+    <h2 class="page-title">🤝 Team</h2>
+    <div class="page-sub">Huddle, attendance aur reporting</div>
+    <div style="margin-top:16px">
+      ${card('📝','Daily Huddle','Kal/aaj ke task + issues','openHuddle()')}
+      ${card('✅','Attendance','Punch in/out + board','openAtt()')}
+      ${admin?card('📊','Score Board','Att/Plan/Report + weekly score','openBoard()'):''}
+    </div>
+  </div>`;
+}
+// ════ Birthday manager (per-user add) ════
+let _bd=[];
+function _mdLabel(md){ const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const p=(md||'').split('-'); return p.length===2?(parseInt(p[1],10)+' '+(mo[parseInt(p[0],10)-1]||'')):md; }
+function openBirthdays(){ _bd=(((wall.cfg&&wall.cfg.birthdays)||[]).map(b=>({name:b.name,date:b.date,type:b.type}))); _bdRender(); }
+function _bdRender(){
+  const ex=document.querySelector('.modal-bg'); if(ex) ex.remove();
+  const list=_bd.length? _bd.map((b,i)=>`<div class="row" style="justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span>${b.type==='anniv'?'💍':'🎂'} <b>${esc(b.name)}</b> · ${_mdLabel(b.date)}</span>
+      <button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:5px 9px" onclick="_bdDel(${i})">✕</button></div>`).join('') : '<div class="tiny" style="padding:6px 0">Abhi koi nahi — neeche se add karo.</div>';
+  modal(`<h2>🎂 Birthdays / Anniversaries</h2><div class="msub">Har user ka alag add karo</div>
+    <div style="max-height:38vh;overflow:auto;margin-bottom:12px">${list}</div>
+    <div class="field">${execSelect('bd_name','')}</div>
+    <div class="row" style="gap:8px">
+      <input id="bd_date" type="date" style="flex:1">
+      <select id="bd_type" style="flex:none;width:auto"><option value="birthday">🎂 Birthday</option><option value="anniv">💍 Anniversary</option></select>
+    </div>
+    <button class="btn ghost sm" style="margin-top:8px" onclick="_bdAdd()">${IC.add} Add</button>
+    <div class="row" style="gap:11px;margin-top:16px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button>
+    <button class="btn grow" onclick="_bdSave()">Save all</button></div>`);
+}
+function _bdAdd(){ const n=val('bd_name'), d=val('bd_date'), t=val('bd_type');
+  if(!n||!d){ alert('Naam aur date dono chahiye'); return; }
+  _bd.push({ name:n, date:d.slice(5), type:t }); _bdRender(); }
+function _bdDel(i){ _bd.splice(i,1); _bdRender(); }
+function _bdSave(){ db.collection('config').doc('engage').set({ birthdays:_bd },{merge:true})
+  .then(()=>{ const m=document.querySelector('.modal-bg'); if(m)m.remove(); toast('Saved ✓'); engageLoad(); })
+  .catch(e=>alert('Save nahi hui (config access?): '+e.message)); }
+function bottomNavHTML(){
+  if(!user) return '';
+  // active = kaunse views us tab ke andar aate hain (groups)
+  const nav=(views,icon,label,onclick,badge)=>`<button class="bn-item ${views.includes(route.view)?'on':''}" onclick="${onclick}">${badge?`<span class="bdot">${badge}</span>`:''}${icon}<span>${label}</span></button>`;
+  if(isHuddleOnly()) return `<nav class="bottomnav">
+    ${nav(['home'],'🏠','Home','openHome()','')}
+    ${nav(['huddle','team'],IC.inbox,'Huddle','openHuddle()','')}
+    ${nav(['att','board'],IC.check,'Attend.','openAtt()','')}
+    ${nav(['wall'],'📣','Wall','openWall()','')}
+    <button class="bn-item" onclick="openMore()">☰<span>More</span></button>
+  </nav>`;
+  const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
   return `<nav class="bottomnav">
-    ${it('today',IC.cal,'Today',"tab('today')",dueToday||'')}
-    ${it('reminders',IC.bell,'Alerts',"tab('reminders')",pending||'')}
-    ${it('list',IC.users,'Leads',"tab('list')",'')}
-    ${it('kanban',IC.board,'Board',"tab('kanban')",'')}
-    ${it('huddle',IC.inbox,'Huddle','openHuddle()','')}
-    ${it('att',IC.check,'Attend.','openAtt()','')}
-    ${it('wall','📣','Wall','openWall()','')}
-    <button class="bn-item" onclick="location.href='calllog.html'">${IC.phone}<span>Call Log</span></button>
+    ${nav(['home','today'],'🏠','Home','openHome()','')}
+    ${nav(['list','kanban','reminders','detail'],IC.users,'Leads',"tab('list')",pending||'')}
+    ${nav(['team','huddle','att','board'],IC.inbox,'Team','openTeam()','')}
+    ${nav(['wall'],'📣','Wall','openWall()','')}
+    <button class="bn-item" onclick="openMore()">☰<span>More</span></button>
   </nav>`;
 }
 
 function render(){
   if(!user){ renderLogin(); return; }
-  if(isHuddleOnly() && route.view!=='huddle' && route.view!=='att' && route.view!=='help' && route.view!=='wall') route.view='huddle';   // huddle-only: Huddle + Attendance + Help + Wall
+  if(isHuddleOnly() && !['huddle','att','help','wall','home','team'].includes(route.view)) route.view='huddle';   // huddle-only: Home/Team/Huddle/Attendance/Wall/Help
   const content = route.view==='detail' ? detailHTML() :
+                  route.view==='home' ? homeHTML() :
+                  route.view==='team' ? teamHTML() :
                   route.view==='att' ? attView() :
                   route.view==='board' ? boardHTML() :
                   route.view==='wall' ? wallHTML() :
