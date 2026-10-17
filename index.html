@@ -1858,6 +1858,28 @@ function boardSaveValueLever(){
     .catch(e=>alert('Save nahi hui (awards access?): '+e.message));
 }
 const BOARD_PLAN_BY=11, BOARD_REPORT_BY=18;   // Att+Plan 11 baje tak, Report 6 baje tak
+// WhatsApp pe board (attendance + huddle ek saath) — image + text
+function boardShareReport(){
+  const days=_weekDates(board.date);
+  const nowH=new Date(Date.now()+5.5*3600e3).getUTCHours();
+  const isToday=board.date===today(), isPast=board.date<today();
+  const due = isPast?{att:1,plan:1,report:1}:isToday?{att:nowH>=BOARD_PLAN_BY?1:0,plan:nowH>=BOARD_PLAN_BY?1:0,report:nowH>=BOARD_REPORT_BY?1:0}:{att:0,plan:0,report:0};
+  const mk=(done,isDue)=>done?'✅':(isDue?'❌':'⏳');
+  const rows=EXECS.map(n=>{ const key=n.toLowerCase(); return {n,d:_dayScore(key,board.date),wk:_weekScore(key)}; }).sort((a,b)=>b.wk-a.wk||b.d.total-a.d.total);
+  const dt=fmtDate(board.date);
+  const star=rows[0]&&rows[0].wk>0?rows[0]:null;
+  const bvl=board.award&&board.award.valueLever;
+  const crows=[{t:'Naam            Att Plan Rep   Aaj  Week',b:true,c:'#4f46e5'}];
+  rows.forEach((r,i)=>crows.push({t:(i+1)+'. '+r.n+'  '+mk(r.d.att,due.att)+mk(r.d.plan,due.plan)+mk(r.d.report,due.report)+'  '+r.d.total+'/3  '+r.wk+'/18'}));
+  if(star) crows.push({t:'🏆 Star: '+star.n+' ('+star.wk+'/18)',b:true,c:'#b45309'});
+  if(bvl) crows.push({t:'🌟 Value Lever: '+bvl,b:true,c:'#1e40af'});
+  const lines=rows.map((r,i)=>(i+1)+'. '+r.n+' — '+mk(r.d.att,due.att)+mk(r.d.plan,due.plan)+mk(r.d.report,due.report)+'  ('+r.d.total+'/3 · wk '+r.wk+'/18)');
+  let text='📊 *Team Board — '+dt+'*\n(Attendance · Day Plan · Day Report)\n\n'+lines.join('\n');
+  if(star) text+='\n\n🏆 *Star of the Week:* '+star.n+' ('+star.wk+'/18)';
+  if(bvl) text+='\n🌟 *Best Value Lever:* '+bvl+(board.award.valueLeverWhy?' — '+board.award.valueLeverWhy:'');
+  text+='\n\n✅ hua · ❌ nahi · ⏳ abhi due nahi\n🙏 Jinke ❌ hain kripya aaj hi pura kar lein.';
+  shareReport('Team Board — '+dt, fmtDate(days[0])+' – '+fmtDate(days[5]), crows, text);
+}
 function boardHTML(){
   if(!canViewAllHA()) return `<div class="main-inner"><div class="empty">Ye board sirf admin ke liye hai.</div></div>`;
   const days=_weekDates(board.date);
@@ -1898,6 +1920,7 @@ function boardHTML(){
     <div class="row" style="align-items:center;gap:8px">
       <button class="btn ghost sm" onclick="tab('huddle')">← Back</button>
       <h2 class="page-title" style="margin:0">📊 Team Score Board</h2>
+      <button class="btn sm" style="margin-left:auto;background:#22c55e" onclick="boardShareReport()">${IC.wa||'📤'} Share</button>
     </div>
     ${awardsHTML}
     <div class="row" style="gap:8px;align-items:center;margin:12px 0 4px">
