@@ -388,6 +388,18 @@ const STATUSES = [
 const stMap = Object.fromEntries(STATUSES.map(s=>[s.k,s]));
 const OPEN = ['fresh','warm','hot','visit'];
 const SOURCES = ['Walk-in','Telecaller','Agent','Reference','Hoarding/Ad','Other'];
+// ── Colonies: dropdown me pehle se dikhengi. Nayi colony yahan jodo. ──
+const COLONIES = ['Tejas Vihar (Sarola)','Vinayak Residency','Gopal Vihar Colony','New Dwarika Nagar'];
+function colonyOptions(){ return uniq([...COLONIES, ...leads.map(L=>L.colony)]); }
+function colonySelect(cur){
+  cur=(cur||'').trim(); const list=colonyOptions(); const other = cur && !list.includes(cur);
+  return `<select id="l_colony" onchange="document.getElementById('l_colony_other').style.display=this.value==='__other'?'block':'none'">
+    <option value="">Colony chuno</option>
+    ${list.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('')}
+    <option value="__other" ${other?'selected':''}>Dusri colony (likho)</option></select>
+    <input id="l_colony_other" placeholder="Colony ka naam" value="${other?esc(cur):''}" style="margin-top:6px;display:${other?'block':'none'}">`;
+}
+function colonyVal(){ const v=val('l_colony'); return v==='__other' ? val('l_colony_other') : v; }
 // ── Forms (GitHub par live forms ke links yahan paste karo) ──
 const FORMS = [
   {name:'Booking Form',    icon:'📝', url:'https://akshardhamassociate.github.io/booking-form/'},
@@ -812,7 +824,7 @@ function sideHTML(){
 
 // ── LIST ─────────────────────────────────────────────────────────────────────
 function listHTML(){
-  const colonies = uniq(leads.map(L=>L.colony));
+  const colonies = colonyOptions();
   const execs = uniq(leads.flatMap(execsOf));
   return `<div class="main-inner">
     <h2 class="page-title">All Leads</h2>
@@ -1050,7 +1062,7 @@ function fuCard(fu){
 
 // ── KANBAN BOARD ─────────────────────────────────────────────────────────────
 function kanbanHTML(){
-  const colonies=uniq(leads.map(L=>L.colony)); const execs=uniq(leads.flatMap(execsOf));
+  const colonies=colonyOptions(); const execs=uniq(leads.flatMap(execsOf));
   const base=leads.filter(L=>{
     if(f.colony && L.colony!==f.colony) return false;
     if(f.exec && !execsOf(L).includes(f.exec)) return false;
@@ -1160,7 +1172,7 @@ function openLeadForm(id){
     </div>
     <div class="field"><label>City / Address</label><input id="l_city" value="${esc(L.city||'')}"></div>
     <div class="grid2">
-      <div class="field"><label>Colony</label><input id="l_colony" value="${esc(L.colony||'')}"></div>
+      <div class="field"><label>Colony</label>${colonySelect(L.colony)}</div>
       <div class="field"><label>Preferred plot</label><input id="l_plot" value="${esc(L.plot||'')}"></div>
     </div>
     <div class="grid2">
@@ -1211,7 +1223,7 @@ async function saveLead(id){
   const rec = await uploadFile('l_rec');
   const photo = await uploadFile('l_photo');
   const data={ name, mobile, occupation:val('l_occ'), city:val('l_city'),
-    colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
+    colony:colonyVal(), plot:val('l_plot'), source:val('l_source'),
     agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
     createdAt: val('l_date')||today() };
   let L;
