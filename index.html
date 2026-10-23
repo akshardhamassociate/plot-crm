@@ -388,18 +388,6 @@ const STATUSES = [
 const stMap = Object.fromEntries(STATUSES.map(s=>[s.k,s]));
 const OPEN = ['fresh','warm','hot','visit'];
 const SOURCES = ['Walk-in','Telecaller','Agent','Reference','Hoarding/Ad','Other'];
-// ── Colonies: dropdown me pehle se dikhengi. Nayi colony yahan jodo. ──
-const COLONIES = ['Tejas Vihar (Sarola)','Vinayak Residency','Gopal Vihar Colony','New Dwarika Nagar'];
-function colonyOptions(){ return uniq([...COLONIES, ...leads.map(L=>L.colony)]); }
-function colonySelect(cur){
-  cur=(cur||'').trim(); const list=colonyOptions(); const other = cur && !list.includes(cur);
-  return `<select id="l_colony" onchange="document.getElementById('l_colony_other').style.display=this.value==='__other'?'block':'none'">
-    <option value="">Colony chuno</option>
-    ${list.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('')}
-    <option value="__other" ${other?'selected':''}>Dusri colony (likho)</option></select>
-    <input id="l_colony_other" placeholder="Colony ka naam" value="${other?esc(cur):''}" style="margin-top:6px;display:${other?'block':'none'}">`;
-}
-function colonyVal(){ const v=val('l_colony'); return v==='__other' ? val('l_colony_other') : v; }
 // ── Forms (GitHub par live forms ke links yahan paste karo) ──
 const FORMS = [
   {name:'Booking Form',    icon:'📝', url:'https://akshardhamassociate.github.io/booking-form/'},
@@ -824,7 +812,7 @@ function sideHTML(){
 
 // ── LIST ─────────────────────────────────────────────────────────────────────
 function listHTML(){
-  const colonies = colonyOptions();
+  const colonies = uniq(leads.map(L=>L.colony));
   const execs = uniq(leads.flatMap(execsOf));
   return `<div class="main-inner">
     <h2 class="page-title">All Leads</h2>
@@ -1062,7 +1050,7 @@ function fuCard(fu){
 
 // ── KANBAN BOARD ─────────────────────────────────────────────────────────────
 function kanbanHTML(){
-  const colonies=colonyOptions(); const execs=uniq(leads.flatMap(execsOf));
+  const colonies=uniq(leads.map(L=>L.colony)); const execs=uniq(leads.flatMap(execsOf));
   const base=leads.filter(L=>{
     if(f.colony && L.colony!==f.colony) return false;
     if(f.exec && !execsOf(L).includes(f.exec)) return false;
@@ -1172,7 +1160,7 @@ function openLeadForm(id){
     </div>
     <div class="field"><label>City / Address</label><input id="l_city" value="${esc(L.city||'')}"></div>
     <div class="grid2">
-      <div class="field"><label>Colony</label>${colonySelect(L.colony)}</div>
+      <div class="field"><label>Colony</label><input id="l_colony" value="${esc(L.colony||'')}"></div>
       <div class="field"><label>Preferred plot</label><input id="l_plot" value="${esc(L.plot||'')}"></div>
     </div>
     <div class="grid2">
@@ -1223,7 +1211,7 @@ async function saveLead(id){
   const rec = await uploadFile('l_rec');
   const photo = await uploadFile('l_photo');
   const data={ name, mobile, occupation:val('l_occ'), city:val('l_city'),
-    colony:colonyVal(), plot:val('l_plot'), source:val('l_source'),
+    colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
     agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
     createdAt: val('l_date')||today() };
   let L;
@@ -2182,6 +2170,22 @@ async function wallPost(btn){
 }
 async function wallDelete(id){ if(!confirm('Post delete karein?')) return;
   try{ await db.collection('wall').doc(id).delete(); toast('Deleted'); engageLoad(); }catch(e){ alert(e.message); } }
+async function wallReact(id, emoji){
+  if(!user) return;
+  const key=(user.email||'').replace(/[^a-z0-9]/gi,'_');
+  const post=wall.posts.find(p=>p.id===id); if(!post) return;
+  const reacts=Object.assign({}, post.reacts||{});
+  if(reacts[key]===emoji) delete reacts[key]; else reacts[key]=emoji;
+  post.reacts=reacts; render();                         // optimistic
+  try{ await db.collection('wall').doc(id).update({ reacts }); }catch(e){ engageLoad(); }
+}
+async function wallComment(id){
+  const el=document.getElementById('wc_'+id); const txt=((el&&el.value)||'').trim(); if(!txt) return;
+  const c={ by:(user&&user.email||''), byName:hudMyName()||((user&&user.email||'').split('@')[0]), text:txt, ts:Date.now() };
+  const post=wall.posts.find(p=>p.id===id); if(post) post.comments=[...(post.comments||[]), c];
+  render();
+  try{ await db.collection('wall').doc(id).update({ comments: firebase.firestore.FieldValue.arrayUnion(c) }); }catch(e){ engageLoad(); }
+}
 function engageManage(){
   const c=wall.cfg||{};
   const quotes=(c.quotes||[]).join('\n');
@@ -2219,6 +2223,14 @@ function wallHTML(){
         <input id="wall_img" type="file" accept="image/*" style="flex:1;font-size:.72rem">
         <button class="btn sm" style="flex:none" onclick="wallPost(this)">${IC.add} Post</button></div>
     </div>`;
+  const myKey=(user&&user.email||'').replace(/[^a-z0-9]/gi,'_');
+  const reactBtns=p=>{ const rc={}; Object.values(p.reacts||{}).forEach(e=>rc[e]=(rc[e]||0)+1); const mine=(p.reacts||{})[myKey];
+    return ['❤️','👍','🎉'].map(e=>`<button onclick="wallReact('${esc(p.id)}','${e}')" style="border:1px solid ${mine===e?'var(--brand)':'var(--line)'};background:${mine===e?'#eef2ff':'#fff'};border-radius:20px;padding:3px 10px;font-size:.82rem;cursor:pointer">${e}${rc[e]?' '+rc[e]:''}</button>`).join(' '); };
+  const commentsBox=p=>{ const cs=p.comments||[];
+    return `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">
+      ${cs.map(c=>`<div style="font-size:.84rem;margin-bottom:4px"><b>${esc(c.byName||c.by||'?')}</b> ${esc(c.text)}</div>`).join('')}
+      <div class="row" style="gap:6px;margin-top:4px"><input id="wc_${esc(p.id)}" placeholder="Comment…" style="flex:1;font-size:.82rem"><button class="btn ghost sm" onclick="wallComment('${esc(p.id)}')">Send</button></div>
+    </div>`; };
   const feed=wall.posts.length? wall.posts.map(p=>`
       <div class="card" style="padding:12px;margin-bottom:10px">
         <div class="row" style="gap:10px;align-items:center">${av(p.byName||p.by,34)}
@@ -2226,6 +2238,8 @@ function wallHTML(){
           ${(admin||(user&&p.by===user.email))?`<a href="#" onclick="wallDelete('${esc(p.id)}');return false" class="tiny" style="color:#dc2626;flex:none">del</a>`:''}</div>
         ${p.text?`<div style="margin-top:8px;white-space:pre-wrap">${esc(p.text)}</div>`:''}
         ${p.img?`<a href="${esc(p.img)}" target="_blank"><img src="${esc(p.img)}" loading="lazy" style="max-width:100%;border-radius:10px;margin-top:8px"></a>`:''}
+        <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">${reactBtns(p)}</div>
+        ${commentsBox(p)}
       </div>`).join('') : '<div class="empty">Abhi koi post nahi. Pehla post karo! 🎉</div>';
   return `<div class="main-inner">
     <div class="row" style="align-items:center;gap:8px">
