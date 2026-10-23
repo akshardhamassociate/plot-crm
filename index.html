@@ -820,6 +820,7 @@ function listHTML(){
   return `<div class="main-inner">
     <h2 class="page-title">All Leads</h2>
     <div class="page-sub">${leads.length} total · ${leads.filter(isDue).length} follow-up due</div>
+    ${isAdmin()?`<button class="btn ghost sm" style="margin:2px 0 10px" onclick="leadReport()">📋 Lead Report (kisne daali)</button>`:''}
     ${reminderBanner()}
     <div class="search-wrap">${IC.search}
       <input placeholder="Search by name, mobile or plot…" value="${esc(f.q)}" oninput="f.q=this.value;page=1;filterLeads()">
@@ -857,6 +858,40 @@ function leadResultsHTML(){
 }
 // search/filter: sirf results update karo — input ko mat chhuo (keyboard khula rahe)
 function filterLeads(){ const el=document.getElementById('leadResults'); if(el) el.innerHTML=leadResultsHTML(); }
+
+// ── Date-wise Lead Report (kisne kaun si lead daali) ──
+let _lrRange='today';
+function _leadDate(L){
+  if(L.createdAtSys) return new Date(L.createdAtSys+5.5*3600e3).toISOString().slice(0,10);  // system time (IST)
+  if(L.createdAt) return String(L.createdAt).slice(0,10);
+  if(L.ts) return new Date(L.ts+5.5*3600e3).toISOString().slice(0,10);
+  return '';
+}
+function _lrDates(){
+  const t=today();
+  if(_lrRange==='today') return [t];
+  if(_lrRange==='yest'){ const d=new Date(t+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()-1); return [d.toISOString().slice(0,10)]; }
+  if(_lrRange==='week') return _weekDates(t);
+  if(_lrRange==='lastweek'){ const d=new Date(t+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()-7); return _weekDates(d.toISOString().slice(0,10)); }
+  return [t];
+}
+function leadReport(){ if(!isAdmin()){ alert('Sirf admin'); return; } _lrRange='today'; _lrRender(); }
+function _lrRender(){
+  const ex=document.querySelector('.modal-bg'); if(ex) ex.remove();
+  const dates=new Set(_lrDates());
+  const inRange=leads.filter(L=>dates.has(_leadDate(L)));
+  const g={}; inRange.forEach(L=>{ const k=L.createdByName||(L.createdBy?L.createdBy.split('@')[0]:'Purani lead'); (g[k]=g[k]||[]).push(L); });
+  const names=Object.keys(g).sort((a,b)=>g[b].length-g[a].length);
+  const chip=(k,l)=>`<button class="chip ${_lrRange===k?'on':''}" onclick="_lrRange='${k}';_lrRender()">${l}</button>`;
+  const body=names.length? names.map(n=>`<div style="border-top:1px solid var(--line);padding:9px 0">
+      <div class="row" style="justify-content:space-between;align-items:center"><b>${esc(n)}</b><span class="tiny" style="font-weight:800">${g[n].length}</span></div>
+      ${g[n].map(L=>`<div class="tiny" style="color:var(--muted);padding:2px 0;cursor:pointer" onclick="this.closest('.modal-bg').remove();go('detail','${esc(L.id)}')">• ${esc(L.name||'—')}${L.mobile?' · '+esc(L.mobile):''}</div>`).join('')}
+    </div>`).join('') : '<div class="tiny" style="padding:12px 0">Is range me koi lead nahi.</div>';
+  modal(`<h2>📋 Lead Report</h2><div class="msub">Kisne kaun si lead daali · Total ${inRange.length}</div>
+    <div class="scroll-x" style="display:flex;gap:6px;margin-bottom:10px">${chip('today','Aaj')}${chip('yest','Kal')}${chip('week','Is hafta')}${chip('lastweek','Pichhla hafta')}</div>
+    <div style="max-height:50vh;overflow:auto">${body}</div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button></div>`);
+}
 function pageSlice(arr){
   const pages=Math.max(1,Math.ceil(arr.length/pageSize));
   if(page>pages) page=pages; if(page<1) page=1;
