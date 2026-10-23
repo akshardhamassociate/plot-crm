@@ -917,13 +917,13 @@ function goPage(n){ page=n; render(); }
 function tableHTML(items){
   return `<thead><tr>
     <th>Contact</th><th>Business</th><th>Colony / Plot</th><th>Status</th>
-    <th>Received</th><th>Next action</th><th>Executive</th><th></th></tr></thead>
+    <th>Received</th><th>Next action</th><th>Owner</th><th></th></tr></thead>
     <tbody>${items.map(tableRow).join('')}</tbody>`;
 }
 function tableRow(L){
   const fu=lastFU(L); const wa=digits(L.mobile), waNo=wa.length===10?'91'+wa:wa; const od=isOverdue(L);
-  return `<tr onclick="go('detail','${L.id}')">
-    <td><b>${esc(L.name)}</b><div class="tiny">${esc(L.mobile)}</div></td>
+  return `<tr onclick="go('detail','${L.id}')" ${L.status==='hot'?'style="background:#fef2f2"':''}>
+    <td style="border-left:4px solid ${stMap[L.status]?.c||'#94a3b8'}"><b>${esc(L.name)}</b><div class="tiny">${esc(L.mobile)}</div></td>
     <td class="tiny">${esc(L.occupation||'—')}</td>
     <td class="tiny">${esc(L.colony||'—')}${L.plot?' · '+esc(L.plot):''}</td>
     <td>${badge(L.status)}</td>
@@ -940,7 +940,7 @@ function leadCard(L){
   const fu = lastFU(L); const od = isOverdue(L);
   const next = fu&&fu.nextDate ? `Next: ${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}` :
     (fu?'Follow-up done':'No follow-up yet');
-  return `<div class="card lead" onclick="go('detail','${L.id}')">
+  return `<div class="card lead" style="border-left:4px solid ${stMap[L.status]?.c||'#94a3b8'}${L.status==='hot'?';background:#fef2f2':''}" onclick="go('detail','${L.id}')">
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
@@ -2217,7 +2217,7 @@ async function engageLoad(){
     if(canViewAllHA()){ const u=await db.collection('applogs').where('date','==',today()).get();
       wall.todayOpens=u.docs.reduce((s,d)=>s+((d.data().count)||0),0); }
   }catch(_){}
-  if(route.view==='wall') render();
+  if(route.view==='wall'||route.view==='home') render();
 }
 async function wallPost(btn){
   const text=(val('wall_text')||'').trim();
@@ -2493,7 +2493,7 @@ document.getElementById('app').innerHTML = '<div class="login"><div class="login
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
-    setupBackHandler(); apkCheck(); logAppOpen();
+    setupBackHandler(); apkCheck(); logAppOpen(); engageLoad();
     if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
     attLoadOffices();
     if(!unsub){
