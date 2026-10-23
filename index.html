@@ -922,7 +922,7 @@ function tableHTML(items){
 }
 function tableRow(L){
   const fu=lastFU(L); const wa=digits(L.mobile), waNo=wa.length===10?'91'+wa:wa; const od=isOverdue(L);
-  return `<tr onclick="go('detail','${L.id}')" ${L.status==='hot'?'style="background:#fef2f2"':''}>
+  return `<tr onclick="go('detail','${L.id}')" style="background:${stMap[L.status]?.bg||'#fff'}">
     <td style="border-left:4px solid ${stMap[L.status]?.c||'#94a3b8'}"><b>${esc(L.name)}</b><div class="tiny">${esc(L.mobile)}</div></td>
     <td class="tiny">${esc(L.occupation||'—')}</td>
     <td class="tiny">${esc(L.colony||'—')}${L.plot?' · '+esc(L.plot):''}</td>
@@ -940,7 +940,7 @@ function leadCard(L){
   const fu = lastFU(L); const od = isOverdue(L);
   const next = fu&&fu.nextDate ? `Next: ${fmtDate(fu.nextDate)}${fu.nextAction?' · '+esc(fu.nextAction):''}` :
     (fu?'Follow-up done':'No follow-up yet');
-  return `<div class="card lead" style="border-left:4px solid ${stMap[L.status]?.c||'#94a3b8'}${L.status==='hot'?';background:#fef2f2':''}" onclick="go('detail','${L.id}')">
+  return `<div class="card lead" style="border-left:4px solid ${stMap[L.status]?.c||'#94a3b8'};background:${stMap[L.status]?.bg||'#fff'}" onclick="go('detail','${L.id}')">
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
