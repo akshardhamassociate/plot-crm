@@ -484,6 +484,7 @@ function openMore(){
       ${na?tile('🔄','Update'+(apkUpdateAvailable()?' •':''),"openUpdate()",apkUpdateAvailable()):''}
       ${!ho?tile('⬆️','Import',"importCSV()"):''}
       ${!ho?tile('⬇️','Export',"exportCSV()"):''}
+      ${(!ho&&isAdmin())?tile('🗑️','Deleted',"openDeleted()"):''}
     </div>`);
 }
 // ── WhatsApp Message module (Sahi-CRM style): preview + team templates (Firestore) ──
@@ -702,6 +703,8 @@ let page=1, pageSize=25, dragId=null;
 const lastFU = L => L.followUps && L.followUps.length ? L.followUps[0] : null;
 const execsOf = L => (Array.isArray(L.execs)&&L.execs.length) ? L.execs : (L.exec ? [L.exec] : []);
 const execStr = L => execsOf(L).join(', ') || '—';
+const ownerOf = L => execsOf(L)[0] || '—';                 // main executive = owner
+const assignedExtra = L => execsOf(L).slice(1);            // owner ke alawa assigned
 function avatarColor(name){ let h=0; for(const c of name) h=c.charCodeAt(0)+((h<<5)-h);
   return `hsl(${Math.abs(h)%360},50%,42%)`; }
 const uniq = arr => [...new Set(arr.filter(Boolean))].sort();
@@ -891,7 +894,7 @@ function tableRow(L){
     <td>${badge(L.status)}</td>
     <td class="tiny">${fmtDate(L.createdAt)||'—'}</td>
     <td class="tiny" style="${od?'color:var(--danger);font-weight:600':''}">${fu&&fu.nextDate?fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):''):'—'}</td>
-    <td class="tiny">${esc(execStr(L))}</td>
+    <td class="tiny">${esc(ownerOf(L))}${assignedExtra(L).length?` <span style="color:var(--muted)">+${assignedExtra(L).length}</span>`:''}</td>
     <td onclick="event.stopPropagation()"><span style="display:inline-flex;gap:6px">
       <a class="plain" href="tel:${esc(L.mobile)}"><button class="tbtn tcall">${IC.phone}</button></a>
       <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="tbtn twa">${IC.wa}</button></a>
@@ -906,7 +909,7 @@ function leadCard(L){
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
-      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · ${esc(execStr(L))}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
       <div class="tiny ell" style="display:flex;align-items:center;gap:6px;${od?'color:var(--danger);font-weight:600':''}">
         ${od?'<span class="odot"></span>':''}${esc(next)}</div>
     </div>
@@ -971,7 +974,7 @@ function todayCard(L, urgent){
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow" onclick="go('detail','${L.id}')" style="cursor:pointer">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
-      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(execStr(L))}</div>
+      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
       <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${fu && fu.nextDate ? (urgent?'⚠ ':'')+fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):'') : '🆕 Naya — kaam shuru karo'}</div>
     </div>
     <a class="plain" href="tel:${esc(L.mobile)}"><button class="iconbtn" style="background:var(--ok);border:none">${IC.phone}</button></a>
@@ -1008,7 +1011,7 @@ function detailHTML(){
       <div class="card" style="padding:4px 15px">
         ${kv('Occupation',L.occupation)}${kv('City / Address',L.city)}${kv('Colony',L.colony)}
         ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
-        ${kv('Executive',execStr(L))}${kv('Added on',fmtDate(L.createdAt))}
+        ${kv('Owner',ownerOf(L))}${assignedExtra(L).length?kv('Assigned',assignedExtra(L).join(', ')):''}${kv('Added on',fmtDate(L.createdAt))}${kv('Added by', L.createdByName||(L.createdBy?L.createdBy.split('@')[0]:'')||'Purani lead')}
         ${(L.rec||L.photo)?`<div style="padding:10px 0 6px">${attHTML(L.rec,IC.mic,'Recording')}${attHTML(L.photo,IC.cam,'Photo')}</div>`:''}
         ${(L.rec && !(L.audit&&L.audit.score))?`<button class="btn ghost sm" style="margin:2px 0 8px" onclick="manualAudit('${L.id}',null,this)">🎧 Audit</button>`:''}
         ${auditBox(L.audit)}
@@ -1025,7 +1028,7 @@ function detailHTML(){
       ${(L.followUps||[]).length? L.followUps.map(fuCard).join('') :
         `<div class="tiny" style="margin-bottom:11px">No follow-ups yet. Add one below.</div>`}
       <button class="btn wide" onclick="openFU('${L.id}')">${IC.add} Add Follow-up</button>
-      <button class="btn danger wide" style="margin-top:11px" onclick="delLead('${L.id}')">Delete lead</button>
+      ${isAdmin()?`<button class="btn danger wide" style="margin-top:11px" onclick="delLead('${L.id}')">Delete lead</button>`:''}
     </div>
   </div></div>`;
 }
@@ -1191,7 +1194,7 @@ function openLeadForm(id){
       <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
       <button class="btn grow" onclick="saveLead('${id||''}')">Save</button>
     </div>
-    ${id?`<button class="btn danger wide" style="margin-top:10px" onclick="this.closest('.modal-bg').remove();delLead('${id}')">🗑 Delete lead</button>`:''}`);
+    ${id&&isAdmin()?`<button class="btn danger wide" style="margin-top:10px" onclick="this.closest('.modal-bg').remove();delLead('${id}')">🗑 Delete lead</button>`:''}`);
 }
 function execChecks(selected){
   return execList().map(n=>`<label class="chk"><input type="checkbox" class="l_extra" value="${esc(n)}" ${selected.includes(n)?'checked':''}>${esc(n)}</label>`).join('');
@@ -1219,7 +1222,7 @@ async function saveLead(id){
     if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
     L=leads.find(x=>x.id===id); Object.assign(L, data); L.ts=Date.now();
   } else {
-    L={ id:uid(), ...data, ts:Date.now(), need:{}, followUps:[] }; leads.unshift(L);
+    L={ id:uid(), ...data, createdBy:(user&&user.email||''), createdByName:_crmName(), createdAtSys:Date.now(), ts:Date.now(), need:{}, followUps:[] }; leads.unshift(L);
     // pehli baat-cheet ko first follow-up bana do (agar bhari ho)
     const g=i=>document.getElementById(i)?document.getElementById(i).value.trim():'';
     const p=g('l_purpose'), r=g('l_response'), nd=g('l_ndate'), na=g('l_naction');
@@ -1317,11 +1320,36 @@ async function saveFU(id){
 }
 
 // ── actions ──────────────────────────────────────────────────────────────────
+let deletedLeads=[];   // soft-deleted leads (bin)
+function _crmName(){ const e=(user&&user.email||'').toLowerCase(); return NAME_BY_EMAIL[e] || (user&&user.email?user.email.split('@')[0]:''); }
 function delLead(id){
-  if(!confirm('Delete this lead?')) return;
-  leads = leads.filter(x=>x.id!==id);
-  col().doc(id).delete().catch(e=>alert('Delete failed: '+e.message));
+  if(!isAdmin()){ alert('Sirf admin lead delete kar sakta hai.'); return; }
+  if(!confirm('Is lead ko Deleted (bin) me bhejein?\nAdmin baad me wapas la sakta hai.')) return;
+  col().doc(id).set({ deleted:true, deletedBy:(user&&user.email||''), deletedAt:Date.now() },{merge:true})
+    .then(()=>toast('Deleted — bin me hai (wapas la sakte ho)'))
+    .catch(e=>alert('Delete failed: '+e.message));
   tab('list');
+}
+function openDeleted(){
+  if(!isAdmin()){ alert('Sirf admin'); return; }
+  const list = deletedLeads.length ? deletedLeads.map(L=>`<div class="row" style="justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)">
+      <div style="min-width:0"><b>${esc(L.name||'—')}</b><div class="tiny" style="color:var(--muted)">${esc(L.mobile||'')}${L.deletedBy?' · by '+esc(L.deletedBy.split('@')[0]):''}</div></div>
+      <div class="row" style="gap:6px;flex:none"><button class="btn ghost sm" onclick="restoreLead('${esc(L.id)}')">↩ Wapas</button><button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:6px 9px" onclick="hardDelLead('${esc(L.id)}')" title="Pakka delete">✕</button></div></div>`).join('')
+    : '<div class="tiny" style="padding:10px 0">Bin khali hai.</div>';
+  modal(`<h2>🗑 Deleted Leads</h2><div class="msub">Admin wapas la sakta hai</div>
+    <div style="max-height:52vh;overflow:auto">${list}</div>
+    <div class="row" style="margin-top:14px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button></div>`);
+}
+function restoreLead(id){
+  col().doc(id).set({ deleted:false, restoredBy:(user&&user.email||''), restoredAt:Date.now() },{merge:true})
+    .then(()=>{ toast('Lead wapas aa gayi ✓'); const m=document.querySelector('.modal-bg'); if(m)m.remove(); })
+    .catch(e=>alert(e.message));
+}
+function hardDelLead(id){
+  if(!isAdmin()) return;
+  if(!confirm('PAKKA delete? Ye hamesha ke liye hat jayegi — wapas nahi aayegi.')) return;
+  col().doc(id).delete().then(()=>{ toast('Permanent delete'); const m=document.querySelector('.modal-bg'); if(m){m.remove();openDeleted();} })
+    .catch(e=>alert(e.message));
 }
 function setStatus(k){ f.status=k; page=1; render(); }
 function clearFilters(){ f={q:'',status:'',colony:'',exec:'',from:'',to:''}; page=1; render(); }
@@ -1386,7 +1414,7 @@ function parseImport(text){
     const L={ id:uid(), name, mobile:mob, occupation:g(ci.occupation), city:g(ci.city),
       colony:g(ci.colony), plot:g(ci.plot), source:g(ci.source)||'Other', agent:g(ci.agent),
       exec:g(ci.exec), status:stByLabel[g(ci.status).toLowerCase()]||'fresh',
-      createdAt:today(), need:{}, followUps:[] };
+      createdAt:today(), createdBy:(user&&user.email||''), createdByName:_crmName(), createdAtSys:Date.now(), need:{}, followUps:[] };
     leads.unshift(L); batch.set(col().doc(L.id), L); added++;
   });
   batch.commit().catch(e=>alert('Import save failed: '+e.message));
@@ -2435,8 +2463,10 @@ auth.onAuthStateChanged(u=>{
     attLoadOffices();
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
-        leads = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
+        const all = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
           if(!Array.isArray(L.followUps)) L.followUps=[]; if(!L.need) L.need={}; return L; });
+        deletedLeads = all.filter(L=>L.deleted);     // bin
+        leads = all.filter(L=>!L.deleted);           // active (sab jagah yahi use hota)
         render(); updateBadge();
       }, err=>{ alert('Data load error: '+err.message); });
     }
