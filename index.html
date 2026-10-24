@@ -487,6 +487,7 @@ function openMore(){
       ${!ho?tile('⬆️','Import',"importCSV()"):''}
       ${!ho?tile('⬇️','Export',"exportCSV()"):''}
       ${(!ho&&isAdmin())?tile('📈','Funnel',"openFunnel()"):''}
+      ${(!ho&&isAdmin())?tile('🏘️','Colony fix',"openColonyMgr()"):''}
       ${(!ho&&isAdmin())?tile('🗑️','Deleted',"openDeleted()"):''}
     </div>`);
 }
@@ -870,6 +871,38 @@ function _funnelTotal(colony){
   return t;
 }
 function openFunnel(){ if(!isAdmin()){ alert('Sirf admin'); return; } route.view='funnel'; route.id=null; render(); window.scrollTo(0,0); }
+// ── Colony Cleanup: duplicate/typo colonies ko ek canonical naam me merge ──
+function openColonyMgr(){
+  if(!isAdmin()){ alert('Sirf admin'); return; }
+  const counts={}; leads.forEach(L=>{ const c=(L.colony||'').trim(); if(c) counts[c]=(counts[c]||0)+1; });
+  const names=Object.keys(counts).sort((a,b)=>a.localeCompare(b));
+  const rows=names.map(n=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:.88rem">
+      <input type="checkbox" class="colchk" value="${esc(n)}" style="width:auto;flex:none">
+      <span class="grow" style="cursor:pointer" onclick="document.getElementById('col_canon').value='${esc(n).replace(/'/g,"\\'")}'">${esc(n)}</span>
+      <span class="tiny" style="color:var(--muted);flex:none">${counts[n]}</span></label>`).join('');
+  modal(`<h2>🏘️ Colony Cleanup</h2><div class="msub">Typo/duplicate colonies ko ek sahi naam me merge karo</div>
+    <div class="field"><label>Sahi (canonical) naam</label><input id="col_canon" placeholder="jaise Vinayak Residency"><div class="tiny" style="margin-top:3px">Tip: neeche kisi sahi naam pe tap karo to wo yahan aa jayega.</div></div>
+    <div class="tiny" style="margin:2px 0 6px">Jin-jin colonies ko is naam me merge karna hai unhe tick karo:</div>
+    <div style="max-height:40vh;overflow:auto;margin-bottom:12px">${rows||'<div class="tiny">Koi colony nahi.</div>'}</div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button>
+    <button class="btn grow" onclick="colonyMerge()">Merge</button></div>`);
+}
+async function colonyMerge(){
+  const canon=(val('col_canon')||'').trim();
+  if(!canon){ alert('Pehle sahi (canonical) naam daalo'); return; }
+  const picked=[...document.querySelectorAll('.colchk:checked')].map(c=>c.value).filter(c=>c!==canon);
+  if(!picked.length){ alert('Kam se kam ek colony tick karo (jo merge karni hai)'); return; }
+  const affected=leads.filter(L=>picked.includes((L.colony||'').trim()));
+  if(!affected.length){ alert('In colonies me koi lead nahi.'); return; }
+  if(!confirm(affected.length+' leads ko "'+canon+'" me merge karein?\n('+picked.length+' naam → 1)')) return;
+  try{
+    const batch=db.batch();
+    affected.forEach(L=>batch.update(col().doc(L.id),{colony:canon}));
+    await batch.commit();
+    toast(affected.length+' leads merged ✓');
+    const m=document.querySelector('.modal-bg'); if(m)m.remove();
+  }catch(e){ alert('Merge fail: '+e.message); }
+}
 function fnSet(k,v){
   if(k==='colony') fn.colony=v;
   else { fn[k]=parseInt(String(v).replace(/[^0-9]/g,''))||0; localStorage.setItem(k==='avg'?'fnAvg':'fnTarget', fn[k]); }
@@ -888,7 +921,7 @@ function funnelHTML(){
   return `<div class="main-inner">
     <div class="row" style="align-items:center;gap:8px"><button class="btn ghost sm" onclick="tab('list')">← Back</button><h2 class="page-title" style="margin:0">📈 Funnel Value</h2></div>
     <div class="grid2" style="margin-top:12px">
-      <div><label class="tiny">Project (colony)</label><select onchange="fnSet('colony',this.value)"><option value="">Saari colonies</option>${colonies.map(c=>`<option ${fn.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+      <div><label class="tiny">Project (colony) · <a href="#" onclick="openColonyMgr();return false" style="color:var(--brand);font-weight:700">🏘️ duplicate fix</a></label><select onchange="fnSet('colony',this.value)"><option value="">Saari colonies</option>${colonies.map(c=>`<option ${fn.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
       <div><label class="tiny">Avg deal value (₹)</label><input type="number" value="${fn.avg}" onchange="fnSet('avg',this.value)"></div>
     </div>
     <div class="card" style="padding:4px 10px;margin-top:12px;overflow-x:auto">
@@ -1253,7 +1286,9 @@ function openLeadForm(id){
     </div>
     <div class="field"><label>City / Address</label><input id="l_city" value="${esc(L.city||'')}"></div>
     <div class="grid2">
-      <div class="field"><label>Colony</label><input id="l_colony" value="${esc(L.colony||'')}"></div>
+      <div class="field"><label>Colony</label><input id="l_colony" list="colonyDL" value="${esc(L.colony||'')}" autocomplete="off">
+        <datalist id="colonyDL">${uniq(leads.map(x=>x.colony).filter(Boolean)).sort().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+        <div class="tiny" style="margin-top:3px">Pehle wali list me se chuno — naya tabhi likho jab sach me nayi colony ho.</div></div>
       <div class="field"><label>Preferred plot</label><input id="l_plot" value="${esc(L.plot||'')}"></div>
     </div>
     <div class="grid2">
