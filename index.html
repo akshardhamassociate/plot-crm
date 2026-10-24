@@ -875,6 +875,34 @@ function _funnelTotal(colony){
   return t;
 }
 function openFunnel(){ if(!isAdmin()){ alert('Sirf admin'); return; } route.view='funnel'; route.id=null; render(); window.scrollTo(0,0); }
+// ── Line of Action (strategy card) — sirf Krishan + Rashid edit ──
+function openLOA(id){
+  if(!canEditLOA()){ alert('Sirf Krishan Sir / Rashid Ji Line of Action edit kar sakte hain'); return; }
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  modal(`<h2>🎯 Line of Action</h2><div class="msub">Is customer ki poori strategy (kal-call jaisa next-step nahi — overall plan)</div>
+    <div class="field"><textarea id="loa_txt" rows="6" placeholder="Pehle rishta banao · har 7 din relevant properties bhejo · beti ki shaadi ke baad detailed requirement meeting...">${esc(L.lineOfAction||'')}</textarea></div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    <button class="btn grow" onclick="saveLOA('${id}')">Save</button></div>`);
+}
+function saveLOA(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  const txt=(val('loa_txt')||'').trim(), prev=L.lineOfAction||'';
+  if(txt===prev){ const m=document.querySelector('.modal-bg'); if(m)m.remove(); return; }
+  const hist=[...(L.loaHistory||[]), { text:txt, prevText:prev, by:(user&&user.email||''), ts:Date.now() }];
+  L.lineOfAction=txt; L.loaHistory=hist;
+  col().doc(id).set({ lineOfAction:txt, loaHistory:hist },{merge:true})
+    .then(()=>{ toast('Line of Action saved ✓'); const m=document.querySelector('.modal-bg'); if(m)m.remove(); render(); })
+    .catch(e=>alert(e.message));
+}
+function loaHist(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  const hist=(L.loaHistory||[]).slice().reverse();
+  modal(`<h2>🎯 Line of Action — history</h2>
+    <div style="max-height:55vh;overflow:auto">${hist.length?hist.map(h=>`<div style="border-top:1px solid var(--line);padding:9px 0">
+      <div class="tiny" style="color:var(--muted)">${esc((h.by||'').split('@')[0])} · ${fmtDate(new Date(h.ts).toISOString().slice(0,10))}</div>
+      <div style="white-space:pre-wrap;margin-top:3px">${esc(h.text||'(khaali)')}</div></div>`).join(''):'<div class="tiny">Koi history nahi</div>'}</div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button></div>`);
+}
 // ── Colony Cleanup: duplicate/typo colonies ko ek canonical naam me merge ──
 function openColonyMgr(){
   if(!isAdmin()){ alert('Sirf admin'); return; }
@@ -1072,6 +1100,7 @@ function leadCard(L){
       <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
       <div class="tiny ell" style="display:flex;align-items:center;gap:6px;${od?'color:var(--danger);font-weight:600':''}">
         ${od?'<span class="odot"></span>':''}${esc(next)}</div>
+      ${L.lineOfAction?`<div class="tiny ell" style="color:#4338ca;font-weight:600;margin-top:1px">🎯 ${esc(L.lineOfAction.split('\n')[0])}</div>`:''}
     </div>
     <span class="chev">${IC.chev}</span>
   </div>`;
@@ -1166,6 +1195,14 @@ function detailHTML(){
         <a class="plain grow" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="btn wa wide">${IC.wa} WhatsApp</button></a>
       </div>
       <button class="btn wide" style="background:#0ea5e9;margin-top:11px" onclick="openWaTemplates('${L.id}')">${IC.wa} WhatsApp Template bhejein (Hindi)</button>
+
+      ${(()=>{ const loa=L.lineOfAction||'', hist=L.loaHistory||[], last=hist[hist.length-1];
+        return `<div class="card" style="padding:14px;border-left:4px solid #6366f1;background:linear-gradient(180deg,#f5f3ff,#ffffff);margin-top:14px">
+          <div class="row" style="justify-content:space-between;align-items:center"><b style="color:#4338ca">🎯 Line of Action</b>
+            ${canEditLOA()?`<button class="btn ghost sm" onclick="openLOA('${L.id}')">${loa?'Edit':'Set'}</button>`:''}</div>
+          ${loa?`<div style="margin-top:8px;white-space:pre-wrap">${esc(loa)}</div>${last?`<div class="tiny" style="color:var(--muted);margin-top:7px">Last updated by ${esc((last.by||'').split('@')[0])} · ${fmtDate(new Date(last.ts).toISOString().slice(0,10))}${hist.length>1?` · <a href="#" onclick="loaHist('${L.id}');return false" style="color:var(--brand);font-weight:700">history (${hist.length})</a>`:''}</div>`:''}`
+          :`<div class="tiny" style="color:var(--muted);margin-top:7px">Plan abhi set nahi hua${canEditLOA()?' — "Set" dabao':' (sirf Krishan Sir/Rashid Ji set karte)'}.</div>`}
+        </div>`; })()}
 
       <div class="sec">Lead details ${badge(L.status)}</div>
       <div class="card" style="padding:4px 15px">
@@ -1695,6 +1732,8 @@ const HUDDLE_ONLY_EMAILS = ['akdpankaj@gmail.com','bhaveshakd3@gmail.com','techa
 // Ye log normal user hain PAR Huddle + Attendance me SABKA dekh sakte hain (reporting ke liye) — office set nahi
 const HA_VIEW_ALL_EMAILS = ['telecaller1.akd@gmail.com'];   // Kamana ji
 const canViewAllHA = () => isAdmin() || !!(user && HA_VIEW_ALL_EMAILS.includes((user.email||'').toLowerCase()));
+const LOA_EDITORS = ['krishan.sr1974@gmail.com','shanu.akshardham@gmail.com'];   // Line of Action — Krishan Sir + Rashid Ji
+const canEditLOA = () => !!(user && LOA_EDITORS.includes((user.email||'').toLowerCase()));
 const isHuddleOnly = () => !!(user && HUDDLE_ONLY_EMAILS.includes((user.email||'').toLowerCase()));
 // login pe standup ka naam apne aap set — member ko manually na chunna pade
 const NAME_BY_EMAIL = {
