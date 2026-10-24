@@ -389,6 +389,8 @@ const STATUSES = [
 const stMap = Object.fromEntries(STATUSES.map(s=>[s.k,s]));
 const OPEN = ['fresh','warm','visit','nurture','hot'];
 const inr = n => '₹'+(n>=1e7?(n/1e7).toFixed(2)+' Cr':(n>=1e5?(n/1e5).toFixed(2)+' L':Math.round(n).toLocaleString('en-IN')));
+const _shade = (hex,amt)=>{ const n=parseInt(String(hex).replace('#',''),16); const a=c=>Math.max(0,Math.min(255,Math.round(c+(amt/100)*255)));
+  return '#'+(((1<<24)+(a((n>>16)&255)<<16)+(a((n>>8)&255)<<8)+a(n&255)).toString(16).slice(1)); };
 const SOURCES = ['Walk-in','Telecaller','Agent','Reference','Hoarding/Ad','Other'];
 // ── Forms (GitHub par live forms ke links yahan paste karo) ──
 const FORMS = [
@@ -794,6 +796,8 @@ function sideHTML(){
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
       ${canViewAllHA()?`<button class="nav-item ${route.view==='board'?'on':''}" onclick="openBoard()">${IC.board} Score Board</button>`:''}
+      ${isAdmin()?`<button class="nav-item ${route.view==='funnel'?'on':''}" onclick="openFunnel()">📈 Funnel</button>`:''}
+      ${isAdmin()?`<button class="nav-item" onclick="openColonyMgr()">🏘️ Colony fix</button>`:''}
       <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">${IC.wall} Wall</button>
       <button class="nav-item" onclick="location.href='calllog.html'">${IC.phone} Call Log</button>
       <button class="nav-item ${route.view==='forms'?'on':''}" onclick="tab('forms')">📄 Forms</button>
@@ -914,36 +918,68 @@ function funnelHTML(){
   const base=leads.filter(L=>!fn.colony||L.colony===fn.colony);
   const stages=STATUSES.filter(s=>s.p>0 && s.k!=='booked');   // funnel = Prospect→Hot
   let funnelTotal=0;
-  const rows=stages.map(s=>{ const cnt=base.filter(L=>L.status===s.k).length, w=cnt*fn.avg*(s.p/100); funnelTotal+=w;
-    return `<tr style="border-top:1px solid var(--line)"><td style="padding:8px 6px;border-left:4px solid ${s.c}">${s.l}</td><td style="text-align:center">${cnt}</td><td style="text-align:center">${s.p}%</td><td style="text-align:right;padding-right:6px">${inr(w)}</td></tr>`; }).join('');
+  const sd=stages.map(s=>{ const cnt=base.filter(L=>L.status===s.k).length; return {s, cnt, w:cnt*fn.avg*(s.p/100)}; });
+  funnelTotal=sd.reduce((a,x)=>a+x.w,0);
+  const openCnt=sd.reduce((a,x)=>a+x.cnt,0), rawPipe=openCnt*fn.avg, maxC=Math.max(1,...sd.map(x=>x.cnt));
   const wonCnt=base.filter(L=>L.status==='booked').length, bookedRev=wonCnt*fn.avg;
-  const ratio=fn.target?(funnelTotal/fn.target):0, ok=ratio>=10;
-  return `<div class="main-inner">
-    <div class="row" style="align-items:center;gap:8px"><button class="btn ghost sm" onclick="tab('list')">← Back</button><h2 class="page-title" style="margin:0">📈 Funnel Value</h2></div>
-    <div class="grid2" style="margin-top:12px">
-      <div><label class="tiny">Project (colony) · <a href="#" onclick="openColonyMgr();return false" style="color:var(--brand);font-weight:700">🏘️ duplicate fix</a></label><select onchange="fnSet('colony',this.value)"><option value="">Saari colonies</option>${colonies.map(c=>`<option ${fn.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+  const ratio=fn.target?(funnelTotal/fn.target):0, ok=ratio>=10, prog=Math.min(100,Math.round(ratio/10*100));
+  // ── glassy KPI tile ──
+  const tile=(v,l,sub,ic,icbg,iccol)=>`<div style="background:linear-gradient(180deg,#fff,#fbfcff);border:1px solid var(--line);border-radius:18px;padding:15px 16px;box-shadow:0 6px 16px -8px rgba(16,24,40,.14),inset 0 1px 0 #fff">
+      ${ic?`<div style="width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;margin-bottom:8px;background:${icbg};color:${iccol};box-shadow:inset 0 1px 0 #fff,0 2px 5px rgba(16,24,40,.08)">${ic}</div>`:''}
+      <div class="tiny" style="color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">${l}</div>
+      <div style="font-size:1.4rem;font-weight:800;margin-top:5px;letter-spacing:-.02em">${v}</div>
+      ${sub?`<div class="tiny" style="color:var(--muted);margin-top:2px">${sub}</div>`:''}</div>`;
+  const hero=`<div style="background:linear-gradient(135deg,#5b50f0 0%,#7c3aed 55%,#a855f7 100%);color:#fff;border-radius:20px;padding:18px;box-shadow:0 20px 40px -16px rgba(99,80,235,.6),inset 0 1px 0 rgba(255,255,255,.25);position:relative;overflow:hidden">
+      <div style="position:absolute;right:-30px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.12)"></div>
+      <div class="tiny" style="opacity:.9;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total funnel value</div>
+      <div style="font-size:2.1rem;font-weight:800;margin-top:5px;letter-spacing:-.02em">${inr(funnelTotal)}</div>
+      <div class="tiny" style="opacity:.88;margin-top:3px">${openCnt} open leads · ${inr(rawPipe)} max pipeline</div></div>`;
+  // ── 3D funnel SVG (dynamic) ──
+  const minW=100, maxW=320, cx=200, top=24, h=68, gap=14;
+  const widths=sd.map(x=>minW+(x.cnt/maxC)*(maxW-minW));
+  let defs='', sbody='';
+  sd.forEach((x,i)=>{
+    const y=top+i*(h+gap), wT=widths[i], wB=(i<sd.length-1?widths[i+1]:Math.max(70,widths[i]*0.62));
+    const TL=cx-wT/2, TR=cx+wT/2, BL=cx-wB/2, BR=cx+wB/2, yB=y+h;
+    const col=x.s.c, topc=_shade(col,24), botc=_shade(col,-16), rim=_shade(col,44), ry=Math.max(6,Math.min(11,wT*0.032)), rb=wB/2;
+    defs+=`<linearGradient id="fg${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${topc}"/><stop offset="1" stop-color="${botc}"/></linearGradient>`;
+    sbody+=`<path d="M${TL} ${y} L${TR} ${y} L${BR} ${yB} A${rb} ${(ry*0.8).toFixed(1)} 0 0 1 ${BL} ${yB} Z" fill="url(#fg${i})" filter="url(#fsh)"/>`;
+    sbody+=`<ellipse cx="${cx}" cy="${y}" rx="${wT/2}" ry="${ry.toFixed(1)}" fill="${rim}"/>`;
+    sbody+=`<text x="${cx}" y="${y+h/2-3}" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">${esc(x.s.l)} · ${x.cnt}</text>`;
+    sbody+=`<text x="${cx}" y="${y+h/2+15}" text-anchor="middle" fill="#fff" font-size="12" font-weight="600" opacity=".95">${inr(x.w)} · ${x.s.p}%</text>`;
+    if(i<sd.length-1 && x.cnt>0){ const cr=Math.round(sd[i+1].cnt/x.cnt*100); sbody+=`<text x="392" y="${yB+gap-2}" text-anchor="end" fill="#8a97b1" font-size="10.5" font-weight="600">${cr}% ↓</text>`; }
+  });
+  const svgH=top+sd.length*(h+gap)+2;
+  const funnelSvg=`<svg viewBox="0 0 400 ${svgH}" style="width:100%;height:auto;display:block" font-family="Inter,system-ui,Arial"><defs>${defs}<filter id="fsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0b1020" flood-opacity="0.22"/></filter></defs>${sbody}</svg>`;
+  const ringCol=ok?'#16a34a':'#f59e0b';
+  const ring=`<div style="width:94px;height:94px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(${ringCol} ${prog}%,#e8ecf6 0);box-shadow:0 6px 16px -6px rgba(0,0,0,.2),inset 0 2px 5px rgba(0,0,0,.08)"><div style="width:74px;height:74px;border-radius:50%;background:linear-gradient(180deg,#fff,#f6f8fc);display:grid;place-items:center;font-weight:700;font-size:1.25rem;color:${fn.target?(ok?'#16a34a':'#b45309'):'#94a3b8'};box-shadow:inset 0 1px 0 #fff,0 1px 3px rgba(0,0,0,.08)">${fn.target?ratio.toFixed(1)+'×':'—'}</div></div>`;
+  return `<div class="main-inner" style="font-family:Inter,system-ui,Arial">
+    <div class="row" style="align-items:center;gap:8px"><button class="btn ghost sm" onclick="tab('list')">← Back</button><h2 class="page-title" style="margin:0">Sales Funnel</h2></div>
+    <div class="tiny" style="color:var(--muted);margin:2px 0 14px">Pipeline value · stage probability se weighted</div>
+    <div class="grid2">
+      <div><label class="tiny">Project (colony) · <a href="#" onclick="openColonyMgr();return false" style="color:var(--brand);font-weight:700">🏘️ fix dups</a></label><select onchange="fnSet('colony',this.value)"><option value="">Saari colonies</option>${colonies.map(c=>`<option ${fn.colony===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
       <div><label class="tiny">Avg deal value (₹)</label><input type="number" value="${fn.avg}" onchange="fnSet('avg',this.value)"></div>
     </div>
-    <div class="card" style="padding:4px 10px;margin-top:12px;overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:.88rem">
-        <thead><tr style="color:var(--muted);font-size:.7rem;text-transform:uppercase"><th style="text-align:left;padding:8px 6px">Stage</th><th>Leads</th><th>Prob</th><th style="text-align:right;padding-right:6px">Value</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+      <div style="grid-column:1/3">${hero}</div>
+      ${tile(openCnt,'Open leads','','👥','#eef1ff','#5145e5')}
+      ${tile(inr(bookedRev),'Won',wonCnt+' deals','✅','#eafaf2','#059669')}
     </div>
-    <div class="card" style="padding:16px;margin-top:12px;text-align:center;background:linear-gradient(135deg,#e0e7ff,#bfdbfe);border:none">
-      <div class="tiny" style="font-weight:800;color:#4338ca">TOTAL FUNNEL VALUE</div>
-      <div style="font-size:1.8rem;font-weight:800;margin-top:2px">${inr(funnelTotal)}</div>
-    </div>
-    <div class="grid2" style="margin-top:12px">
-      <div><label class="tiny">Revenue target (₹)</label><input type="number" value="${fn.target||''}" placeholder="e.g. 50000000" onchange="fnSet('target',this.value)"></div>
-      <div class="card" style="padding:12px;text-align:center;border:none;background:${fn.target?(ok?'#d1fae5':'#fee2e2'):'#f1f5f9'}">
-        <div class="tiny" style="font-weight:800">FUNNEL / TARGET</div>
-        <div style="font-size:1.4rem;font-weight:800;color:${fn.target?(ok?'#047857':'#dc2626'):'#64748b'}">${fn.target?ratio.toFixed(1)+'x':'—'}</div>
-        <div class="tiny">${fn.target?(ok?'✓ 10x se upar':'⚠ 10x se kam — funnel badhao'):'target daalo'}</div>
+    <div class="sec" style="margin-top:22px">Pipeline funnel</div>
+    <div class="card" style="padding:16px 8px;border-radius:18px;box-shadow:0 10px 26px -14px rgba(16,24,40,.18),inset 0 1px 0 #fff">${openCnt? funnelSvg : '<div class="tiny" style="padding:16px;text-align:center;color:var(--muted)">Is project me abhi koi open lead nahi.</div>'}</div>
+    <div class="sec" style="margin-top:22px">10× target</div>
+    <div class="card" style="border-radius:18px;box-shadow:0 10px 26px -14px rgba(16,24,40,.18),inset 0 1px 0 #fff">
+      <label class="tiny">Revenue target (₹)</label>
+      <input type="number" value="${fn.target||''}" placeholder="e.g. 50000000" onchange="fnSet('target',this.value)">
+      <div class="row" style="margin-top:14px;align-items:center;gap:16px">
+        ${ring}
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:1.02rem;letter-spacing:-.01em">${inr(funnelTotal)} <span style="color:var(--muted);font-weight:500;font-size:.82rem">/ ${fn.target?inr(fn.target):'—'} target</span></div>
+          <div style="font-size:.82rem;font-weight:600;margin-top:5px;color:${fn.target?(ok?'#16a34a':'#b45309'):'var(--muted)'}">${fn.target?(ok?'✓ 10× paar — badhiya!':'⚠ abhi '+ratio.toFixed(1)+'× hai; 10× chahiye — funnel badhao'):'Target daalo to 10× dikhega'}</div>
+        </div>
       </div>
     </div>
-    <div class="tiny" style="margin:12px 2px;color:var(--muted)">✅ Won (Booked): ${wonCnt} · ${inr(bookedRev)} realized — funnel se alag</div>
-    <div class="tiny" style="margin:4px 2px;color:var(--muted)">Funnel = Prospect→Hot (weighted). Avg value abhi ek global number hai; per-lead deal value baad me judega.</div>
+    <div class="tiny" style="margin:14px 2px;color:var(--muted)">Funnel = Prospect→Hot (weighted). Won realized revenue hai (alag). Avg value abhi global; per-lead baad me.</div>
   </div>`;
 }
 
