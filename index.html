@@ -1221,6 +1221,15 @@ function detailHTML(){
           `<div class="tiny" style="padding:14px 0">Not filled yet — complete it on the site visit.</div>`}
       </div>
 
+      ${(()=>{ const loc=(L.locations||[]).join(', ');
+        const budget=(L.budgetMin||L.budgetMax)?((L.budgetMin?inr(L.budgetMin):'?')+' – '+(L.budgetMax?inr(L.budgetMax):'?')):'';
+        const loan=L.loan==='yes'?('Haan'+(L.loanAmt?' · '+inr(L.loanAmt):'')+(L.loanStatus?' · '+esc(L.loanStatus):'')):(L.loan==='no'?'Nahi':'');
+        const rows=[['Locations',loc],['Property type',L.ptype],['Size',L.size],['Budget',budget],['Cash',L.cash?inr(L.cash):''],['Loan',loan],['Token ready',L.token==='yes'?'Haan':(L.token==='no'?'Nahi':'')],['Referred by',L.refBy],['Contact after',L.contactAfter?fmtDate(L.contactAfter):'']];
+        if(!rows.some(r=>r[1]) && !L.family) return '';
+        return `<div class="sec"><span class="grow">Requirement &amp; Context</span><button class="btn ghost sm" onclick="openLeadForm('${L.id}')">Edit</button></div>
+          <div class="card" style="padding:4px 15px">${rows.map(r=>kv(r[0],r[1])).join('')}${L.family?`<div class="kv" style="display:block;border:none"><b>Family / context</b><div style="margin-top:3px;white-space:pre-wrap">${esc(L.family)}</div></div>`:''}</div>`;
+      })()}
+
       <div class="sec">Follow-up history (${(L.followUps||[]).length})</div>
       ${(L.followUps||[]).length? L.followUps.map(fuCard).join('') :
         `<div class="tiny" style="margin-bottom:11px">No follow-ups yet. Add one below.</div>`}
@@ -1377,6 +1386,37 @@ function openLeadForm(id){
       <div class="execchecks">${execChecks(id?execsOf(L).slice(1):[])}</div></div>
     <div class="field"><label>Status</label><select id="l_status">
       ${STATUSES.map(s=>`<option value="${s.k}" ${L.status===s.k?'selected':''}>${s.l}</option>`).join('')}</select></div>
+
+    <details ${(L.locations&&L.locations.length)||L.family||L.budgetMin||L.cash?'open':''} style="margin:4px 0 10px;border:1px solid var(--line);border-radius:12px;padding:8px 12px">
+      <summary style="cursor:pointer;font-weight:700;font-size:.84rem;color:var(--brand)">➕ Requirement · Finance · Context (optional)</summary>
+      <div style="margin-top:10px">
+        <div class="field"><label>Preferred locations (comma se alag)</label><input id="l_locations" list="colonyDL" value="${esc((L.locations||[]).join(', '))}" placeholder="Jhalawar, Kota" autocomplete="off"></div>
+        <div class="grid2">
+          <div class="field"><label>Property type</label><select id="l_ptype">${['','Plot','House','Commercial','Hospital/Institutional','Agricultural'].map(o=>`<option value="${o}" ${(L.ptype||'')===o?'selected':''}>${o||'—'}</option>`).join('')}</select></div>
+          <div class="field"><label>Plot size</label><input id="l_size" value="${esc(L.size||'')}" placeholder="100x100 / 2 bigha"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Budget min (₹)</label><input type="number" id="l_bmin" value="${L.budgetMin||''}"></div>
+          <div class="field"><label>Budget max (₹)</label><input type="number" id="l_bmax" value="${L.budgetMax||''}"></div>
+        </div>
+        <div class="sec" style="margin:10px 2px 4px">💰 Finance</div>
+        <div class="grid2">
+          <div class="field"><label>Cash available (₹)</label><input type="number" id="l_cash" value="${L.cash||''}"></div>
+          <div class="field"><label>Loan chahiye?</label><select id="l_loan"><option value="">—</option><option value="yes" ${L.loan==='yes'?'selected':''}>Haan</option><option value="no" ${L.loan==='no'?'selected':''}>Nahi</option></select></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Loan amount (₹)</label><input type="number" id="l_loanamt" value="${L.loanAmt||''}"></div>
+          <div class="field"><label>Loan status</label><select id="l_loanstatus">${['','Not started','Applied','Approved','Rejected'].map(o=>`<option value="${o}" ${(L.loanStatus||'')===o?'selected':''}>${o||'—'}</option>`).join('')}</select></div>
+        </div>
+        <div class="field"><label>Token dene ko taiyar?</label><select id="l_token"><option value="">—</option><option value="yes" ${L.token==='yes'?'selected':''}>Haan</option><option value="no" ${L.token==='no'?'selected':''}>Nahi</option></select></div>
+        <div class="sec" style="margin:10px 2px 4px">👪 Context</div>
+        <div class="field"><label>Family / personal context</label><textarea id="l_family" rows="3" placeholder="Bachhe, padhai, shehar, rishtedaar, occupation detail...">${esc(L.family||'')}</textarea></div>
+        <div class="grid2">
+          <div class="field"><label>Referred by</label><input id="l_refby" value="${esc(L.refBy||'')}" placeholder="Shaila bhai ke friend"></div>
+          <div class="field"><label>Contact after date</label><input type="date" id="l_cafter" value="${esc(L.contactAfter||'')}"></div>
+        </div>
+      </div>
+    </details>
     <div class="grid2">
       <div class="field"><label>Call recording</label><input type="file" id="l_rec" accept="audio/*"></div>
       <div class="field"><label>Proof photo</label><input type="file" id="l_photo" accept="image/*"></div>
@@ -1412,10 +1452,17 @@ async function saveLead(id){
   document.querySelectorAll('.modal .btn').forEach(b=>{ b.disabled=true; });   // upload ke dauraan double-submit rokna
   const rec = await uploadFile('l_rec');
   const photo = await uploadFile('l_photo');
+  const bmin=parseInt(val('l_bmin'))||0, bmax=parseInt(val('l_bmax'))||0;
+  if(bmin&&bmax&&bmin>bmax){ alert('Budget min, max se bada nahi ho sakta'); document.querySelectorAll('.modal .btn').forEach(b=>{b.disabled=false;}); return; }
   const data={ name, mobile, occupation:val('l_occ'), city:val('l_city'),
     colony:val('l_colony'), plot:val('l_plot'), source:val('l_source'),
     agent:val('l_agent'), exec:execs[0]||'', execs, status:val('l_status'),
-    createdAt: val('l_date')||today() };
+    createdAt: val('l_date')||today(),
+    locations:(val('l_locations')||'').split(',').map(s=>s.trim()).filter(Boolean),
+    ptype:val('l_ptype'), size:val('l_size'), budgetMin:bmin||'', budgetMax:bmax||'',
+    cash:parseInt(val('l_cash'))||'', loan:val('l_loan'), loanAmt:parseInt(val('l_loanamt'))||'',
+    loanStatus:val('l_loanstatus'), token:val('l_token'),
+    family:val('l_family'), refBy:val('l_refby'), contactAfter:val('l_cafter') };
   let L;
   if(id){
     if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
