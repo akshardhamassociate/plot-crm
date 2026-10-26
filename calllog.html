@@ -627,7 +627,9 @@ async function cloudFetchConfig(){
         if(!sc.mob&&!sc.mobile)return;
         const mob=String(sc.mob||sc.mobile||'').replace(/\s+/g,'');
         if(!mob)return;
-        if(isTombstoned(mob,sc.ts||''))return; // Yeh contact hum yahan se delete kar chuke hain (aur koi naya entry nahi aayi) — Sheet se wapas mat lao
+        // Assigned contacts (sheet me assignedTo set) HAMESHA sync hote hain — sheet source of truth hai.
+        // Tombstone sirf un contacts pe lagta hai jo user ne khud banaye the aur delete kiye (bina assignment ke).
+        if(!(sc.assignedTo||sc.uid)&&isTombstoned(mob,sc.ts||''))return;
         // Assign to user
         const assignedId=sc.assignedTo||sc.uid||'';
         let uid=assignedId,uname='';
@@ -979,36 +981,6 @@ function contactCardHTML(c){
    IMPORTANT: log ka date contact ke (re)add hone ke baad/usi din ka hona chahiye — warna kisi
    purane/stale log (jo mahino pehle kisi aur wajah se bana tha) ki wajah se naya bulk-added
    contact turant hat jaata (yeh galti pehle ho rahi thi, ab fix kar diya). */
-function reconcileContactsAgainstLogs(){
-  const logs=arr(LS.logs);
-  const connectedDateByMob={}; // mob -> latest connected-log date (YYYY-MM-DD)
-  logs.forEach(l=>{
-    const mob=String(l.mob||'').replace(/\s+/g,'');
-    if(!mob)return;
-    if(!l.callStatus||l.callStatus==='connected'){
-      const d=l.date||(l.ts||'').slice(0,10)||'';
-      if(d&&(!connectedDateByMob[mob]||d>connectedDateByMob[mob]))connectedDateByMob[mob]=d;
-    }
-  });
-  if(!Object.keys(connectedDateByMob).length)return false;
-  let cs=arr(LS.contacts);
-  const removed=[];
-  cs=cs.filter(c=>{
-    const mob=String(c.mob).replace(/\s+/g,'');
-    const logDate=mob&&connectedDateByMob[mob];
-    if(logDate){
-      const addedDate=(c.ts||'').slice(0,10)||today();
-      if(logDate>=addedDate){removed.push(mob);return false;} // isi contact ke liye hi connected hui thi — hatao
-    }
-    return true;
-  });
-  if(removed.length){
-    save(LS.contacts,cs);
-    removed.forEach(mob=>{tombstoneMob(mob);pushSheet('contact',{action:'delete',mob,by:me.name});});
-    return true;
-  }
-  return false;
-}
 // CallDate ko ISO (YYYY-MM-DD) me laao — sheet me DD-MM-YYYY ya DD/MM/YYYY ho sakti hai
 function normDate(d){
   if(!d)return'';d=String(d).trim();
@@ -1020,7 +992,6 @@ function normDate(d){
 let _contactView='pending';
 function setContactView(v){_contactView=v;renderContacts();}
 function renderContacts(){
-  reconcileContactsAgainstLogs(); // pehle purani-called contacts saaf kar do
   const _mine=c=>{ if(c.uid&&me.id&&String(c.uid).toLowerCase()===String(me.id).toLowerCase()) return true;
     if(me.name&&c.user&&String(c.user).toLowerCase().trim()===String(me.name).toLowerCase().trim()) return true; return false; };
   let cs=arr(LS.contacts).filter(c=>isAdmin()||_mine(c));
