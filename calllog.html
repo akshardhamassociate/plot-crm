@@ -1021,7 +1021,9 @@ let _contactView='pending';
 function setContactView(v){_contactView=v;renderContacts();}
 function renderContacts(){
   reconcileContactsAgainstLogs(); // pehle purani-called contacts saaf kar do
-  let cs=arr(LS.contacts).filter(c=>isAdmin()||c.uid===me.id);
+  const _mine=c=>{ if(c.uid&&me.id&&String(c.uid).toLowerCase()===String(me.id).toLowerCase()) return true;
+    if(me.name&&c.user&&String(c.user).toLowerCase().trim()===String(me.name).toLowerCase().trim()) return true; return false; };
+  let cs=arr(LS.contacts).filter(c=>isAdmin()||_mine(c));
   const f=document.getElementById('contactFilters');
   f.innerHTML=['All',...getCats(),'Other'].map(c=>`<button class="filt ${f.dataset.active===c||(!f.dataset.active&&c==='All')?'on':''}" onclick="setF('contactFilters',this);renderContacts()">${esc(c)}<\/button>`).join('');
   // Admin: User filter
