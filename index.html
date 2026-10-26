@@ -1813,7 +1813,7 @@ function attShareReport(){
       lines.push((a?'✅ ':'❌ ')+nm+(a?' '+a.inTime+(a.late?' (Late)':''):' — Absent')); });
   });
   const dt=fmtDate(att.date);
-  const text='📋 *Attendance — '+dt+'*\n'+present+'/'+total+' present\n\n'+lines.join('\n')+'\n\n🙏 Jinhone attendance nahi lagayi, kripya abhi app me Punch In kar lein.';
+  const text='📋 *Attendance — '+dt+'*\n'+present+'/'+total+' present\n\n'+lines.join('\n')+'\n\n🙏 Jinhone attendance nahi lagayi, kripya abhi app me Punch In kar lein.\n\n📲 Attendance kholein: https://akshardhamassociate.github.io/plot-crm/#att';
   shareReport('Attendance — '+dt, present+'/'+total+' present', rows, text);
 }
 function hudShareReport(){
@@ -1826,7 +1826,7 @@ function hudShareReport(){
   });
   if(missing.length){ rows.push({t:'Pending: '+missing.join(', '),c:'#b91c1c'}); }
   const dt=fmtDate(hud.date);
-  const text='📋 *Daily Huddle — '+dt+'*\n\n'+lines.join('\n')+(missing.length?'\n\n⏳ *Pending standup:* '+missing.join(', ')+'\n🙏 Kripya apna standup bhar dein.':'');
+  const text='📋 *Daily Huddle — '+dt+'*\n\n'+lines.join('\n')+(missing.length?'\n\n⏳ *Pending standup:* '+missing.join(', ')+'\n🙏 Kripya apna standup bhar dein.':'')+'\n\n📲 Huddle kholein: https://akshardhamassociate.github.io/plot-crm/#huddle';
   shareReport('Daily Huddle — '+dt, posted.length+' posted'+(missing.length?' · '+missing.length+' pending':''), rows, text);
 }
 
@@ -2138,7 +2138,7 @@ function boardShareReport(){
   let text='📊 *Team Board — '+dt+'*\n(Attendance · Day Plan · Day Report)\n\n'+lines.join('\n');
   if(star) text+='\n\n🏆 *Star of the Week:* '+star.n+' ('+star.wk+'/18)';
   if(bvl) text+='\n🌟 *Best Value Lever:* '+bvl+(board.award.valueLeverWhy?' — '+board.award.valueLeverWhy:'');
-  text+='\n\n✅ hua · ❌ nahi · ⏳ abhi due nahi\n🙏 Jinke ❌ hain kripya aaj hi pura kar lein.';
+  text+='\n\n✅ hua · ❌ nahi · ⏳ abhi due nahi\n🙏 Jinke ❌ hain kripya aaj hi pura kar lein.\n\n📲 Board kholein: https://akshardhamassociate.github.io/plot-crm/#board';
   shareReport('Team Board — '+dt, fmtDate(days[0])+' – '+fmtDate(days[5]), crows, text);
 }
 function boardHTML(){
@@ -2659,11 +2659,21 @@ function setupBackHandler(){
   });
 }
 document.getElementById('app').innerHTML = '<div class="login"><div class="login-card">Loading…</div></div>';
+// deep-link: shared WhatsApp link (#att/#huddle/#board/#wall) se seedha us section pe
+function _deepOpen(hv){
+  if(hv==='att') openAtt();
+  else if(hv==='huddle') openHuddle();
+  else if(hv==='board'){ if(canViewAllHA()) openBoard(); }
+  else if(hv==='wall') openWall();
+}
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
     setupBackHandler(); apkCheck(); logAppOpen(); engageLoad();
-    if(isHuddleOnly()){ leads=[]; route.view='huddle'; attLoadOffices(); render(); hudLoad(); return; }   // CRM data load hi na ho
+    const hv=(location.hash||'').replace('#','').toLowerCase();   // deep-link: #att / #huddle / #board / #wall
+    if(isHuddleOnly()){ leads=[]; attLoadOffices();
+      if(hv==='att') openAtt(); else if(hv==='wall') openWall(); else { route.view='huddle'; render(); hudLoad(); }
+      return; }
     attLoadOffices();
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
@@ -2674,6 +2684,7 @@ auth.onAuthStateChanged(u=>{
         render(); updateBadge();
       }, err=>{ alert('Data load error: '+err.message); });
     }
+    _deepOpen(hv);   // link se seedha us section pe
   } else {
     if(unsub){ unsub(); unsub=null; }
     leads=[]; renderLogin();
