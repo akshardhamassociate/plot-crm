@@ -875,6 +875,8 @@ function _funnelTotal(colony){
   return t;
 }
 function openFunnel(){ if(!isAdmin()){ alert('Sirf admin'); return; } route.view='funnel'; route.id=null; render(); window.scrollTo(0,0); }
+// funnel stage pe click → us colony+stage ki leads list
+function fnGoStage(k){ f.colony=fn.colony||''; f.status=k; f.q=''; f.exec=''; f.from=''; f.to=''; page=1; tab('list'); }
 // ── Line of Action (strategy card) — sirf Krishan + Rashid edit ──
 function openLOA(id){
   if(!canEditLOA()){ alert('Sirf Krishan Sir / Rashid Ji Line of Action edit kar sakte hain'); return; }
@@ -959,9 +961,9 @@ function funnelHTML(){
       ${sub?`<div class="tiny" style="color:var(--muted);margin-top:2px">${sub}</div>`:''}</div>`;
   const hero=`<div style="background:linear-gradient(135deg,#5b50f0 0%,#7c3aed 55%,#a855f7 100%);color:#fff;border-radius:20px;padding:18px;box-shadow:0 20px 40px -16px rgba(99,80,235,.6),inset 0 1px 0 rgba(255,255,255,.25);position:relative;overflow:hidden">
       <div style="position:absolute;right:-30px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.12)"></div>
-      <div class="tiny" style="opacity:.9;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total funnel value</div>
-      <div style="font-size:2.1rem;font-weight:800;margin-top:5px;letter-spacing:-.02em">${inr(funnelTotal)}</div>
-      <div class="tiny" style="opacity:.88;margin-top:3px">${openCnt} open leads · ${inr(rawPipe)} max pipeline</div></div>`;
+      <div class="tiny" style="color:rgba(255,255,255,.92);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total funnel value</div>
+      <div style="font-size:2.1rem;font-weight:800;margin-top:5px;letter-spacing:-.02em;color:#fff">${inr(funnelTotal)}</div>
+      <div class="tiny" style="color:rgba(255,255,255,.88);margin-top:3px">${openCnt} open leads · ${inr(rawPipe)} max pipeline</div></div>`;
   // ── 3D funnel SVG (dynamic) ──
   const minW=100, maxW=320, cx=200, top=24, h=68, gap=14;
   const widths=sd.map(x=>minW+(x.cnt/maxC)*(maxW-minW));
@@ -971,14 +973,15 @@ function funnelHTML(){
     const TL=cx-wT/2, TR=cx+wT/2, BL=cx-wB/2, BR=cx+wB/2, yB=y+h;
     const col=x.s.c, topc=_shade(col,24), botc=_shade(col,-16), rim=_shade(col,44), ry=Math.max(6,Math.min(11,wT*0.032)), rb=wB/2;
     defs+=`<linearGradient id="fg${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${topc}"/><stop offset="1" stop-color="${botc}"/></linearGradient>`;
-    sbody+=`<path d="M${TL} ${y} L${TR} ${y} L${BR} ${yB} A${rb} ${(ry*0.8).toFixed(1)} 0 0 1 ${BL} ${yB} Z" fill="url(#fg${i})" filter="url(#fsh)"/>`;
-    sbody+=`<ellipse cx="${cx}" cy="${y}" rx="${wT/2}" ry="${ry.toFixed(1)}" fill="${rim}"/>`;
-    sbody+=`<text x="${cx}" y="${y+h/2-3}" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">${esc(x.s.l)} · ${x.cnt}</text>`;
-    sbody+=`<text x="${cx}" y="${y+h/2+15}" text-anchor="middle" fill="#fff" font-size="12" font-weight="600" opacity=".95">${inr(x.w)} · ${x.s.p}%</text>`;
+    sbody+=`<g style="cursor:pointer" onclick="fnGoStage('${x.s.k}')"><title>${esc(x.s.l)} ki leads dekho</title>`
+      +`<path d="M${TL} ${y} L${TR} ${y} L${BR} ${yB} A${rb} ${(ry*0.8).toFixed(1)} 0 0 1 ${BL} ${yB} Z" fill="url(#fg${i})" filter="url(#fsh)"/>`
+      +`<ellipse cx="${cx}" cy="${y}" rx="${wT/2}" ry="${ry.toFixed(1)}" fill="${rim}"/>`
+      +`<text x="${cx}" y="${y+h/2-3}" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">${esc(x.s.l)} · ${x.cnt}</text>`
+      +`<text x="${cx}" y="${y+h/2+15}" text-anchor="middle" fill="#fff" font-size="12" font-weight="600" opacity=".95">${inr(x.w)} · ${x.s.p}%</text></g>`;
     if(i<sd.length-1 && x.cnt>0){ const cr=Math.round(sd[i+1].cnt/x.cnt*100); sbody+=`<text x="392" y="${yB+gap-2}" text-anchor="end" fill="#8a97b1" font-size="10.5" font-weight="600">${cr}% ↓</text>`; }
   });
   const svgH=top+sd.length*(h+gap)+2;
-  const funnelSvg=`<svg viewBox="0 0 400 ${svgH}" style="width:100%;max-width:360px;height:auto;display:block;margin:0 auto" font-family="Inter,system-ui,Arial"><defs>${defs}<filter id="fsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0b1020" flood-opacity="0.22"/></filter></defs>${sbody}</svg>`;
+  const funnelSvg=`<svg viewBox="0 0 400 ${svgH}" style="width:100%;max-width:460px;height:auto;display:block;margin:0 auto" font-family="Inter,system-ui,Arial"><defs>${defs}<filter id="fsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0b1020" flood-opacity="0.22"/></filter></defs>${sbody}</svg>`;
   const ringCol=ok?'#16a34a':'#f59e0b';
   const ratioTxt = !fn.target ? '—' : (ratio>=100?'99×+':ratio.toFixed(1)+'×');
   const ring=`<div style="width:94px;height:94px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(${ringCol} ${prog}%,#e8ecf6 0);box-shadow:0 6px 16px -6px rgba(0,0,0,.2),inset 0 2px 5px rgba(0,0,0,.08)"><div style="width:74px;height:74px;border-radius:50%;background:linear-gradient(180deg,#fff,#f6f8fc);display:grid;place-items:center;font-weight:700;font-size:1.15rem;color:${fn.target?(ok?'#16a34a':'#b45309'):'#94a3b8'};box-shadow:inset 0 1px 0 #fff,0 1px 3px rgba(0,0,0,.08)">${ratioTxt}</div></div>`;
