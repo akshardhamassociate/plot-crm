@@ -716,10 +716,12 @@ function avatarColor(name){ let h=0; for(const c of name) h=c.charCodeAt(0)+((h<
 const uniq = arr => [...new Set(arr.filter(Boolean))].sort();
 function badge(k){ const s=stMap[k]||stMap.fresh;
   return `<span class="badge" style="background:${s.bg};color:${s.c}">${s.l}</span>`; }
-const dueDate = L => { const fu=lastFU(L); return (fu && OPEN.includes(L.status)) ? fu.nextDate : ''; };
+// Due date = follow-up ki next-date; agar wo nahi to customer ki "contact after" date. (Lost/Won pe koi reminder nahi.)
+const dueDate = L => { if(!OPEN.includes(L.status)) return ''; const fu=lastFU(L); return (fu&&fu.nextDate) ? fu.nextDate : (L.contactAfter||''); };
 const isDue = L => { const d=dueDate(L); return d && d<=today(); };
 const isOverdue = L => { const d=dueDate(L); return d && d<today(); };
-const isNew = L => OPEN.includes(L.status) && !(L.followUps && L.followUps.length);   // assigned, abhi tak koi kaam nahi
+// Naya = assigned par koi kaam nahi + koi contact-after date bhi nahi (contact-after wale due-date flow me aate hain)
+const isNew = L => OPEN.includes(L.status) && !(L.followUps && L.followUps.length) && !L.contactAfter;
 const needsAction = L => isNew(L) || isDue(L);                                        // pending = naya ya due
 function addDays(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 // Lead ka "last update" time — nayi lead ya jisme koi naya kaam (follow-up/edit/status) hua, wo upar.
@@ -1167,7 +1169,7 @@ function todayCard(L, urgent){
     <div class="grow" onclick="go('detail','${L.id}')" style="cursor:pointer">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
       <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
-      <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${fu && fu.nextDate ? (urgent?'⚠ ':'')+fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):'') : '🆕 Naya — kaam shuru karo'}</div>
+      <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${fu && fu.nextDate ? (urgent?'⚠ ':'')+fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):'') : (L.contactAfter ? (urgent?'⚠ ':'')+'📅 Contact after '+fmtDate(L.contactAfter) : '🆕 Naya — kaam shuru karo')}</div>
     </div>
     <a class="plain" href="tel:${esc(L.mobile)}"><button class="iconbtn" style="background:var(--ok);border:none">${IC.phone}</button></a>
     <a class="plain" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="iconbtn" style="background:var(--wa);border:none">${IC.wa}</button></a>
