@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SA)) });
 const db = admin.firestore();
 
-const OPEN = ['fresh', 'warm', 'hot', 'visit'];
+const OPEN = ['fresh', 'warm', 'visit', 'nurture', 'hot'];  // app ke STATUSES se match (nurture bhi open hai)
 const APP_URL = 'https://akshardhamassociate.github.io/plot-crm/';
 const istToday = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);  // today in IST
 
@@ -29,9 +29,10 @@ const istToday = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0,
     const L = d.data();
     if (!OPEN.includes(L.status)) return;
     const fus = L.followUps || [];
-    const nextDate = fus.length ? fus[0].nextDate : '';   // newest follow-up first
-    const isNew = fus.length === 0;                        // assigned, koi kaam nahi hua
-    const isDue = nextDate && nextDate <= istToday;        // due today or overdue
+    const fuNext = fus.length ? fus[0].nextDate : '';      // newest follow-up first
+    const dueDate = fuNext || L.contactAfter || '';        // follow-up ki next-date, warna customer ki "contact after" date
+    const isNew = fus.length === 0 && !L.contactAfter;     // assigned par koi kaam nahi + koi contact-after date bhi nahi
+    const isDue = dueDate && dueDate <= istToday;          // due today/overdue (contact-after isi me aa jaata hai)
     if (!isNew && !isDue) return;
     const execs = (Array.isArray(L.execs) && L.execs.length) ? L.execs : (L.exec ? [L.exec] : []);
     execs.forEach(e => {
