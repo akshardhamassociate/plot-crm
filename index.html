@@ -634,6 +634,12 @@ let leads = [], user = null, unsub = null;
 
 function putLead(L){ return col().doc(L.id).set(L).catch(e=>alert('Save failed: '+e.message)); }
 
+// Huddle standup ka mirror Google Sheet me (calllog wale SAME /exec doPost pe type:'huddle').
+// Fire-and-forget — Firestore source of truth hai, sheet sirf tracking ke liye.
+function pushHuddleSheet(rec){ if(!AUDIT_URL) return;
+  try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({type:'huddle',record:rec})}).catch(()=>{}); }catch(e){} }
+
 // ── AI call-audit (recording upload hote hi, background me) ──
 function _jsonp(url){return new Promise((res,rej)=>{
   const cb='_acb'+Math.random().toString(36).slice(2);
@@ -1994,7 +2000,7 @@ async function hudSaveStandup(){
   if(!tasks.length && !issues.length && !yesterday.length){ alert('Kuch to bharo — kal ka kaam, aaj ke task ya issue'); return; }
   const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
   db.collection('standups').doc(id).set({ date, name, nameKey:name.toLowerCase(), yesterday, tasks, issues, ts:Date.now() }, {merge:true})
-    .then(()=>{ toast(hud.editing?'Standup updated ✓':'Standup saved ✓'); hud.editing=false; hudLoad(); })
+    .then(()=>{ pushHuddleSheet({date, name, yesterday, tasks, issues}); toast(hud.editing?'Standup updated ✓':'Standup saved ✓'); hud.editing=false; hudLoad(); })
     .catch(e=>alert('Save failed: '+e.message));
 }
 function hudFeedback(id){
