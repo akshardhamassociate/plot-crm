@@ -695,7 +695,11 @@ function aiMic(btn){
   btn.textContent='⏹ Ruko (sun raha…)';
   if(st){ st.style.color='var(--muted)'; st.textContent='Bolo… (dobara 🎤 dabao to ruk jayega)'; }
   rec.onresult=e=>{ let t=''; for(let i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript; ta.value=(ta.value?ta.value+' ':'')+t; };
-  rec.onerror=e=>{ if(st){st.style.color='var(--danger)';st.textContent='Mic error: '+(e.error||'');} };
+  rec.onerror=e=>{ if(st){ st.style.color='var(--danger)';
+    st.textContent = (e.error==='not-allowed'||e.error==='service-not-allowed')
+      ? 'Mic permission nahi mili — address bar me 🔒 → Microphone → Allow karo, page reload karke phir 🎤 dabao. (Ya type/paste karo.)'
+      : (e.error==='no-speech' ? 'Kuch sunai nahi diya — dobara 🎤 dabao aur bolo.'
+      : 'Mic error: '+(e.error||'')+' — type/paste bhi kar sakte ho.'); } };
   rec.onend=()=>{ _aiRec=null; btn.textContent='🎤 Bolo'; };
   try{ rec.start(); }catch(e){ _aiRec=null; btn.textContent='🎤 Bolo'; if(st)st.textContent='Mic start nahi hua.'; }
 }
