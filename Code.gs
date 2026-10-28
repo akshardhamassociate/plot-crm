@@ -53,6 +53,15 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
 
+  // AI lead entry — plot-crm poochta hai ?parseLead=<hinglish text>. Gemini se lead-fields JSON wapas.
+  if (e && e.parameter && e.parameter.parseLead) {
+    var _p = {};
+    try { _p = parseLeadFromText(String(e.parameter.parseLead)); } catch (er) { _p = { error: er.message }; }
+    return ContentService
+      .createTextOutput(cb + '(' + JSON.stringify(_p) + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -306,6 +315,24 @@ function saveCategory(ss, rec) {
 
 // ── HUDDLE → SHEET ── standup (kal ka kaam / aaj ke task / issues) "huddle" tab me.
 //    Re-save/edit pe same date+name ki purani rows hata ke nayi daalta hai (no duplicate).
+//    Naye data me yesterday/tasks = array-of-object; purane me string/string-array —
+//    _taskArr_/_strArr_ dono ko handle kar lete hain.
+function _taskArr_(v) {
+  if (!v) return [];
+  if (typeof v === 'string') return v.split('\n').map(s => s.trim()).filter(Boolean).map(t => ({ t: t }));
+  if (!Array.isArray(v)) v = [v];
+  return v.map(function (x) {
+    if (x == null) return null;
+    if (typeof x === 'string') return x.trim() ? { t: x.trim() } : null;
+    return { t: x.t || x.text || '', st: x.st || '', rm: x.rm || '', proofUrl: x.proofUrl || '' };
+  }).filter(Boolean);
+}
+function _strArr_(v) {
+  if (!v) return [];
+  if (typeof v === 'string') v = [v];
+  if (!Array.isArray(v)) v = [v];
+  return v.map(function (x) { return typeof x === 'string' ? x.trim() : (x && x.t ? String(x.t).trim() : ''); }).filter(Boolean);
+}
 function huddleToSheet_(ss, rec) {
   const sheet = getOrCreateSheet(ss, SHEET_HUDDLE, HUDDLE_COLS);
   const date = rec.date || '', name = rec.name || '';
@@ -314,9 +341,9 @@ function huddleToSheet_(ss, rec) {
     if (String(data[i][1]) === String(date) && String(data[i][2]) === String(name)) sheet.deleteRow(i + 1);
   }
   const now = new Date(), rows = [];
-  (rec.yesterday || []).forEach(x => rows.push([now, date, name, 'Kal',   x.t || '', x.st || '', x.rm || '', x.proofUrl || '']));
-  (rec.tasks     || []).forEach(x => rows.push([now, date, name, 'Aaj',   x.t || '', x.st || '', x.rm || '', x.proofUrl || '']));
-  (rec.issues    || []).forEach(t => { if (t) rows.push([now, date, name, 'Issue', t, '', '', '']); });
+  _taskArr_(rec.yesterday).forEach(x => rows.push([now, date, name, 'Kal',   x.t || '', x.st || '', x.rm || '', x.proofUrl || '']));
+  _taskArr_(rec.tasks)    .forEach(x => rows.push([now, date, name, 'Aaj',   x.t || '', x.st || '', x.rm || '', x.proofUrl || '']));
+  _strArr_(rec.issues)    .forEach(t => rows.push([now, date, name, 'Issue', t, '', '', '']));
   if (rows.length) sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, HUDDLE_COLS.length).setValues(rows);
 }
 
@@ -793,6 +820,69 @@ function testAuditOne() {
 
 /**
  * ============================================================
+ *  AI LEAD ENTRY (Gemini) — text/voice se lead fields nikaalo.
+ *  plot-crm (index.html) call karta hai: doGet?parseLead=<hinglish text>&callback=...
+ *  GEMINI_KEY (Script Property) hi use hoti hai — key app me kabhi nahi jaati.
+ *  Test: testParseLead → Run → Logs me parsed JSON.
+ * ============================================================
+ */
+function parseLeadFromText(text) {
+  var key = PropertiesService.getScriptProperties().getProperty('GEMINI_KEY');
+  if (!key) throw new Error('GEMINI_KEY script property set nahi hai.');
+  if (!text || !String(text).trim()) throw new Error('text khaali hai');
+  var todayStr = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+
+  var prompt =
+    'Tum Akshardham Associates (Jhalawar me plot/zameen bechne wali real-estate company) ke CRM assistant ho. ' +
+    'Niche Hindi/Hinglish me ek nayi lead ki jaankari hai (telecaller ne bol kar ya likh kar di). ' +
+    'Usme se CRM fields nikaalo. Jo field text me na ho use KHAALI chhodo — apne se mat banao.\n' +
+    'Rules:\n' +
+    '- mobile = sirf digits (10 ya 12 digit).\n' +
+    '- budgetMin/budgetMax = rupees me number. (1 lakh = 100000, 1 crore = 10000000. "20-25 lakh" => min 2000000, max 2500000).\n' +
+    '- cash, loanAmt = rupees me number.\n' +
+    '- status = in me se EK: fresh, warm, visit, nurture, hot, booked, lost. (Agar pata na chale to "fresh").\n' +
+    '- ptype = Plot / House / Commercial / Hospital/Institutional / Agricultural (ya khaali).\n' +
+    '- loan = yes / no (ya khaali). token = yes / no (ya khaali).\n' +
+    '- loanStatus = Not started / Applied / Approved / Rejected (ya khaali).\n' +
+    '- locations = comma-separated jagah (jaise "Jhalawar, Kota").\n' +
+    '- contactAfter = agar customer ne kaha "X ke baad call karna / baad me baat karenge" to us din ki date YYYY-MM-DD do. Aaj ' + todayStr + ' hai. Warna khaali.\n' +
+    '- family = koi bhi personal/family/occupation context jo kaam aaye.\n' +
+    '\nText:\n' + text;
+
+  var payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.1, responseMimeType: 'application/json',
+      responseSchema: { type: 'OBJECT', properties: {
+        name:{type:'STRING'}, mobile:{type:'STRING'}, occupation:{type:'STRING'},
+        city:{type:'STRING'}, colony:{type:'STRING'}, locations:{type:'STRING'},
+        ptype:{type:'STRING'}, size:{type:'STRING'},
+        budgetMin:{type:'NUMBER'}, budgetMax:{type:'NUMBER'}, cash:{type:'NUMBER'},
+        loan:{type:'STRING'}, loanAmt:{type:'NUMBER'}, loanStatus:{type:'STRING'},
+        token:{type:'STRING'}, status:{type:'STRING'}, contactAfter:{type:'STRING'},
+        refBy:{type:'STRING'}, family:{type:'STRING'}
+      } }
+    }
+  };
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+            GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(key);
+  var res = UrlFetchApp.fetch(url, { method:'post', contentType:'application/json', muteHttpExceptions:true, payload: JSON.stringify(payload) });
+  if (res.getResponseCode() !== 200) throw new Error('Gemini ' + res.getResponseCode() + ': ' + res.getContentText());
+  var j = JSON.parse(res.getContentText());
+  var out = j.candidates && j.candidates[0] && j.candidates[0].content &&
+            j.candidates[0].content.parts && j.candidates[0].content.parts[0].text;
+  if (!out) throw new Error('Gemini se khaali jawab: ' + res.getContentText());
+  return JSON.parse(out);
+}
+
+function testParseLead() {
+  var t = 'Ramesh Sharma ka number 98765 43210, Jhalawar me plot chahiye do bigha, budget 20 se 25 lakh, cash hai thoda loan bhi lega, Diwali ke baad call karna';
+  Logger.log(JSON.stringify(parseLeadFromText(t), null, 2));
+}
+
+
+/**
+ * ============================================================
  *  DAILY PUSH + ATTENDANCE REMINDER (FCM)
  *   • sendDailyGoodMorning — roz ~9 baje quote + birthday
  *   • sendAttendanceReminder — roz ~9:45 "attendance+standup 10:10 tak"
@@ -857,3 +947,48 @@ function installAttendanceReminder(){
   Logger.log('✅ Attendance/Standup reminder chalu — roz ~'+REMIND_HOUR+':'+REMIND_MIN+' (India time).');
 }
 function testAttendanceReminder(){ sendAttendanceReminder(); }
+
+
+/**
+ * ============================================================
+ *  BACKFILL — purane saare standups (Firestore) ko ek baar "huddle" sheet me daalo.
+ *  Run: backfillHuddle  (dubara chalao to bhi duplicate nahi — date+name pe dedupe).
+ * ============================================================
+ */
+function _fsVal(v){
+  if(v==null) return '';
+  if('stringValue'  in v) return v.stringValue;
+  if('integerValue' in v) return Number(v.integerValue);
+  if('doubleValue'  in v) return v.doubleValue;
+  if('booleanValue' in v) return v.booleanValue;
+  if('timestampValue' in v) return v.timestampValue;
+  if('nullValue'    in v) return '';
+  if('arrayValue'   in v) return ((v.arrayValue.values)||[]).map(_fsVal);
+  if('mapValue'     in v){ var o={}, f=(v.mapValue.fields)||{}; Object.keys(f).forEach(function(k){ o[k]=_fsVal(f[k]); }); return o; }
+  return '';
+}
+function backfillHuddle(){
+  var at = _fcmAccessToken();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var base='https://firestore.googleapis.com/v1/projects/'+FB_PROJECT+'/databases/(default)/documents/standups?pageSize=300';
+  var token='', n=0;
+  do {
+    var url = base + (token ? '&pageToken='+encodeURIComponent(token) : '');
+    var res = UrlFetchApp.fetch(url, { headers:{Authorization:'Bearer '+at}, muteHttpExceptions:true });
+    if(res.getResponseCode()!==200){ Logger.log('Fetch fail: '+res.getContentText()); return; }
+    var j = JSON.parse(res.getContentText());
+    (j.documents||[]).forEach(function(d){
+      var f = d.fields || {};
+      huddleToSheet_(ss, {
+        date : _fsVal(f.date) || '',
+        name : _fsVal(f.name) || '',
+        yesterday : _fsVal(f.yesterday),
+        tasks     : f.tasks != null ? _fsVal(f.tasks) : _fsVal(f.today),  // purana field "today"
+        issues    : _fsVal(f.issues)
+      });
+      n++;
+    });
+    token = j.nextPageToken || '';
+  } while(token);
+  Logger.log('✅ Backfill done — '+n+' purane standups "huddle" sheet me aa gaye.');
+}
