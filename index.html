@@ -1017,13 +1017,15 @@ function funnelHTML(){
       <div class="tiny" style="color:rgba(255,255,255,.92);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total funnel value</div>
       <div style="font-size:2.1rem;font-weight:800;margin-top:5px;letter-spacing:-.02em;color:#fff">${inr(funnelTotal)}</div>
       <div class="tiny" style="color:rgba(255,255,255,.88);margin-top:3px">${openCnt} open leads · ${inr(rawPipe)} max pipeline</div></div>`;
-  // ── Horizontal funnel SVG (U/aade) — stage name upar · circle me count · neeche value ──
-  const n=sd.length, W=680, padX=8, bandW=(W-2*padX)/Math.max(1,n), midY=150, Hmax=150, Hmin=46, gap=3;
-  const scH=c=>Hmin+(c/maxC)*(Hmax-Hmin);
+  // ── Horizontal funnel SVG (U/aade) — stage name upar · circle me count · neeche value. Won bhi aakhri band. ──
+  const bands=[...sd, {s:stMap['booked'], cnt:wonCnt, w:bookedRev}];   // Won = realized (actual deal value)
+  const maxCB=Math.max(maxC, wonCnt, 1);
+  const n=bands.length, W=680, padX=8, bandW=(W-2*padX)/Math.max(1,n), midY=150, Hmax=150, Hmin=46, gap=3;
+  const scH=c=>Hmin+(c/maxCB)*(Hmax-Hmin);
   let defs='', sbody='';
-  sd.forEach((x,i)=>{
+  bands.forEach((x,i)=>{
     const x0=padX+i*bandW, x1=x0+bandW, cx0=x0+bandW/2;
-    const hL=scH(x.cnt), hR=(i<n-1?scH(sd[i+1].cnt):Math.max(Hmin*0.7,hL*0.55));
+    const hL=scH(x.cnt), hR=(i<n-1?scH(bands[i+1].cnt):Math.max(Hmin*0.7,hL*0.55));
     const col=x.s.c, topc=_shade(col,20), botc=_shade(col,-18);
     const xa=x0+(i?gap/2:0), xb=x1-(i<n-1?gap/2:0);
     defs+=`<linearGradient id="fg${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${topc}"/><stop offset="1" stop-color="${botc}"/></linearGradient>`;
@@ -1033,8 +1035,8 @@ function funnelHTML(){
       +`<circle cx="${cx0.toFixed(1)}" cy="${midY}" r="27" fill="#fff" filter="url(#fsh)"/>`
       +`<text x="${cx0.toFixed(1)}" y="${midY+7}" text-anchor="middle" fill="${col}" font-size="21" font-weight="800">${x.cnt}</text>`
       +`<text x="${cx0.toFixed(1)}" y="${midY+Hmax/2+26}" text-anchor="middle" fill="#64748b" font-size="11.5" font-weight="700">${inr(x.w)}</text>`
-      +`<text x="${cx0.toFixed(1)}" y="${midY+Hmax/2+42}" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">${x.s.p}% prob</text></g>`;
-    if(i<n-1 && x.cnt>0){ const cr=Math.round(sd[i+1].cnt/x.cnt*100); sbody+=`<text x="${x1.toFixed(1)}" y="${midY-Hmax/2-4}" text-anchor="middle" fill="#8a97b1" font-size="10" font-weight="600">${cr}%→</text>`; }
+      +`<text x="${cx0.toFixed(1)}" y="${midY+Hmax/2+42}" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">${x.s.k==='booked'?'realized':x.s.p+'% prob'}</text></g>`;
+    if(i<n-1 && x.cnt>0){ const cr=Math.round(bands[i+1].cnt/x.cnt*100); sbody+=`<text x="${x1.toFixed(1)}" y="${midY-Hmax/2-4}" text-anchor="middle" fill="#8a97b1" font-size="10" font-weight="600">${cr}%→</text>`; }
   });
   const svgH=midY+Hmax/2+52;
   const funnelSvg=`<svg viewBox="0 0 ${W} ${svgH}" style="width:100%;height:auto;display:block" font-family="Inter,system-ui,Arial"><defs>${defs}<filter id="fsh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0b1020" flood-opacity="0.18"/></filter></defs>${sbody}</svg>`;
