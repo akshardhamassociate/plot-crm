@@ -1001,7 +1001,10 @@ function funnelHTML(){
   const sd=stages.map(s=>{ const cnt=base.filter(L=>L.status===s.k).length; return {s, cnt, w:cnt*fn.avg*(s.p/100)}; });
   funnelTotal=sd.reduce((a,x)=>a+x.w,0);
   const openCnt=sd.reduce((a,x)=>a+x.cnt,0), rawPipe=openCnt*fn.avg, maxC=Math.max(1,...sd.map(x=>x.cnt));
-  const wonCnt=base.filter(L=>L.status==='booked').length, bookedRev=wonCnt*fn.avg;
+  const wonLeads=base.filter(L=>L.status==='booked');
+  const wonCnt=wonLeads.length;
+  const wonPlots=wonLeads.reduce((a,L)=>a+((L.deal&&L.deal.count)||1),0);             // actual plots booked
+  const bookedRev=wonLeads.reduce((a,L)=>a+((L.deal&&L.deal.total)||fn.avg),0);        // actual deal value (fallback avg)
   const ratio=fn.target?(funnelTotal/fn.target):0, ok=ratio>=10, prog=Math.min(100,Math.round(ratio/10*100));
   // ── glassy KPI tile ──
   const tile=(v,l,sub,ic,icbg,iccol)=>`<div style="background:linear-gradient(180deg,#fff,#fbfcff);border:1px solid var(--line);border-radius:18px;padding:15px 16px;box-shadow:0 6px 16px -8px rgba(16,24,40,.14),inset 0 1px 0 #fff">
@@ -1045,7 +1048,7 @@ function funnelHTML(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
       <div style="grid-column:1/3">${hero}</div>
       ${tile(openCnt,'Open leads','','👥','#eef1ff','#5145e5')}
-      ${tile(inr(bookedRev),'Won',wonCnt+' deals','✅','#eafaf2','#059669')}
+      ${tile(inr(bookedRev),'Won',wonCnt+' deals · '+wonPlots+' plots','✅','#eafaf2','#059669')}
     </div>
     <div class="sec" style="margin-top:22px">Pipeline funnel</div>
     <div class="card" style="padding:16px 8px;border-radius:18px;box-shadow:0 10px 26px -14px rgba(16,24,40,.18),inset 0 1px 0 #fff">${openCnt? funnelSvg : '<div class="tiny" style="padding:16px;text-align:center;color:var(--muted)">Is project me abhi koi open lead nahi.</div>'}</div>
@@ -1283,6 +1286,17 @@ function detailHTML(){
           <div class="card" style="padding:4px 15px">${rows.map(r=>kv(r[0],r[1])).join('')}${L.family?`<div class="kv" style="display:block;border:none"><b>Family / context</b><div style="margin-top:3px;white-space:pre-wrap">${esc(L.family)}</div></div>`:''}</div>`;
       })()}
 
+      ${(L.status==='booked'||L.deal)?(()=>{ const d=L.deal||{};
+        const pl=(d.plots||[]).filter(p=>p.no||p.value);
+        return `<div class="sec"><span class="grow">🎉 Booking / Deal</span><button class="btn ghost sm" onclick="openBooking('${L.id}')">${d.plots&&d.plots.length?'Edit':'Add'}</button></div>
+          <div class="card" style="padding:4px 15px">
+            ${kv('Deal value', d.total?inr(d.total):'')}
+            ${kv('Plots booked', d.count?String(d.count):(pl.length?String(pl.length):''))}
+            ${kv('Colony/Project', d.colony||'')}
+            ${pl.length?`<div class="kv" style="display:block;border:none"><b>Plots</b><div style="margin-top:3px">${pl.map(p=>esc(p.no||'?')+(p.value?' — '+inr(p.value):'')).join('<br>')}</div></div>`:''}
+          </div>`;
+      })():''}
+
       <div class="sec">Follow-up history (${(L.followUps||[]).length})</div>
       ${(L.followUps||[]).length? L.followUps.map(fuCard).join('') :
         `<div class="tiny" style="margin-bottom:11px">No follow-ups yet. Add one below.</div>`}
@@ -1372,7 +1386,7 @@ function kdrop(e,st){
   e.preventDefault();
   const id = dragId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
   const L = leads.find(x=>x.id===id);
-  if(L && L.status!==st){ L.status=st; L.ts=Date.now(); putLead(L); }   // stage move → upar aaye
+  if(L && L.status!==st){ const prev=L.status; L.status=st; L.ts=Date.now(); putLead(L); _wonCheck(L, prev); }   // stage move → upar aaye
   dragId=null; render();
 }
 
@@ -1525,10 +1539,10 @@ async function saveLead(id){
     cash:parseInt(val('l_cash'))||'', loan:val('l_loan'), loanAmt:parseInt(val('l_loanamt'))||'',
     loanStatus:val('l_loanstatus'), token:val('l_token'),
     family:val('l_family'), refBy:val('l_refby'), contactAfter:val('l_cafter') };
-  let L;
+  let L, prevStatus='';
   if(id){
     if(rec) data.rec = rec; if(photo) data.photo = photo;   // edit → lead-level attachment
-    L=leads.find(x=>x.id===id); Object.assign(L, data); L.ts=Date.now();
+    L=leads.find(x=>x.id===id); prevStatus=L.status; Object.assign(L, data); L.ts=Date.now();
   } else {
     L={ id:uid(), ...data, createdBy:(user&&user.email||''), createdByName:_crmName(), createdAtSys:Date.now(), ts:Date.now(), need:{}, followUps:[] }; leads.unshift(L);
     // pehli baat-cheet ko first follow-up bana do (agar bhari ho)
@@ -1543,6 +1557,7 @@ async function saveLead(id){
   if(rec){ if(id) auditRec(L.id, rec, null);                       // edit → lead-level recording
            else if(L.followUps&&L.followUps[0]&&L.followUps[0].rec===rec) auditRec(L.id, rec, L.followUps[0].id); }  // nayi lead → pehle followup me
   if(!id){ notifyAssignees(L); go('detail', L.id); } else render();
+  _wonCheck(L, prevStatus);
 }
 // lead add hote hi assigned executives ko INSTANT notification (Vercel server ke through)
 async function notifyAssignees(L){
@@ -1625,6 +1640,49 @@ async function saveFU(id){
   if(rec) auditRec(L.id, rec, fu.id);   // followup recording → background audit
   const m=document.querySelector('.modal-bg'); if(m) m.remove();
   render();
+  _wonCheck(L, fu.prev);
+}
+
+// ── Booking / Deal popup — status "Won" (booked) pe khulta hai, actual plots+value capture ──
+let _bk=[];
+function _wonCheck(L, prev){ if(L && L.status==='booked' && prev!=='booked' && !(L.deal&&L.deal.plots&&L.deal.plots.length)) openBooking(L.id); }
+function openBooking(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  const d=L.deal||{};
+  _bk=(d.plots&&d.plots.length)?d.plots.map(p=>({no:p.no||'',value:p.value||''})):[{no:'',value:''}];
+  _bkShow(id, d.colony||L.colony||'');
+}
+function _bkSync(){ _bk.forEach((p,i)=>{ const n=document.getElementById('bk_no'+i), v=document.getElementById('bk_val'+i); if(n)p.no=n.value; if(v)p.value=v.value; }); }
+function _bkTotal(){ return _bk.reduce((a,p)=>a+(parseInt(String(p.value).replace(/[^0-9]/g,''))||0),0); }
+function _bkRecalc(){ _bkSync(); const t=document.getElementById('bk_tot'); if(t)t.textContent=_bkTotal().toLocaleString('en-IN'); const c=document.getElementById('bk_cnt'); if(c)c.textContent=_bk.length; }
+function _bkAdd(id){ _bkSync(); _bk.push({no:'',value:''}); _bkShow(id, val('bk_colony')); }
+function _bkDel(id,i){ _bkSync(); _bk.splice(i,1); if(!_bk.length)_bk=[{no:'',value:''}]; _bkShow(id, val('bk_colony')); }
+function _bkShow(id, colony){
+  const m=document.querySelector('.modal-bg'); if(m)m.remove();
+  const rows=_bk.map((p,i)=>`<div class="row" style="gap:6px;margin-bottom:6px">
+      <input id="bk_no${i}" placeholder="Plot no" value="${esc(p.no||'')}" style="flex:1" oninput="_bkRecalc()">
+      <input id="bk_val${i}" placeholder="Value ₹" value="${esc(p.value||'')}" inputmode="numeric" style="flex:1.3" oninput="_bkRecalc()">
+      <button class="btn ghost" style="flex:none;padding:8px 11px" onclick="_bkDel('${id}',${i})">✕</button></div>`).join('');
+  modal(`<h2>🎉 Booking / Deal</h2><div class="msub">Deal ki detail — funnel me actual value chadhegi</div>
+    <div class="field"><label>Colony / Project</label><input id="bk_colony" value="${esc(colony)}" placeholder="jaise Vinayak Residency"></div>
+    <label class="tiny" style="font-weight:700;display:block;margin-bottom:4px">Plots (number + value)</label>
+    ${rows}
+    <button class="btn ghost sm" onclick="_bkAdd('${id}')" style="margin-bottom:10px">+ Plot add</button>
+    <div style="margin:4px 0 14px;font-weight:800">Total: ₹<span id="bk_tot">${_bkTotal().toLocaleString('en-IN')}</span> · <span id="bk_cnt">${_bk.length}</span> plot</div>
+    <div class="row" style="gap:11px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Baad me</button>
+      <button class="btn grow" onclick="saveBooking('${id}')">Save booking</button></div>`);
+}
+function saveBooking(id){
+  _bkSync();
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  const colony=(val('bk_colony')||'').trim();
+  const plots=_bk.map(p=>({no:(p.no||'').trim(), value:parseInt(String(p.value).replace(/[^0-9]/g,''))||0})).filter(p=>p.no||p.value);
+  const total=plots.reduce((a,p)=>a+p.value,0);
+  L.deal={ colony, plots, total, count:plots.length||1, by:(user&&user.email||''), ts:Date.now() };
+  if(colony && !L.colony) L.colony=colony;
+  L.status='booked'; L.ts=Date.now();
+  putLead(L).then(()=>{ toast('Booking saved ✓'); const m=document.querySelector('.modal-bg'); if(m)m.remove(); render(); });
 }
 
 // ── actions ──────────────────────────────────────────────────────────────────
@@ -2196,6 +2254,57 @@ async function boardLoad(){
   }catch(e){ alert('Board load error: '+e.message); }
   if(route.view==='board') render();
 }
+// 📋 Member ka pichhle 7 din ka kaam report (naam ke aage 📋 se khulta hai)
+async function openMemberReport(name){
+  const key=(name||'').toLowerCase();
+  const days=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setUTCDate(d.getUTCDate()-i); days.push(d.toISOString().slice(0,10)); }
+  modal(`<h2>📋 ${esc(name)}</h2><div class="msub">Pichhle 7 din ka kaam</div><div id="mr_body" class="tiny" style="color:var(--muted)">Load ho raha…</div><div class="row" style="margin-top:12px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button></div>`);
+  try{
+    const [ss,as]=await Promise.all([
+      db.collection('standups').where('date','in',days).get(),
+      db.collection('attendance').where('date','in',days).get()
+    ]);
+    const std=ss.docs.map(d=>d.data()).filter(x=>(x.nameKey||'')===key);
+    const att=as.docs.map(d=>d.data()).filter(x=>(x.nameKey||'')===key);
+    const b=document.getElementById('mr_body'); if(b) b.outerHTML=_memberReportHTML(name,days,std,att);
+  }catch(e){ const b=document.getElementById('mr_body'); if(b) b.textContent='Error: '+e.message; }
+}
+function _memberReportHTML(name,days,std,att){
+  const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], DOW=['Ravi','Som','Mangal','Budh','Guru','Shukra','Shani'];
+  let aT=0,pT=0,rT=0,sum=0,worked=0;
+  const data=days.slice().reverse().map(day=>{
+    const a=att.find(x=>x.date===day), onLeave=!!(a&&a.leave&&!a.inTime), attOk=(a&&a.inTime)?1:0;
+    const s=std.find(x=>x.date===day), tasks=(s&&Array.isArray(s.tasks))?s.tasks:[];
+    const plan=tasks.length>0?1:0, doneN=tasks.filter(t=>t.st).length, report=(tasks.length>0&&tasks.every(t=>t.st))?1:0, tot=attOk+plan+report;
+    if(!onLeave){ aT+=attOk; pT+=plan; rT+=report; sum+=tot; worked++; }
+    const dt=new Date(day+'T00:00:00Z');
+    return {lbl:dt.getUTCDate()+' '+MON[dt.getUTCMonth()], dow:DOW[dt.getUTCDay()], onLeave, attOk, plan, tasks, doneN, report, tot};
+  });
+  const dot=ok=>`<span style="color:${ok?'#16a34a':'#dc2626'}">●</span>`;
+  const body=data.map(r=>`<tr style="border-top:1px solid var(--line)">
+      <td style="padding:8px 6px;white-space:nowrap">${r.lbl} <span class="tiny" style="color:var(--muted)">${r.dow}</span></td>
+      ${r.onLeave?`<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">🌴 Chhutti</td>`
+        :`<td style="text-align:center">${dot(r.attOk)}</td>
+          <td style="text-align:center">${r.tasks.length?r.tasks.length+' task':'<span style="color:var(--muted)">—</span>'}</td>
+          <td style="text-align:center">${r.tasks.length?r.doneN+'/'+r.tasks.length:'<span style="color:var(--muted)">—</span>'}</td>
+          <td style="text-align:center;font-weight:800">${r.tot}</td>`}
+    </tr>`).join('');
+  const detail=data.filter(r=>r.tasks.length).map(r=>`<div style="margin-top:10px">
+      <div class="tiny" style="font-weight:700">${r.lbl} (${r.dow})</div>
+      ${r.tasks.map(t=>`<div style="font-size:.84rem;margin-top:2px">${t.st?'<span style="color:#16a34a">✓</span>':'<span style="color:#dc2626">○</span>'} ${esc(t.t||'')}${t.st?` <span class="tiny" style="color:var(--muted)">— ${esc(t.st)}${t.rm?': '+esc(t.rm):''}</span>`:''}</div>`).join('')}
+    </div>`).join('');
+  const sc=(l,v)=>`<div class="card" style="flex:1;padding:8px;text-align:center"><div class="tiny" style="color:var(--muted)">${l}</div><b>${v}</b></div>`;
+  return `<div>
+    <div class="row" style="gap:8px;margin:4px 0 12px">
+      ${sc('Att',aT+'/'+worked)}${sc('Plan',pT+'/'+worked)}${sc('Report',rT+'/'+worked)}
+      <div class="card" style="flex:1;padding:8px;text-align:center"><div class="tiny" style="color:var(--muted)">Week</div><b style="color:var(--brand)">${worked?Math.round((sum/worked)*6):0}/18</b></div>
+    </div>
+    <div class="card" style="padding:4px 8px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem">
+      <thead><tr style="color:var(--muted);font-size:.68rem;text-transform:uppercase"><th style="text-align:left;padding:7px 6px">Tareekh</th><th>Att</th><th>Task</th><th>Report</th><th>/3</th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+    ${detail?`<div class="sec" style="margin-top:16px">Task detail</div><div style="max-height:30vh;overflow:auto">${detail}</div>`:''}
+  </div>`;
+}
 // 🌟 Best Value Lever — admin is hafte ka winner chune (values pe)
 function boardSetValueLever(){
   modal(`<h2>🌟 Best Value Lever</h2><div class="msub">${fmtDate(_weekDates(board.date)[0])} wale hafte — kisne values best dikhayi?</div>
@@ -2264,7 +2373,9 @@ function boardHTML(){
     .sort((a,b)=> b.wk-a.wk || b.d.total-a.d.total);
   const body=rows.map((r,i)=>`
     <tr style="border-top:1px solid var(--line)">
-      <td style="padding:9px 6px;font-weight:600;white-space:nowrap;cursor:pointer" onclick="boardToggleLeave('${esc(r.n)}')" title="Leave mark/hatane ke liye tap">${i+1}. ${esc(r.n)}${r.lv?' 🌴':''}</td>
+      <td style="padding:9px 6px;font-weight:600;white-space:nowrap">
+        <span style="cursor:pointer" onclick="boardToggleLeave('${esc(r.n)}')" title="Leave mark/hatane ke liye tap">${i+1}. ${esc(r.n)}${r.lv?' 🌴':''}</span>
+        <button class="btn ghost" style="padding:1px 7px;margin-left:5px;font-size:.7rem" onclick="openMemberReport('${esc(r.n)}')" title="Pichhle 7 din ka report">📋</button></td>
       ${r.lv
         ? `<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">🌴 On Leave</td>`
         : `<td style="text-align:center">${dot(r.d.att,due.att)}</td>
