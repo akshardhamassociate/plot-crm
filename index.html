@@ -1280,6 +1280,7 @@ function detailHTML(){
       <div class="card" style="padding:4px 15px">
         ${needRows.length? needRows.map(r=>kv(r[0],r[1])).join('') :
           `<div class="tiny" style="padding:14px 0">Not filled yet — complete it on the site visit.</div>`}
+        ${(n.byName||n.by)?`<div class="tiny" style="color:var(--muted);padding:7px 0 8px">✍️ Bhara: ${esc(n.byName||(n.by||'').split('@')[0])}${n.ts?' · '+fmtDate(new Date(n.ts).toISOString().slice(0,10)):''}</div>`:''}
       </div>
 
       ${(()=>{ const loc=(L.locations||[]).join(', ');
@@ -1599,7 +1600,8 @@ function openNeed(id){
 function saveNeed(id){
   const L=leads.find(x=>x.id===id);
   L.need = { timeline:val('n_time'), budget:val('n_budget'),
-    purpose:val('n_purpose'), ready:val('n_ready'), remarks:val('n_remarks') };
+    purpose:val('n_purpose'), ready:val('n_ready'), remarks:val('n_remarks'),
+    by:(user&&user.email||''), byName:_crmName(), ts:Date.now() };   // kisne bhara
   L.ts=Date.now(); putLead(L); document.querySelector('.modal-bg').remove(); render();
 }
 
