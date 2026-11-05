@@ -1019,7 +1019,8 @@ function backfillHuddle(){
  *         Test: testAgentTTS()
  * ============================================================
  */
-var OPENAI_MODEL = 'gemini-2.5-flash';   // Gemini model — FREE tier (badalna ho to yahan)
+var OPENAI_MODEL    = 'gemini-2.5-flash';   // Gemini model — FREE tier (badalna ho to yahan)
+var OPENAI_FALLBACK = 'gemini-2.0-flash';   // 2.5 pe load/503 ho to isko try karo
 var OPENAI_URL   = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';  // Google Gemini ka OpenAI-compatible endpoint
 var SARVAM_STT_MODEL = 'saaras:v4';
 var SARVAM_TTS_MODEL = 'bulbul:v3';
@@ -1122,15 +1123,26 @@ function _agentTools() {
 }
 
 function _openaiTools(key, messages, noTools) {
-  var body = { model: OPENAI_MODEL, temperature: 0.4, messages: messages };
-  if (!noTools) { body.tools = _agentTools(); body.tool_choice = 'auto'; }
-  var res = UrlFetchApp.fetch(OPENAI_URL, {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { Authorization: 'Bearer ' + key },
-    payload: JSON.stringify(body)
-  });
-  if (res.getResponseCode() !== 200) throw new Error('LLM ' + res.getResponseCode() + ': ' + res.getContentText());
-  return JSON.parse(res.getContentText());
+  // 503/429 (overload) pe retry + doosre model pe fallback — Saathi atak na jaye.
+  var models = [OPENAI_MODEL, OPENAI_FALLBACK], last = '';
+  for (var m = 0; m < models.length; m++) {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      var body = { model: models[m], temperature: 0.4, messages: messages };
+      if (!noTools) { body.tools = _agentTools(); body.tool_choice = 'auto'; }
+      var res = UrlFetchApp.fetch(OPENAI_URL, {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+        headers: { Authorization: 'Bearer ' + key },
+        payload: JSON.stringify(body)
+      });
+      var code = res.getResponseCode();
+      if (code === 200) return JSON.parse(res.getContentText());
+      last = 'LLM ' + code + ': ' + res.getContentText();
+      if (code === 503 || code === 429) { Utilities.sleep(1500); continue; }  // overload -> thodi der ruk ke dobara
+      throw new Error(last);   // non-transient (400/401/etc.) -> seedha batao
+    }
+    // is model pe baar-baar overload -> agle model pe jao
+  }
+  throw new Error(last);
 }
 
 function _sarvamSTT(key, audioUrl) {
