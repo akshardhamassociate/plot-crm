@@ -8,9 +8,8 @@
  *   • setupSheets()        → sheets + columns ready
  *   • Script Properties:
  *        FIREBASE_SA  = service account JSON (notification ke liye)
- *        GEMINI_KEY   = Gemini API key       (audit + AI-lead ke liye)
+ *        GEMINI_KEY   = Gemini API key       (audit + AI-lead + Saathi ka dimaag — FREE)
  *        SARVAM_KEY   = Sarvam API key        (Saathi voice — STT/TTS)
- *        OPENAI_KEY   = OpenAI API key        (Saathi dimaag — tool-calling)
  *   • installAssignNotify()→ assign notification auto (har 5 min)
  *   • installCallAudit()   → calllog recordings auto-audit (har 10 min)
  *
@@ -1015,13 +1014,13 @@ function backfillHuddle(){
  *    tool round  -> { transcript, msgs, toolCalls:[{id,name,args}] }
  *    final reply -> { transcript, reply, audio(base64 mp3), msgs }
  *
- *  SETUP: Script Properties me SARVAM_KEY + OPENAI_KEY.
+ *  SETUP: Script Properties me SARVAM_KEY + GEMINI_KEY (GEMINI_KEY already set hai — FREE).
  *         doGet(e) ke TOP me pehle se:  if (e.parameter.agentTurn) return _agentOut(e);
  *         Test: testAgentTTS()
  * ============================================================
  */
-var OPENAI_MODEL = 'openai/gpt-4o-mini';   // OpenRouter model id (provider/model). Badalna ho to yahan.
-var OPENAI_URL   = 'https://openrouter.ai/api/v1/chat/completions';  // OpenRouter endpoint (OpenAI-compatible)
+var OPENAI_MODEL = 'gemini-2.5-flash';   // Gemini model — FREE tier (badalna ho to yahan)
+var OPENAI_URL   = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';  // Google Gemini ka OpenAI-compatible endpoint
 var SARVAM_STT_MODEL = 'saaras:v4';
 var SARVAM_TTS_MODEL = 'bulbul:v3';
 var SARVAM_TTS_SPEAKER = 'shubh';
@@ -1037,8 +1036,8 @@ function _agentOut(e) {
 
 function agentTurn(p) {
   var sarvam = PropertiesService.getScriptProperties().getProperty('SARVAM_KEY');
-  var oai = PropertiesService.getScriptProperties().getProperty('OPENAI_KEY');
-  if (!sarvam || !oai) throw new Error('SARVAM_KEY / OPENAI_KEY script property set nahi hai.');
+  var oai = PropertiesService.getScriptProperties().getProperty('GEMINI_KEY');   // Saathi ka dimaag — FREE Gemini (key already set hai)
+  if (!sarvam || !oai) throw new Error('SARVAM_KEY / GEMINI_KEY script property set nahi hai.');
 
   var msgs = []; try { msgs = JSON.parse(p.msgs || '[]'); } catch (e) {}
   msgs = _agentSan(msgs);   // history valid karo — orphan tool / toota tool_calls hatao
@@ -1124,10 +1123,10 @@ function _agentTools() {
 
 function _openaiTools(key, messages, noTools) {
   var body = { model: OPENAI_MODEL, temperature: 0.4, messages: messages };
-  if (!noTools) { body.tools = _agentTools(); body.tool_choice = 'auto'; body.parallel_tool_calls = false; }
+  if (!noTools) { body.tools = _agentTools(); body.tool_choice = 'auto'; }
   var res = UrlFetchApp.fetch(OPENAI_URL, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { Authorization: 'Bearer ' + key, 'X-Title': 'Plot CRM Saathi' },
+    headers: { Authorization: 'Bearer ' + key },
     payload: JSON.stringify(body)
   });
   if (res.getResponseCode() !== 200) throw new Error('LLM ' + res.getResponseCode() + ': ' + res.getContentText());
