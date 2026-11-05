@@ -1080,38 +1080,46 @@ function _palRun(){
 }
 document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='K')){ e.preventDefault(); openPalette(); } });
 
-// ── 🎙️ Talking Agent "Saathi" — voice reporting (Sarvam STT/TTS + OpenAI, server-side) ──
+// ── 🎙️ Talking Agent "Saathi" — real assistant (Sarvam STT/TTS + OpenAI tool-calling) ──
+// Tools browser me chalte hain (app ke live data pe); server sirf OpenAI/Sarvam. Multi-round loop.
 let _ag=null;
 function openAgent(mode){
   if(!AUDIT_URL){ alert('Agent endpoint (AUDIT_URL) set nahi.'); return; }
   const h=new Date(Date.now()+5.5*3600e3).getUTCHours();
-  _ag={ mode: mode || (h<14?'plan':'report'), hist:[], tasks:[],
-    name:(hudMyName()||((user&&user.email||'').split('@')[0])||''), busy:false, rec:null, chunks:[], stream:null, lastData:null };
-  if(_ag.mode==='report'){
-    const id=today()+'__'+_ag.name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
-    db.collection('standups').doc(id).get().then(s=>{ const d=s.exists?s.data():{};
-      _ag.tasks=(d.tasks||[]).map(t=>({t:t.t||'',st:t.st||'',rm:t.rm||''})); _agStart(); }).catch(_agStart);
-  } else _agStart();
+  _ag={ mode: mode||(h<14?'plan':'report'), msgs:[],
+    name:(hudMyName()||((user&&user.email||'').split('@')[0])||''), busy:false, rec:null, chunks:[], stream:null };
+  _agUI();
+  _ag.msgs.push({role:'user',content: _ag.mode==='plan'
+    ? 'Namaste. (context: abhi subah hai. Mera naam '+_ag.name+'. Mujhe greet karke poochho aaj ke kaam, ya main jo poochu usme madad karo.)'
+    : 'Namaste. (context: abhi shaam hai. Mera naam '+_ag.name+'. Pehle today_standup dekh ke meri report lena shuru karo, ya main jo poochu usme madad karo.)'});
+  agSend(null);
 }
-function _agStart(){ _agUI(); agentStep(''); }
 function _agUI(){
-  modal(`<h2>🎙️ Saathi <span class="tiny" style="font-weight:600;color:var(--muted)">· ${_ag.mode==='plan'?'Aaj ka plan':'Shaam report'}</span></h2>
-    <div class="msub">Bolo — Saathi sun ke app me bhar dega. Hindi me baat karo.</div>
-    <div id="ag_convo" style="max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0"></div>
-    <div class="row" style="gap:10px;margin-top:10px">
-      <button class="btn grow" id="ag_mic" onclick="agMicToggle()">🎤 Bolo</button>
-      <button class="btn ghost" onclick="agEnd()">Khatam</button></div>
+  const chips = _ag.mode==='plan' ? ['Mera aaj ka plan daalo','Aaj kiska follow-up due hai?','Pipeline value kitni hai?']
+    : ['Meri report lo','Going cold leads kaunsi hain?','Mera weekly score?'];
+  modal(`<h2>🎙️ Saathi <span class="tiny" style="font-weight:600;color:var(--muted)">· ${_ag.mode==='plan'?'Plan':'Report'}</span>
+      <button class="btn ghost sm" style="float:right;padding:4px 10px;font-size:.72rem" onclick="agSwitch()">${_ag.mode==='plan'?'Report mode':'Plan mode'}</button></h2>
+    <div class="msub">Bol ya likh ke baat karo — leads, follow-up, funnel, report… sab pooch/karwa sakte ho.</div>
+    <div id="ag_convo" style="max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0"></div>
+    <div id="ag_chips" style="display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 2px">${chips.map(c=>`<span class="chip" onclick="agQuick(this.textContent)">${esc(c)}</span>`).join('')}</div>
+    <div class="row" style="gap:8px;margin-top:6px">
+      <input id="ag_text" placeholder="Likho…" onkeydown="if(event.key==='Enter')agTextSend()" style="flex:1">
+      <button class="btn ghost" id="ag_mic" onclick="agMicToggle()" title="Bol ke" style="padding:10px 13px">🎤</button>
+      <button class="btn" onclick="agTextSend()" style="padding:10px 14px">➤</button></div>
     <div class="tiny" id="ag_status" style="margin-top:6px;color:var(--muted)"></div>`);
 }
+function agSwitch(){ const m=document.querySelector('.modal-bg'); if(m)m.remove(); openAgent(_ag.mode==='plan'?'report':'plan'); }
+function agQuick(t){ const i=document.getElementById('ag_text'); if(i)i.value=t; agTextSend(); }
+function agTextSend(){ const i=document.getElementById('ag_text'); if(!i||_ag.busy)return; const t=(i.value||'').trim(); if(!t)return; i.value=''; _agUser(t); _ag.msgs.push({role:'user',content:t}); agSend(null); }
 function _agBub(side,txt){ const el=document.getElementById('ag_convo'); if(!el) return;
   const me=side==='me';
-  el.insertAdjacentHTML('beforeend',`<div style="align-self:${me?'flex-end':'flex-start'};max-width:82%;background:${me?'var(--brand)':'#eef0f6'};color:${me?'#fff':'var(--ink)'};padding:9px 13px;border-radius:14px;font-size:.9rem;white-space:pre-wrap;box-shadow:var(--sh)">${esc(txt)}</div>`);
+  el.insertAdjacentHTML('beforeend',`<div style="align-self:${me?'flex-end':'flex-start'};max-width:84%;background:${me?'var(--brand)':'#eef0f6'};color:${me?'#fff':'var(--ink)'};padding:9px 13px;border-radius:14px;font-size:.9rem;white-space:pre-wrap;box-shadow:var(--sh)">${esc(txt)}</div>`);
   el.scrollTop=el.scrollHeight;
 }
 const _agUser=t=>_agBub('me',t);
 function _agSay(t,b64){ if(t)_agBub('ag',t); if(b64){ try{ new Audio('data:audio/mpeg;base64,'+b64).play().catch(()=>{}); }catch(e){} } }
 function _agStatus(s){ const el=document.getElementById('ag_status'); if(el) el.textContent=s||''; }
-function _agMic(s,dis){ const b=document.getElementById('ag_mic'); if(b){ b.textContent=s; b.disabled=!!dis; } }
+function _agMic(dis){ const b=document.getElementById('ag_mic'); if(b){ b.disabled=!!dis; b.style.opacity=dis?'.5':'1'; } }
 async function agMicToggle(){
   if(!_ag) return;
   if(_ag.rec && _ag.rec.state==='recording'){ _ag.rec.stop(); return; }
@@ -1121,48 +1129,79 @@ async function agMicToggle(){
     const mr=new MediaRecorder(stream); _ag.rec=mr;
     mr.ondataavailable=e=>{ if(e.data&&e.data.size) _ag.chunks.push(e.data); };
     mr.onstop=async()=>{ try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      const b=document.getElementById('ag_mic'); if(b)b.textContent='🎤';
       const blob=new Blob(_ag.chunks,{type:(_ag.chunks[0]&&_ag.chunks[0].type)||'audio/webm'});
-      _agMic('⏳ bhej raha…',true); _agStatus('Samajh raha hoon…');
+      _agMic(true); _agStatus('Sun raha hoon…');
       const url=await uploadBlob(blob,'agent_'+Date.now()+'.webm');
-      if(!url){ _agMic('🎤 Bolo',false); _agStatus('Upload nahi hua — dobara bolo.'); return; }
-      agentStep(url);
+      if(!url){ _agMic(false); _agStatus('Upload nahi hua — dobara bolo.'); return; }
+      agSend(url);
     };
-    mr.start(); _agMic('⏹ Ruko (bol rahe ho)');
+    mr.start(); const b=document.getElementById('ag_mic'); if(b)b.textContent='⏹';
   }catch(e){ alert('Mic nahi mila: '+(e.message||e)+'\nAddress bar / app settings me Microphone Allow karo.'); }
 }
-function agentStep(audioUrl){
-  if(!_ag) return; _ag.busy=true; _agMic('⏳',true); _agStatus('Saathi soch raha hai…');
-  const url=AUDIT_URL+(AUDIT_URL.includes('?')?'&':'?')+'agentTurn=1&mode='+_ag.mode
-    +'&hist='+encodeURIComponent(JSON.stringify(_ag.hist.slice(-12)))
-    +(audioUrl?'&audio='+encodeURIComponent(audioUrl):'')
-    +'&tasks='+encodeURIComponent(JSON.stringify(_ag.tasks||[]))
-    +'&name='+encodeURIComponent(_ag.name||'');
-  _jsonp(url).then(r=>{
-    _ag.busy=false; _agMic('🎤 Bolo',false); _agStatus('');
-    if(!r||r.error){ _agSay('(dikkat: '+((r&&r.error)||'network')+')'); return; }
-    if(r.transcript){ _agUser(r.transcript); _ag.hist.push({role:'user',content:r.transcript}); }
-    const d=r.data||{};
-    if(d.reply){ _ag.hist.push({role:'assistant',content:d.reply}); _agSay(d.reply, r.audio); }
-    _ag.lastData=d;
-    if(d.complete){ _agStatus('✅ Ho gaya — save kar raha hoon…'); setTimeout(()=>agSave(d),600); }
-  }).catch(e=>{ _ag.busy=false; _agMic('🎤 Bolo',false); _agStatus('Network error — dobara try karo.'); });
+async function agSend(audioUrl){
+  if(!_ag) return; _ag.busy=true; _agMic(true); _agStatus(audioUrl?'Sun raha hoon…':'Saathi soch raha hai…');
+  const url=AUDIT_URL+(AUDIT_URL.includes('?')?'&':'?')+'agentTurn=1&msgs='+encodeURIComponent(JSON.stringify(_ag.msgs))
+    +(audioUrl?'&audio='+encodeURIComponent(audioUrl):'');
+  try{
+    const r=await _jsonp(url);
+    if(!r||r.error){ _ag.busy=false; _agMic(false); _agStatus(''); _agSay('(dikkat: '+((r&&r.error)||'network')+')'); return; }
+    if(r.transcript) _agUser(r.transcript);
+    if(r.msgs) _ag.msgs=r.msgs;
+    if(r.toolCalls && r.toolCalls.length){
+      _agStatus('Data dekh raha hoon…');
+      for(const tc of r.toolCalls){ let res; try{ res=await _agTool(tc.name, JSON.parse(tc.args||'{}')); }catch(e){ res={error:String(e&&e.message||e)}; }
+        _ag.msgs.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(res).slice(0,2500)}); }
+      return agSend(null);   // loop: agent ko tool-results do
+    }
+    _ag.busy=false; _agMic(false); _agStatus('');
+    _agSay(r.reply, r.audio);
+  }catch(e){ _ag.busy=false; _agMic(false); _agStatus('Network error — dobara try karo.'); }
 }
-function agEnd(){
-  if(_ag && _ag.lastData && (( _ag.lastData.tasks&&_ag.lastData.tasks.length)|| _ag.lastData.feedback)) agSave(_ag.lastData);
-  else { if(_ag&&_ag.stream){ try{_ag.stream.getTracks().forEach(t=>t.stop());}catch(e){} } const m=document.querySelector('.modal-bg'); if(m)m.remove(); _ag=null; }
+// Tools — app ke live data pe chalte hain
+async function _agTool(name,a){
+  a=a||{};
+  const C=L=>({id:L.id,name:L.name,mobile:L.mobile,status:stMap[L.status]?.l||L.status,colony:L.colony||'',owner:ownerOf(L),next:(lastFU(L)&&lastFU(L).nextDate)||L.contactAfter||'',coldDays:isCold(L)?coldDays(L):0});
+  if(name==='search_leads'){ const q=(a.query||'').toLowerCase(), dq=digits(a.query||'');
+    return {results: leads.filter(L=>L.name.toLowerCase().includes(q)||(dq&&digits(L.mobile).includes(dq))||(L.colony||'').toLowerCase().includes(q)).slice(0,8).map(C)}; }
+  if(name==='lead_detail'){ const L=leads.find(x=>x.id===a.id)||leads.find(x=>digits(x.mobile)===digits(a.id||'')); if(!L) return {error:'lead nahi mili'};
+    return {lead:Object.assign(C(L),{ptype:L.ptype||'',size:L.size||'',budget:(L.budgetMin||'')+'-'+(L.budgetMax||''),cash:L.cash||'',loan:L.loan||'',token:L.token||'',family:L.family||'',refBy:L.refBy||'',lineOfAction:L.lineOfAction||'',deal:L.deal?{total:L.deal.total,plots:L.deal.count,colony:L.deal.colony}:null,
+      followUps:(L.followUps||[]).slice(0,4).map(f=>({date:f.date,baat:f.purpose||f.response||'',next:f.nextDate||'',status:stMap[f.next]?.l||''}))})}; }
+  if(name==='list_leads'){ const k=a.kind; let list=[];
+    if(k==='due_today')list=leads.filter(L=>dueDate(L)===today()); else if(k==='overdue')list=leads.filter(isOverdue);
+    else if(k==='going_cold')list=leads.filter(isCold).sort((x,y)=>coldDays(y)-coldDays(x)); else if(k==='new')list=leads.filter(isNew);
+    else if(k==='hot')list=leads.filter(L=>L.status==='hot');
+    return {kind:k,count:list.length,leads:list.slice(0,12).map(C)}; }
+  if(name==='funnel_summary'){ const stages=STATUSES.filter(s=>s.p>0&&s.k!=='booked');
+    const sd=stages.map(s=>({stage:s.l,count:leads.filter(L=>L.status===s.k).length}));
+    const won=leads.filter(L=>L.status==='booked'), wonVal=won.reduce((x,L)=>x+((L.deal&&L.deal.total)||fn.avg),0);
+    return {stages:sd,openLeads:sd.reduce((x,s)=>x+s.count,0),wonDeals:won.length,wonValue:inr(wonVal),funnelValue:inr(_funnelTotal(''))}; }
+  if(name==='today_standup'){ const nm=a.name||_ag.name; const id=today()+'__'+nm.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    const s=await db.collection('standups').doc(id).get(); const d=s.exists?s.data():null;
+    return d?{name:nm,tasks:(d.tasks||[]).map(t=>({t:t.t,st:t.st||'',rm:t.rm||''})),issues:d.issues||[]}:{name:nm,tasks:[],note:'aaj ka standup abhi nahi bhara'}; }
+  if(name==='add_followup'){ const L=leads.find(x=>x.id===a.leadId)||leads.find(x=>digits(x.mobile)===digits(a.leadId||'')); if(!L)return{error:'lead nahi mili'};
+    const fu={id:uid(),date:today(),by:_ag.name,purpose:a.note||'',response:'',nextDate:a.nextDate||'',nextAction:a.nextAction||'',prev:L.status,next:a.status||L.status};
+    L.followUps=L.followUps||[]; L.followUps.unshift(fu); if(a.status)L.status=a.status; L.ts=Date.now(); await putLead(L);
+    return {ok:true,lead:L.name}; }
+  if(name==='create_lead'){ const m=document.querySelector('.modal-bg'); if(m)m.remove(); openLeadForm();
+    setTimeout(()=>{ _aiSet('l_name',a.name||''); _aiSet('l_mobile',digits(a.mobile||'')); _aiSet('l_colony',a.colony||''); if(a.status)_aiSet('l_status',a.status); },140);
+    _ag=null; return {ok:true,note:'Lead form prefill karke khol diya — user confirm karke Save karega'}; }
+  if(name==='save_plan'){ await _agSaveStandup({tasks:(a.tasks||[]).map(t=>({t:(typeof t==='string'?t:(t&&t.t))||'',st:'',rm:''})).filter(t=>t.t)}); return {ok:true,saved:(a.tasks||[]).length}; }
+  if(name==='save_report'){ await _agSaveStandup({tasks:(a.tasks||[]).map(t=>({t:t.t||'',st:t.st||'',rm:t.rm||''})),feedback:a.feedback||'',agentScore:(a.score!=null?a.score:'')}); return {ok:true}; }
+  if(name==='open'){ const w=a.what; const m=document.querySelector('.modal-bg');
+    if(w==='lead'&&a.id){ if(m)m.remove(); _ag=null; go('detail',a.id); }
+    else if(w==='funnel'){ if(m)m.remove(); _ag=null; openFunnel(); }
+    else if(w==='board'){ if(m)m.remove(); _ag=null; openBoard(); }
+    else { if(m)m.remove(); _ag=null; tab(w==='leads'?'list':w); }
+    return {ok:true}; }
+  return {error:'unknown tool '+name};
 }
-function agSave(d){
-  if(!_ag) return; const name=_ag.name, date=today();
-  const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
-  const upd={ date, name, nameKey:name.toLowerCase(), ts:Date.now(), via:'saathi', issues:(d.issues||[]).filter(Boolean) };
-  if(_ag.mode==='plan') upd.tasks=(d.tasks||[]).filter(t=>t&&t.t).map(t=>({t:t.t,st:'',rm:''}));
-  else { upd.tasks=(d.tasks||[]).map(t=>({t:t.t||'',st:t.st||'',rm:t.rm||''}));
-    if(d.feedback) upd.feedback=d.feedback; if(d.score!=null && d.score!=='') upd.agentScore=d.score; }
-  db.collection('standups').doc(id).set(upd,{merge:true})
-    .then(()=>{ pushHuddleSheet({date,name,yesterday:[],tasks:upd.tasks||[],issues:upd.issues||[]});
-      toast('Saathi ne save kar diya ✓'); if(_ag&&_ag.stream){ try{_ag.stream.getTracks().forEach(t=>t.stop());}catch(e){} }
-      const m=document.querySelector('.modal-bg'); if(m)m.remove(); _ag=null; if(route.view==='huddle') hudLoad(); })
-    .catch(e=>{ _agStatus('Save fail: '+e.message); });
+async function _agSaveStandup(extra){
+  const name=_ag.name, date=today(), id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  const upd=Object.assign({date,name,nameKey:name.toLowerCase(),ts:Date.now(),via:'saathi'},extra);
+  await db.collection('standups').doc(id).set(upd,{merge:true});
+  pushHuddleSheet({date,name,yesterday:[],tasks:upd.tasks||[],issues:upd.issues||[]});
+  if(route.view==='huddle') hudLoad();
 }
 
 function fnSet(k,v){
