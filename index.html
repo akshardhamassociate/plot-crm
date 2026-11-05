@@ -488,8 +488,10 @@ function openMore(){
       ${na?tile('🔄','Update'+(apkUpdateAvailable()?' •':''),"openUpdate()",apkUpdateAvailable()):''}
       ${!ho?tile('⬆️','Import',"importCSV()"):''}
       ${!ho?tile('⬇️','Export',"exportCSV()"):''}
+      ${!ho?tile('🔎','Search',"openPalette()"):''}
       ${(!ho&&isAdmin())?tile('📈','Funnel',"openFunnel()"):''}
       ${(!ho&&isAdmin())?tile('🏘️','Colony fix',"openColonyMgr()"):''}
+      ${(!ho&&isAdmin())?tile('👥','Dup leads',"openLeadDupes()"):''}
       ${(!ho&&isAdmin())?tile('🗑️','Deleted',"openDeleted()"):''}
     </div>`);
 }
@@ -750,7 +752,7 @@ async function uploadFile(inputId){                // uploads to Cloudinary, ret
 let route = {view:'home', id:null};
 const go = (view,id=null)=>{ route={view,id}; render(); window.scrollTo(0,0); };
 function tab(v){ route.view=v; route.id=null; render(); window.scrollTo(0,0); }
-let f = {q:'', status:'', colony:'', exec:'', from:'', to:''};
+let f = {q:'', status:'', colony:'', exec:'', from:'', to:'', cold:false};
 let page=1, pageSize=25, dragId=null;
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -781,8 +783,15 @@ function leadTime(L){
   return t;
 }
 
+// ── Going cold: OPEN lead jiska koi future next-step nahi + N din se chup (idea: HeyPuter CRM) ──
+const COLD_DAYS = 14;
+function lastContact(L){ let d=L.createdAt||''; (L.followUps||[]).forEach(fu=>{ if(fu.date&&fu.date>d)d=fu.date; }); return d; }
+function coldDays(L){ const d=lastContact(L); if(!d) return 0; return Math.max(0,Math.round((Date.now()-new Date(d+'T00:00').getTime())/864e5)); }
+const isCold = L => { if(!OPEN.includes(L.status)) return false; const due=dueDate(L); if(due&&due>today()) return false; return coldDays(L)>=COLD_DAYS; };
+
 function filtered(){
-  return leads.filter(L=>{
+  const out = leads.filter(L=>{
+    if(f.cold && !isCold(L)) return false;
     if(f.status && L.status!==f.status) return false;
     if(f.colony && L.colony!==f.colony) return false;
     if(f.exec && !execsOf(L).includes(f.exec)) return false;
@@ -792,7 +801,9 @@ function filtered(){
     if(f.from && d < f.from) return false;
     if(f.to && d > f.to) return false;
     return true;
-  }).sort((a,b)=>leadTime(b)-leadTime(a));   // nayi add ki hui lead sabse upar
+  });
+  if(f.cold) return out.sort((a,b)=>coldDays(b)-coldDays(a));   // sabse zyada chup wali upar
+  return out.sort((a,b)=>leadTime(b)-leadTime(a));              // nayi add ki hui lead sabse upar
 }
 
 // ── SIDEBAR (mobile header / desktop sidebar) ────────────────────────────────
@@ -884,8 +895,9 @@ function listHTML(){
       <input placeholder="Search by name, mobile or plot…" value="${esc(f.q)}" oninput="f.q=this.value;page=1;filterLeads()">
     </div>
     <div class="scroll-x" style="margin-top:12px">
-      <span class="chip ${f.status===''?'on':''}" onclick="setStatus('')">All</span>
-      ${STATUSES.map(s=>`<span class="chip ${f.status===s.k?'on':''}" onclick="setStatus('${s.k}')">${s.l}</span>`).join('')}
+      <span class="chip ${(f.status===''&&!f.cold)?'on':''}" onclick="setStatus('')">All</span>
+      ${(()=>{ const cc=leads.filter(isCold).length; return `<span class="chip ${f.cold?'on':''}" style="${f.cold?'':'background:#eff6ff'}" onclick="setCold()">🧊 Going cold${cc?' ('+cc+')':''}</span>`; })()}
+      ${STATUSES.map(s=>`<span class="chip ${(f.status===s.k&&!f.cold)?'on':''}" onclick="setStatus('${s.k}')">${s.l}</span>`).join('')}
     </div>
     <div class="grid2" style="margin-top:11px">
       <select onchange="f.colony=this.value;page=1;render()">
@@ -899,7 +911,7 @@ function listHTML(){
       <div><label>From</label><input type="date" value="${f.from}" onchange="f.from=this.value;page=1;render()"></div>
       <div><label>To</label><input type="date" value="${f.to}" onchange="f.to=this.value;page=1;render()"></div>
     </div>
-    ${(f.status||f.colony||f.exec||f.from||f.to||f.q)?
+    ${(f.status||f.colony||f.exec||f.from||f.to||f.q||f.cold)?
       `<button class="btn ghost sm" style="margin-top:11px" onclick="clearFilters()">✕ Clear filters</button>`:''}
     <div id="leadResults">${leadResultsHTML()}</div>
   </div>
@@ -987,6 +999,71 @@ async function colonyMerge(){
     const m=document.querySelector('.modal-bg'); if(m)m.remove();
   }catch(e){ alert('Merge fail: '+e.message); }
 }
+// ── Lead dedup/merge — ek number par do+ leads ko ek me milao (idea: HeyPuter CRM) ──
+function _leadDupeGroups(){
+  const by={}; leads.forEach(L=>{ const p=digits(L.mobile); if(p.length>=7){ (by[p]=by[p]||[]).push(L); } });
+  return Object.entries(by).filter(([,g])=>g.length>1).map(([p,g])=>({p,g}));
+}
+function openLeadDupes(){
+  if(!isAdmin()){ alert('Sirf admin'); return; }
+  const groups=_leadDupeGroups();
+  if(!groups.length){ modal(`<h2>👥 Duplicate leads</h2><div class="msub">Ek hi number par do+ leads</div><div class="card"><div class="empty">✅ Koi duplicate nahi mila.</div></div><div class="row" style="margin-top:12px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button></div>`); return; }
+  const rows=groups.map(({p,g})=>`<div class="card" style="padding:10px 12px;margin-bottom:8px">
+      <div class="row"><b class="grow">📞 ${esc(g[0].mobile)}</b><button class="btn sm" onclick="leadMergeGroup('${p}')">Merge ${g.length}→1</button></div>
+      ${g.map(L=>`<div class="tiny" style="color:var(--muted);margin-top:3px">• ${esc(L.name)} · ${stMap[L.status]?.l||''} · ${esc(ownerOf(L))} · ${(L.followUps||[]).length} FU</div>`).join('')}
+    </div>`).join('');
+  modal(`<h2>👥 Duplicate leads (${groups.length})</h2><div class="msub">Ek number par do+ leads — merge karke ek banao (sabse zyada history wali rehti hai)</div>
+    <div style="max-height:55vh;overflow:auto">${rows}</div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Close</button></div>`);
+}
+async function leadMergeGroup(phone){
+  const grp=leads.filter(L=>digits(L.mobile)===phone);
+  if(grp.length<2) return;
+  grp.sort((a,b)=>((b.followUps||[]).length)-((a.followUps||[]).length) || (_idTime(a.id)-_idTime(b.id)));  // zyada FU / purani = keeper
+  const keep=grp[0], rest=grp.slice(1);
+  if(!confirm(phone+' par '+grp.length+' leads — sabko "'+keep.name+'" me merge karein?\n(baaki Deleted bin me jayenge, wapas la sakte ho)')) return;
+  const fus=[...(keep.followUps||[])], seen=new Set(fus.map(x=>x.id));
+  rest.forEach(L=>(L.followUps||[]).forEach(fu=>{ if(!seen.has(fu.id)){ fus.push(fu); seen.add(fu.id); } }));
+  fus.sort((a,b)=>(_idTime(b.id)||0)-(_idTime(a.id)||0));
+  keep.followUps=fus;
+  keep.execs=[...new Set([...execsOf(keep), ...rest.flatMap(execsOf)])]; keep.exec=keep.execs[0]||keep.exec;
+  keep.status=grp.map(L=>L.status).sort((a,b)=>(stMap[b]?.p||0)-(stMap[a]?.p||0))[0];   // best stage
+  rest.forEach(L=>{ if(!keep.lineOfAction&&L.lineOfAction)keep.lineOfAction=L.lineOfAction;
+    if((!keep.need||!Object.keys(keep.need).length)&&L.need&&Object.keys(L.need).length)keep.need=L.need;
+    if(!keep.deal&&L.deal)keep.deal=L.deal;
+    ['colony','plot','city','occupation','contactAfter','family','refBy'].forEach(k=>{ if(!keep[k]&&L[k])keep[k]=L[k]; }); });
+  keep.ts=Date.now();
+  try{
+    await putLead(keep);
+    const batch=db.batch();
+    rest.forEach(L=>batch.set(col().doc(L.id),{deleted:true,deletedBy:(user&&user.email||''),deletedAt:Date.now(),mergedInto:keep.id},{merge:true}));
+    await batch.commit();
+    toast(rest.length+' lead merge ho gaye ✓');
+    const m=document.querySelector('.modal-bg'); if(m)m.remove(); render();
+  }catch(e){ alert('Merge fail: '+e.message); }
+}
+
+// ── Command palette — Ctrl/⌘+K se kahin se bhi lead search (idea: HeyPuter CRM) ──
+function openPalette(){
+  if(!user || isHuddleOnly()) return;
+  modal(`<h2>🔎 Search</h2>
+    <div class="search-wrap">${IC.search}<input id="pal_q" placeholder="Naam, mobile ya colony…" oninput="_palRun()" autocomplete="off"></div>
+    <div id="pal_res" style="max-height:52vh;overflow:auto;margin-top:8px"><div class="tiny" style="padding:10px;color:var(--muted)">Type to search…</div></div>`);
+  setTimeout(()=>{ const i=document.getElementById('pal_q'); if(i)i.focus(); },50);
+}
+function _palRun(){
+  const el=document.getElementById('pal_res'); if(!el) return;
+  const q=(document.getElementById('pal_q').value||'').trim().toLowerCase();
+  if(!q){ el.innerHTML='<div class="tiny" style="padding:10px;color:var(--muted)">Type to search…</div>'; return; }
+  const dq=digits(q);
+  const hits=leads.filter(L=>L.name.toLowerCase().includes(q)||(dq&&digits(L.mobile).includes(dq))||(L.colony||'').toLowerCase().includes(q)).slice(0,30);
+  el.innerHTML = hits.length? hits.map(L=>`<div class="row" style="padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer;gap:9px" onclick="this.closest('.modal-bg').remove();go('detail','${L.id}')">
+      <div class="avatar" style="background:${avatarColor(L.name)};width:30px;height:30px;font-size:.8rem;flex:none">${esc(L.name[0]||'?')}</div>
+      <div class="grow" style="min-width:0"><b class="ell">${esc(L.name)}</b><div class="tiny ell" style="color:var(--muted)">${esc(L.mobile)}${L.colony?' · '+esc(L.colony):''} · ${stMap[L.status]?.l||''}</div></div></div>`).join('')
+    : '<div class="tiny" style="padding:10px;color:var(--muted)">Kuch nahi mila.</div>';
+}
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='K')){ e.preventDefault(); openPalette(); } });
+
 function fnSet(k,v){
   if(k==='colony') fn.colony=v;
   else { fn[k]=parseInt(String(v).replace(/[^0-9]/g,''))||0; localStorage.setItem(k==='avg'?'fnAvg':'fnTarget', fn[k]); }
@@ -1162,6 +1239,7 @@ function leadCard(L){
       <div class="tiny ell" style="display:flex;align-items:center;gap:6px;${od?'color:var(--danger);font-weight:600':''}">
         ${od?'<span class="odot"></span>':''}${esc(next)}</div>
       ${L.lineOfAction?`<div class="tiny ell" style="color:#4338ca;font-weight:600;margin-top:1px">🎯 ${esc(L.lineOfAction.split('\n')[0])}</div>`:''}
+      ${isCold(L)?`<div class="tiny" style="color:#0369a1;font-weight:600;margin-top:1px">🧊 ${coldDays(L)}d se chup — call karo</div>`:''}
     </div>
     <span class="chev">${IC.chev}</span>
   </div>`;
@@ -1724,8 +1802,9 @@ function hardDelLead(id){
   col().doc(id).delete().then(()=>{ toast('Permanent delete'); const m=document.querySelector('.modal-bg'); if(m){m.remove();openDeleted();} })
     .catch(e=>alert(e.message));
 }
-function setStatus(k){ f.status=k; page=1; render(); }
-function clearFilters(){ f={q:'',status:'',colony:'',exec:'',from:'',to:''}; page=1; render(); }
+function setStatus(k){ f.status=k; f.cold=false; page=1; render(); }
+function setCold(){ f.cold=!f.cold; if(f.cold) f.status=''; page=1; render(); }
+function clearFilters(){ f={q:'',status:'',colony:'',exec:'',from:'',to:'',cold:false}; page=1; render(); }
 
 function exportCSV(){
   const rows=[['Name','Mobile','Occupation','City','Colony','Plot','Source','Agent','Executive','Status','Added',
