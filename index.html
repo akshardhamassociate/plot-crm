@@ -1141,6 +1141,8 @@ async function agMicToggle(){
 }
 async function agSend(audioUrl){
   if(!_ag) return; _ag.busy=true; _agMic(true); _agStatus(audioUrl?'Sun raha hoon…':'Saathi soch raha hai…');
+  // ponytail: history GET URL me jaati hai — ~12KB se lambi ho to purane msgs hatao (shuru user msg se hi ho). Lambi chats chahiye to POST pe le jaana.
+  while(_ag.msgs.length>2 && encodeURIComponent(JSON.stringify(_ag.msgs)).length>12000){ _ag.msgs.shift(); while(_ag.msgs.length>1&&_ag.msgs[0].role!=='user') _ag.msgs.shift(); }
   const url=AUDIT_URL+(AUDIT_URL.includes('?')?'&':'?')+'agentTurn=1&round='+(_ag.rounds||0)
     +'&msgs='+encodeURIComponent(JSON.stringify(_ag.msgs))
     +(audioUrl?'&audio='+encodeURIComponent(audioUrl):'');
@@ -1174,6 +1176,7 @@ async function _agTool(name,a){
     return {results: leads.filter(L=>L.name.toLowerCase().includes(q)||(dq&&digits(L.mobile).includes(dq))||(L.colony||'').toLowerCase().includes(q)).slice(0,8).map(C)}; }
   if(name==='lead_detail'){ const L=leads.find(x=>x.id===a.id)||leads.find(x=>digits(x.mobile)===digits(a.id||'')); if(!L) return {error:'lead nahi mili'};
     return {lead:Object.assign(C(L),{ptype:L.ptype||'',size:L.size||'',budget:(L.budgetMin||'')+'-'+(L.budgetMax||''),cash:L.cash||'',loan:L.loan||'',token:L.token||'',family:L.family||'',refBy:L.refBy||'',lineOfAction:L.lineOfAction||'',deal:L.deal?{total:L.deal.total,plots:L.deal.count,colony:L.deal.colony}:null,
+      need:L.need?{timeline:L.need.timeline||'',budget:L.need.budget||'',purpose:L.need.purpose||'',ready:L.need.ready||'',remarks:L.need.remarks||'',bharaBy:L.need.byName||'',date:L.need.ts?new Date(L.need.ts).toISOString().slice(0,10):''}:null,
       followUps:(L.followUps||[]).slice(0,4).map(f=>({date:f.date,baat:f.purpose||f.response||'',next:f.nextDate||'',status:stMap[f.next]?.l||''}))})}; }
   if(name==='list_leads'){ const k=a.kind; let list=[];
     if(k==='due_today')list=leads.filter(L=>dueDate(L)===today()); else if(k==='overdue')list=leads.filter(isOverdue);
@@ -1202,8 +1205,48 @@ async function _agTool(name,a){
     else if(w==='board'){ if(m)m.remove(); _ag=null; openBoard(); }
     else { if(m)m.remove(); _ag=null; tab(w==='leads'?'list':w); }
     return {ok:true}; }
+  if(name==='attendance'){ const d=a.date||today(), who=(a.name||'').trim().toLowerCase();
+    if(who==='all'||who==='sab'||who==='team'){ if(!canViewAllHA()) return {error:'Poori team ki attendance sirf admin dekh sakte hain'};
+      const rows=(await db.collection('attendance').where('date','==',d).get()).docs.map(x=>x.data());
+      const seen=new Set(rows.map(r=>r.nameKey||''));
+      return {date:d, present:rows.filter(r=>r.inTime).map(r=>({name:r.name,in:r.inTime,out:r.outTime||'',late:!!r.late,office:r.officeName||''})),
+        onLeave:rows.filter(r=>r.leave&&!r.inTime).map(r=>r.name),
+        notMarked:Object.values(OFFICE_STAFF).flat().filter(n=>!seen.has(n.toLowerCase()))}; }
+    const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ki attendance sirf admin dekh sakte hain'};
+    const doc=await db.collection('attendance').doc(attId(d,nm)).get(), r=doc.exists?doc.data():null;
+    return r?{name:nm,date:d,punchedIn:!!r.inTime,in:r.inTime||'',out:r.outTime||'',late:!!r.late,office:r.officeName||'',leave:!!(r.leave&&!r.inTime)}
+      :{name:nm,date:d,punchedIn:false,note:'is din attendance nahi lagi'}; }
+  if(name==='member_report'){ const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ki report sirf admin dekh sakte hain'};
+    const h=await _agHist(nm);
+    // Score Board wala hi formula: attendance(1) + plan(1) + report(1) roz; weekly = non-leave dino ka avg × 6
+    const day=dt=>{ const r=h.att.find(x=>x.date===dt), s=h.std.find(x=>x.date===dt), t=(s&&Array.isArray(s.tasks))?s.tasks:[];
+      const A=(r&&r.inTime)?1:0, P=t.length?1:0, R=(t.length&&t.every(x=>x.st))?1:0;
+      return {date:dt,leave:!!(r&&r.leave&&!r.inTime),att:A,plan:P,report:R,score:A+P+R,tasks:t.length,done:t.filter(x=>x.st).length}; };
+    const last7=[]; for(let i=0;i<7;i++){ const x=new Date(); x.setUTCDate(x.getUTCDate()-i); last7.push(x.toISOString().slice(0,10)); }
+    const wk=_weekDates(today()).map(day).filter(r=>!r.leave);
+    return {name:nm, weekScore:wk.length?Math.round(wk.reduce((s,r)=>s+r.score,0)/wk.length*6):0, weekMax:18, last7:last7.map(day)}; }
+  if(name==='standup_history'){ const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ke standup sirf admin dekh sakte hain'};
+    const n=Math.min(Math.max(parseInt(a.days)||7,1),14), from=new Date(Date.now()-n*86400e3).toISOString().slice(0,10);
+    const h=await _agHist(nm);
+    return {name:nm, days:n, standups:h.std.filter(s=>(s.date||'')>=from).sort((x,y)=>(y.date||'').localeCompare(x.date||''))
+      .map(s=>({date:s.date, tasks:(Array.isArray(s.tasks)?s.tasks:[]).map(t=>typeof t==='string'?{t:t.slice(0,80)}:{t:(t.t||'').slice(0,80),st:t.st||'',rm:(t.rm||'').slice(0,60)}), issues:s.issues||[]}))}; }
+  if(name==='team_stats'){ if(!isAdmin()) return {error:'Team stats sirf admin ke liye hain'};
+    const by={};
+    leads.forEach(L=>{ const o=ownerOf(L), s=by[o]||(by[o]={owner:o,total:0,open:0,hot:0,dueToday:0,overdue:0,cold:0,won:0,wonValue:0});
+      s.total++; if(OPEN.includes(L.status))s.open++; if(L.status==='hot')s.hot++; if(dueDate(L)===today())s.dueToday++;
+      if(isOverdue(L))s.overdue++; if(isCold(L))s.cold++; if(L.status==='booked'){ s.won++; s.wonValue+=(L.deal&&L.deal.total)||fn.avg; } });
+    let rows=Object.values(by).map(s=>Object.assign(s,{wonValue:inr(s.wonValue)}));
+    if(a.name){ const q=a.name.toLowerCase().replace(/\s*ji$/,''); rows=rows.filter(r=>r.owner.toLowerCase().includes(q)); }
+    return {members:rows.sort((x,y)=>y.open-x.open).slice(0,15)}; }
   return {error:'unknown tool '+name};
 }
+// "Rupesh" -> "Rupesh Ji" (roster se); khaali = khud
+function _agWho(n){ n=(n||'').trim(); if(!n) return _ag.name; const q=n.toLowerCase().replace(/\s*ji$/,''), R=Object.values(OFFICE_STAFF).flat();
+  return R.find(r=>r.toLowerCase()===n.toLowerCase())||R.find(r=>r.toLowerCase().startsWith(q))||R.find(r=>r.toLowerCase().includes(q))||n; }
+const _agCanSee = nm => canViewAllHA() || nm.toLowerCase()===(_ag.name||'').toLowerCase();
+async function _agHist(nm){ const k=nm.toLowerCase();
+  const [s,t]=await Promise.all([db.collection('standups').where('nameKey','==',k).get(), db.collection('attendance').where('nameKey','==',k).get()]);
+  return {std:s.docs.map(d=>d.data()), att:t.docs.map(d=>d.data())}; }
 async function _agSaveStandup(extra){
   const name=_ag.name, date=today(), id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
   const upd=Object.assign({date,name,nameKey:name.toLowerCase(),ts:Date.now(),via:'saathi'},extra);

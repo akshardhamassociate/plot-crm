@@ -1098,6 +1098,8 @@ function _agentSystem() {
     'Tumhare paas TOOLS hain jinse tum app ka LIVE data dekh sakte ho aur kaam kar sakte ho. Jab user kuch bhi poochhe — kaunsi lead, kiska follow-up aaj due hai, funnel/pipeline value, kaun thanda pad gaya (going cold), kisi lead ka status/detail, ya daily plan/report daalna ho — to pehle sahi tool call karo, phir uske jawab se baat karo. Apne se data mat banao.',
     'Daily reporting: subah "plan" (aaj ke kaam) save_plan se, shaam "report" (kya hua + status + proof + feedback) save_report se. Report me har task ka status aur proof poochho, phir chhota feedback + score (0-10) do.',
     'Follow-up log karna ho to add_followup, nayi lead banani ho to create_lead (form khulega, user confirm karega), kahin le jana ho to open.',
+    'Attendance ke liye attendance, weekly score / 7 din ka kaam ke liye member_report, purane standups ke liye standup_history, aur team-wise numbers (admin) ke liye team_stats. Lead ki Need Analysis lead_detail me milti hai.',
+    'Doosre member ka data sirf admin dekh sakte hain — tool error de to politely wahi bata do, apne se mat banao.',
     'Agar koi cheez app se bahar ki hai to politely bol do ki tum CRM ke kaam me madad karte ho.'
   ].join(' ');
 }
@@ -1118,7 +1120,11 @@ function _agentTools() {
     fn('create_lead', 'Nayi lead ka form prefill karke kholo (user confirm karega)', { name: { type: 'string' }, mobile: { type: 'string' }, colony: { type: 'string' }, status: { type: 'string' } }, ['name']),
     fn('save_plan', 'Aaj ke kaam (plan) standup me save karo', { tasks: { type: 'array', items: { type: 'string' } } }, ['tasks']),
     fn('save_report', 'Shaam ki report save karo: har task ka status + feedback + score', { tasks: { type: 'array', items: { type: 'object', properties: { t: { type: 'string' }, st: { type: 'string' }, rm: { type: 'string' } } } }, feedback: { type: 'string' }, score: { type: 'number' } }, ['tasks']),
-    fn('open', 'App me kahin le jao', { what: { type: 'string', enum: ['lead', 'leads', 'funnel', 'board', 'reminders', 'today', 'huddle'] }, id: { type: 'string' } }, ['what'])
+    fn('open', 'App me kahin le jao', { what: { type: 'string', enum: ['lead', 'leads', 'funnel', 'board', 'reminders', 'today', 'huddle'] }, id: { type: 'string' } }, ['what']),
+    fn('attendance', 'Attendance dekho: punch-in/out time, late, leave. name khaali = khud; name "all" = poori team (kaun aaya, kaun late, kaun chhutti pe, kisne nahi lagayi — sirf admin).', { name: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD, khaali = aaj' } }, []),
+    fn('member_report', 'Weekly score (Score Board wala, max 18) + pichhle 7 din ki report (roz attendance/plan/report/score). name khaali = khud.', { name: { type: 'string' } }, []),
+    fn('standup_history', 'Purane standups — kis din kya task the, status, issues. name khaali = khud. days default 7 (max 14).', { name: { type: 'string' }, days: { type: 'number' } }, []),
+    fn('team_stats', 'Admin ke liye: har member/owner ke leads — total, open, hot, aaj due, overdue, going cold, won + value. name do to sirf us member ka.', { name: { type: 'string' } }, [])
   ];
 }
 
