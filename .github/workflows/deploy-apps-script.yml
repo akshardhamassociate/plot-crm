@@ -1,0 +1,63 @@
+name: Deploy Code.gs to Apps Script
+
+# Code.gs main pe push hote hi Apps Script me khud deploy — copy-paste ki zarurat nahi.
+# Wahi purana deployment update hota hai, isliye /exec URL nahi badalta.
+# Ek baar setup (secrets): CLASPRC_JSON (clasp login wali file) + SCRIPT_ID (Apps Script → Project Settings → Script ID).
+on:
+  push:
+    branches: [main]
+    paths: ['Code.gs']
+  workflow_dispatch: {}
+
+concurrency:
+  group: apps-script-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+      SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+      DEPLOYMENT_ID: AKfycbzg03zxLfHawG5NG4fK4bkOd7kZAdKz9lJS2t-UkAhVFc-9xsEADcLWQGpOo-dZtPiV   # index.html / calllog.html wala /exec
+    steps:
+      - id: chk
+        run: |
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$SCRIPT_ID" ]; then
+            echo "::warning::CLASPRC_JSON / SCRIPT_ID secret set nahi — auto-deploy skip. Tab tak Code.gs manually paste karo."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.chk.outputs.ok == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.chk.outputs.ok == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - if: steps.chk.outputs.ok == 'true'
+        name: Pull current project, safety checks, swap in Code.gs
+        run: |
+          npm i -g @google/clasp@2.4.2
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          mkdir gas && cd gas
+          printf '{"scriptId":"%s"}' "$SCRIPT_ID" > .clasp.json
+          clasp pull
+          echo "Project files:"; ls -1
+          grep -q '"webapp"' appsscript.json || { echo "::error::appsscript.json me webapp config nahi mila — deploy rok diya (warna /exec URL toot sakta tha)"; exit 1; }
+          extra=$(ls -1 | grep -vE '^(Code\.js|appsscript\.json)$' || true)
+          if [ -n "$extra" ]; then
+            echo "::error::Apps Script project me extra files hain: $extra — inke purane functions Code.gs ko chupchap override kar dete hain. Editor me inhe delete karo (sab kuch Code.gs me hai), phir workflow dobara chalao."
+            exit 1
+          fi
+          cp ../Code.gs Code.js
+
+      - if: steps.chk.outputs.ok == 'true'
+        name: Push + update existing deployment (same /exec URL)
+        working-directory: gas
+        run: |
+          clasp push -f
+          clasp deploy -i "$DEPLOYMENT_ID" -d "auto ${GITHUB_SHA::7}"

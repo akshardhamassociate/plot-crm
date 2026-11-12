@@ -599,7 +599,9 @@ async function resolveMe(u){
 }
 
 /* ================= SYNC ================= */
-function jsonp(url){return new Promise((resolve,reject)=>{
+// Server (Apps Script) har request me Firebase login token maangta hai — bina login kuch nahi deta.
+async function _idt(){try{const u=fbAuth.currentUser;return u?await u.getIdToken():''}catch(e){return ''}}
+async function jsonp(url){const tok=await _idt();url+=(url.includes('?')?'&':'?')+'idt='+encodeURIComponent(tok);return new Promise((resolve,reject)=>{
   const cb='_jcb'+Date.now();let timer=setTimeout(()=>{cleanup();reject(new Error('timeout'));},15000);
   const s=document.createElement('script');
   function cleanup(){clearTimeout(timer);try{delete window[cb]}catch(e){window[cb]=undefined}if(s.parentNode)s.remove();}
@@ -1347,8 +1349,8 @@ function uploadRecToDrive(logId,file){
     const b64=String(rd.result).split(',')[1]||'';
     const ext=(file.name.split('.').pop()||'m4a').toLowerCase();
     // no-cors fire-and-forget (response nahi padh sakte, isliye file naam = logId)
-    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({type:'recording',record:{id:logId,name:logId+'.'+ext,mime:file.type||'audio/mpeg',data:b64}})}).catch(()=>{});
+    _idt().then(t=>fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({type:'recording',idt:t,record:{id:logId,name:logId+'.'+ext,mime:file.type||'audio/mpeg',data:b64}})})).catch(()=>{});
     toast('Recording Drive pe upload ho rahi hai…');
   };
   rd.readAsDataURL(file);
@@ -1421,7 +1423,7 @@ function refreshSync(){
   document.getElementById('syncTxt').textContent=on?'Google Sheet sync ON':'Local only — add a sync URL in settings';
   if(!inbuilt)document.getElementById('set_url').value=localStorage.getItem(LS.url)||"";
 }
-function pushSheet(type,rec){const url=syncUrl();if(!url)return;fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({type,record:rec})}).catch(()=>{});}
+function pushSheet(type,rec){const url=syncUrl();if(!url)return;_idt().then(t=>fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({type,record:rec,idt:t})})).catch(()=>{});}
 function exportCSV(){
   const logs=myLogs();if(!logs.length){toast('No logs to export');return;}
   const head=['User','Date','Category','Called To','Mobile','Purpose','Response','Next Action','Next Date','Duration','Comment'];

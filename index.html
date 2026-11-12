@@ -647,18 +647,20 @@ function putLead(L){ return col().doc(L.id).set(L).catch(e=>alert('Save failed: 
 // Huddle standup ka mirror Google Sheet me (calllog wale SAME /exec doPost pe type:'huddle').
 // Fire-and-forget — Firestore source of truth hai, sheet sirf tracking ke liye.
 function pushHuddleSheet(rec){ if(!AUDIT_URL) return;
-  try{ fetch(AUDIT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({type:'huddle',record:rec})}).catch(()=>{}); }catch(e){} }
+  _idt().then(t=>fetch(AUDIT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({type:'huddle',record:rec,idt:t})})).catch(()=>{}); }
+// Server (Apps Script) har request me Firebase login token maangta hai — bina login kuch nahi deta.
+async function _idt(){ try{ const u=auth.currentUser; return u ? await u.getIdToken() : ''; }catch(e){ return ''; } }
 
 // ── AI call-audit (recording upload hote hi, background me) ──
-function _jsonp(url){return new Promise((res,rej)=>{
+async function _jsonp(url){ const tok=await _idt(); return new Promise((res,rej)=>{
   const cb='_acb'+Math.random().toString(36).slice(2);
   const s=document.createElement('script');
   const to=setTimeout(()=>{cleanup();rej(new Error('timeout'));},60000);
   function cleanup(){clearTimeout(to);try{delete window[cb];}catch(e){}s.remove();}
   window[cb]=d=>{cleanup();res(d);};
   s.onerror=()=>{cleanup();rej(new Error('load error'));};
-  s.src=url+(url.includes('?')?'&':'?')+'callback='+cb+'&t='+Date.now();
+  s.src=url+(url.includes('?')?'&':'?')+'callback='+cb+'&t='+Date.now()+'&idt='+encodeURIComponent(tok);
   document.body.appendChild(s);
 });}
 function _ckStr(r){ return 'intro'+(r.intro?'✓':'✗')+' rapport'+(r.rapport?'✓':'✗')+' Q'+(r.questions?'✓':'✗')+' req'+(r.requirement?'✓':'✗')+' tone'+(r.tone?'✓':'✗')+' next'+(r.nextstep?'✓':'✗'); }
@@ -1200,14 +1202,27 @@ async function _agTool(name,a){
     const s=await db.collection('standups').doc(id).get(); const d=s.exists?s.data():null;
     return d?{name:nm,tasks:(d.tasks||[]).map(t=>({t:t.t,st:t.st||'',rm:t.rm||''})),issues:d.issues||[]}:{name:nm,tasks:[],note:'aaj ka standup abhi nahi bhara'}; }
   if(name==='add_followup'){ const L=leads.find(x=>x.id===a.leadId)||leads.find(x=>digits(x.mobile)===digits(a.leadId||'')); if(!L)return{error:'lead nahi mili'};
-    const fu={id:uid(),date:today(),by:_ag.name,purpose:a.note||'',response:'',nextDate:a.nextDate||'',nextAction:a.nextAction||'',prev:L.status,next:a.status||L.status};
-    L.followUps=L.followUps||[]; L.followUps.unshift(fu); if(a.status)L.status=a.status; L.ts=Date.now(); await putLead(L);
+    const st=_agStatusKey(a.status);
+    if(st==='booked') return {error:'Won/Booking Saathi se nahi — lead kholke status Won karo taaki booking popup bhara jaye'};
+    const ok=await _agConfirm('📝 '+L.name+' pe follow-up likhun?'+(a.note?'\nBaat: '+a.note:'')+(a.nextDate?'\nAgli date: '+a.nextDate:'')+(a.nextAction?'\nAgla kaam: '+a.nextAction:'')
+      +(st&&st!==L.status?'\nStatus: '+(stMap[L.status]?.l||L.status)+' → '+(stMap[st]?.l||st):''));
+    if(!ok) return {cancelled:true,note:'User ne mana kiya — kuch save nahi hua'};
+    const fu={id:uid(),date:today(),by:_ag.name,purpose:a.note||'',response:'',nextDate:a.nextDate||'',nextAction:a.nextAction||'',prev:L.status,next:st||L.status};
+    L.followUps=L.followUps||[]; L.followUps.unshift(fu); if(st)L.status=st; L.ts=Date.now(); await putLead(L);
     return {ok:true,lead:L.name}; }
   if(name==='create_lead'){ const m=document.querySelector('.modal-bg'); if(m)m.remove(); openLeadForm();
     setTimeout(()=>{ _aiSet('l_name',a.name||''); _aiSet('l_mobile',digits(a.mobile||'')); _aiSet('l_colony',a.colony||''); if(a.status)_aiSet('l_status',a.status); },140);
     _ag=null; return {ok:true,note:'Lead form prefill karke khol diya — user confirm karke Save karega'}; }
-  if(name==='save_plan'){ await _agSaveStandup({tasks:(a.tasks||[]).map(t=>({t:(typeof t==='string'?t:(t&&t.t))||'',st:'',rm:''})).filter(t=>t.t)}); return {ok:true,saved:(a.tasks||[]).length}; }
-  if(name==='save_report'){ await _agSaveStandup({tasks:(a.tasks||[]).map(t=>({t:t.t||'',st:t.st||'',rm:t.rm||''})),feedback:a.feedback||'',agentScore:(a.score!=null?a.score:'')}); return {ok:true}; }
+  if(name==='save_plan'||name==='save_report'){
+    const inc=(a.tasks||[]).map(t=>typeof t==='string'?{t}:{t:(t&&t.t)||'',st:(name==='save_report'&&t&&t.st)||'',rm:(t&&t.rm)||''}).filter(t=>t.t);
+    if(!inc.length) return {error:'koi task nahi mila'};
+    const m=await _agMergeTasks(inc);
+    const lines=m.tasks.map(t=>(t.st?'✓ ':'• ')+t.t+(t.st?' — '+t.st:'')).join('\n');
+    const ok=await _agConfirm((name==='save_plan'?'📋 Aaj ka plan save karun?':'🌙 Aaj ki report save karun?')
+      +` (${m.added} naye${m.updated?', '+m.updated+' update':''})\n`+lines+(a.feedback?'\nFeedback: '+a.feedback:'')+(a.score!=null?'\nScore: '+a.score+'/10':''));
+    if(!ok) return {cancelled:true,note:'User ne mana kiya — kuch save nahi hua'};
+    await _agSaveStandup(m, name==='save_report'?{feedback:a.feedback||'',agentScore:(a.score!=null?a.score:'')}:{});
+    return {ok:true,added:m.added,updated:m.updated,totalTasks:m.tasks.length}; }
   if(name==='open'){ const w=a.what; const m=document.querySelector('.modal-bg');
     if(w==='lead'&&a.id){ if(m)m.remove(); _ag=null; go('detail',a.id); }
     else if(w==='funnel'){ if(m)m.remove(); _ag=null; openFunnel(); }
@@ -1256,13 +1271,37 @@ const _agCanSee = nm => canViewAllHA() || nm.toLowerCase()===(_ag.name||'').toLo
 async function _agHist(nm){ const k=nm.toLowerCase();
   const [s,t]=await Promise.all([db.collection('standups').where('nameKey','==',k).get(), db.collection('attendance').where('nameKey','==',k).get()]);
   return {std:s.docs.map(d=>d.data()), att:t.docs.map(d=>d.data())}; }
-async function _agSaveStandup(extra){
-  const name=_ag.name, date=today(), id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
-  const upd=Object.assign({date,name,nameKey:name.toLowerCase(),ts:Date.now(),via:'saathi'},extra);
-  await db.collection('standups').doc(id).set(upd,{merge:true});
-  pushHuddleSheet({date,name,yesterday:[],tasks:upd.tasks||[],issues:upd.issues||[]});
+// Aaj ke standup me naye tasks JODO / matching task ka status update karo — purane kabhi mat hatao.
+async function _agMergeTasks(inc){
+  const name=_ag.name, date=today(), ref=db.collection('standups').doc(date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-'));
+  const snap=await ref.get(), cur=snap.exists?snap.data():{};
+  const tasks=(Array.isArray(cur.tasks)?cur.tasks:[]).map(t=>typeof t==='string'?{t,st:'',rm:''}:Object.assign({},t));
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9ऀ-ॿ]+/g,' ').trim();
+  let added=0, updated=0;
+  inc.forEach(n=>{ const k=norm(n.t);
+    const ex=tasks.find(t=>{ const tk=norm(t.t); return tk===k || (k.length>3&&tk.length>3&&(tk.includes(k)||k.includes(tk))); });
+    if(ex){ if(n.st&&ex.st!==n.st){ ex.st=n.st; updated++; } if(n.rm) ex.rm=n.rm; }
+    else { tasks.push({t:n.t,st:n.st||'',rm:n.rm||''}); added++; } });
+  return {ref,cur,date,name,tasks,added,updated};
+}
+async function _agSaveStandup(m,extra){
+  await m.ref.set(Object.assign({date:m.date,name:m.name,nameKey:m.name.toLowerCase(),tasks:m.tasks,ts:Date.now(),via:'saathi'},extra),{merge:true});
+  // Sheet mirror me poora din bhejo (Kal + Aaj + Issues) — warna "Kal" wali rows mit jaati thi
+  pushHuddleSheet({date:m.date,name:m.name,yesterday:m.cur.yesterday||[],tasks:m.tasks,issues:m.cur.issues||[]});
   if(route.view==='huddle') hudLoad();
 }
+// Save se pehle chat me Haan/Nahi — galat suna ho to kuch save na ho
+function _agConfirm(txt){ return new Promise(res=>{
+  const el=document.getElementById('ag_convo'); if(!el) return res(false);
+  const id='agc'+Date.now();
+  el.insertAdjacentHTML('beforeend',`<div id="${id}" style="align-self:flex-start;max-width:88%;background:#fff7ed;border:1px solid #fdba74;color:var(--ink);padding:10px 13px;border-radius:14px;font-size:.88rem;white-space:pre-wrap">${esc(txt)}<div class="row" style="gap:8px;margin-top:9px"><button class="btn sm" data-ok="1">✅ Haan, save karo</button><button class="btn ghost sm" data-ok="0">✖ Nahi</button></div></div>`);
+  el.scrollTop=el.scrollHeight; _agStatus('Aapki haan/na ka intezaar…');
+  const box=document.getElementById(id);
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const ok=b.dataset.ok==='1';
+    box.querySelector('.row').outerHTML=`<div class="tiny" style="margin-top:6px;font-weight:700;color:${ok?'#15803d':'#b91c1c'}">${ok?'✓ Save kiya':'✖ Cancel kiya'}</div>`;
+    _agStatus(ok?'Save ho raha…':''); res(ok); });
+}); }
+const _agStatusKey = s => { const k=String(s||'').toLowerCase().trim(); return k ? ((STATUSES.find(x=>x.k===k||String(x.l).toLowerCase()===k)||{}).k||'') : ''; };
 
 function fnSet(k,v){
   if(k==='colony') fn.colony=v;

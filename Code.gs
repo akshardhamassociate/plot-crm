@@ -12,6 +12,8 @@
  *        SARVAM_KEY   = Sarvam API key        (Saathi voice — STT/TTS)
  *   • installAssignNotify()→ assign notification auto (har 5 min)
  *   • installCallAudit()   → calllog recordings auto-audit (har 10 min)
+ *   • installWeeklyBackup()→ Firestore ka weekly backup Drive me (har Sunday)
+ *  Har request me Firebase login token (idt) zaroori — bina login koi data nahi milta.
  *
  *  Deploy change ke baad: Deploy → Manage deployments → Edit → New version → Deploy
  * ============================================================
@@ -34,8 +36,38 @@ const HUDDLE_COLS = ['Timestamp','Date','Name','Type','Task','Status','Remark','
 // ══════════════════════════════════════════════════════════
 //  doGet — App se sync pull (JSONP)
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+//  LOGIN CHECK — har request me Firebase login token (idt) zaroori.
+//  Firestore rules jaisa hi: koi bhi logged-in team member = allow, bahar wala = block.
+//  FB_WEB_KEY public Firebase web key hai (index.html me bhi hai) — secret nahi.
+// ══════════════════════════════════════════════════════════
+var FB_WEB_KEY = 'AIzaSyCZ_kgx4ErVZjw0YYPyJiCT70DFyE0HUTA';
+function _authEmail(idt) {
+  if (!idt) return '';
+  var cache = CacheService.getScriptCache();
+  var ck = 'idt_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(idt))).slice(0, 43);
+  var hit = cache.get(ck); if (hit) return hit;
+  var res = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FB_WEB_KEY, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify({ idToken: String(idt) })
+  });
+  if (res.getResponseCode() !== 200) return '';
+  var u = (JSON.parse(res.getContentText()).users || [])[0];
+  var email = (u && u.email && !u.disabled) ? String(u.email).toLowerCase() : '';
+  if (email) cache.put(ck, email, 600);   // 10 min — har call pe Google se dobara na poochhna pade
+  return email;
+}
+function _cbName(e) {   // JSONP callback ka naam — sirf safe characters
+  var c = (e && e.parameter && e.parameter.callback) || 'callback';
+  return /^[A-Za-z0-9_$.]{1,64}$/.test(c) ? c : 'callback';
+}
+
 function doGet(e) {
-  const cb = (e && e.parameter && e.parameter.callback) ? e.parameter.callback : 'callback';
+  const cb = _cbName(e);
+  if (!_authEmail(e && e.parameter && e.parameter.idt)) {
+    return ContentService
+      .createTextOutput(cb + '(' + JSON.stringify({ error: 'AUTH: login zaroori hai — app band karke dobara kholo / login karo' }) + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
 
   // Talking agent "Saathi" — app poochta hai ?agentTurn=1&msgs=<JSON>&audio=<url?>
   if (e && e.parameter && e.parameter.agentTurn) {
@@ -163,6 +195,14 @@ function doGet(e) {
 //  doPost — App se data save (LockService se serialized)
 // ══════════════════════════════════════════════════════════
 function doPost(e) {
+  let body;
+  try { body = JSON.parse(e.postData.contents); } catch (pe) { body = {}; }
+  if (!_authEmail(body.idt)) {   // login check — lock lene se pehle
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: 'AUTH: login zaroori hai' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
@@ -173,14 +213,9 @@ function doPost(e) {
   }
 
   try {
-    const body   = JSON.parse(e.postData.contents);
     const type   = body.type;
     const record = body.record || {};
     const ss     = SpreadsheetApp.getActiveSpreadsheet();
-
-    if (type === 'login') {
-      return doLoginCheck(ss, record);
-    }
 
     if (type === 'log') {
       saveLog(ss, record);
@@ -212,39 +247,6 @@ function doPost(e) {
     lock.releaseLock();
   }
 }
-
-function doLoginCheck(ss, rec) {
-  try {
-    const id = String(rec.id || '').trim().toLowerCase();
-    const pw = String(rec.pw || '');
-    if (!id || !pw) {
-      return ContentService.createTextOutput(JSON.stringify({ ok: false }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    const rawUsers = readSheet(ss, SHEET_USERS);
-    const users = rawUsers.map(u => ({
-      id   : u['login id'] || u['loginid'] || u['id']       || '',
-      name : u['name']     || '',
-      pw   : u['password'] || u['pw']      || '',
-      role : u['role']     || '',
-      tc   : u['telecaller'] === 'yes' || u['tc'] === 'true' || u['tc'] === true
-    })).filter(u => u.id && u.pw);
-
-    const match = users.find(u => u.id.toLowerCase() === id && u.pw === pw);
-    if (match) {
-      return ContentService.createTextOutput(JSON.stringify({
-        ok: true,
-        user: { id: match.id, name: match.name, role: match.role, tc: match.tc }
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    return ContentService.createTextOutput(JSON.stringify({ ok: false }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
 
 // ══════════════════════════════════════════════════════════
 //  SAVE FUNCTIONS
@@ -1030,7 +1032,7 @@ function _agentOut(e) {
   var out;
   try { out = agentTurn(e.parameter); }
   catch (err) { out = { error: String(err && err.message || err) }; }
-  var cb = e.parameter.callback || 'callback';
+  var cb = _cbName(e);
   return ContentService.createTextOutput(cb + '(' + JSON.stringify(out) + ')')
     .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
@@ -1101,6 +1103,8 @@ function _agentSystem() {
     'Follow-up log karna ho to add_followup, nayi lead banani ho to create_lead (form khulega, user confirm karega), kahin le jana ho to open.',
     'Attendance ke liye attendance, weekly score / 7 din ka kaam ke liye member_report, purane standups ke liye standup_history, aur team-wise numbers (admin) ke liye team_stats. Lead ki Need Analysis lead_detail me milti hai.',
     'Doosre member ka data sirf admin dekh sakte hain — tool error de to politely wahi bata do, apne se mat banao.',
+    'Aaj ki date (IST): ' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd, EEEE') + '. "kal / parso / agle somvar" jaisi baat ko YYYY-MM-DD me badal ke tool ko do.',
+    'Save karne wale tools (add_followup, save_plan, save_report) chalne par app user se Haan/Nahi poochhta hai. Tool "cancelled" lautaye to maan lo kuch save nahi hua aur poochho kya badalna hai.',
     'Agar koi cheez app se bahar ki hai to politely bol do ki tum CRM ke kaam me madad karte ho.'
   ].join(' ');
 }
@@ -1117,7 +1121,7 @@ function _agentTools() {
     fn('list_leads', 'Leads ki list ek category me', { kind: { type: 'string', enum: ['due_today', 'overdue', 'going_cold', 'new', 'hot'] } }, ['kind']),
     fn('funnel_summary', 'Pipeline/funnel value + har stage ke counts + Won', {}, []),
     fn('today_standup', 'Kisi member ka aaj ka standup (tasks + status). Naam na do to khud ka.', { name: { type: 'string' } }, []),
-    fn('add_followup', 'Ek lead pe follow-up log karo (baat + agli date + status)', { leadId: { type: 'string' }, note: { type: 'string' }, nextDate: { type: 'string' }, nextAction: { type: 'string' }, status: { type: 'string' } }, ['leadId']),
+    fn('add_followup', 'Ek lead pe follow-up log karo (baat + agli date + status). Pehle search_leads se sahi lead ka id lo.', { leadId: { type: 'string' }, note: { type: 'string' }, nextDate: { type: 'string', description: 'YYYY-MM-DD' }, nextAction: { type: 'string' }, status: { type: 'string', enum: ['fresh', 'warm', 'visit', 'nurture', 'hot', 'lost'] } }, ['leadId']),
     fn('create_lead', 'Nayi lead ka form prefill karke kholo (user confirm karega)', { name: { type: 'string' }, mobile: { type: 'string' }, colony: { type: 'string' }, status: { type: 'string' } }, ['name']),
     fn('save_plan', 'Aaj ke kaam (plan) standup me save karo', { tasks: { type: 'array', items: { type: 'string' } } }, ['tasks']),
     fn('save_report', 'Shaam ki report save karo: har task ka status + feedback + score', { tasks: { type: 'array', items: { type: 'object', properties: { t: { type: 'string' }, st: { type: 'string' }, rm: { type: 'string' } } } }, feedback: { type: 'string' }, score: { type: 'number' } }, ['tasks']),
@@ -1195,4 +1199,57 @@ function testAgentTTS() {
   var sarvam = PropertiesService.getScriptProperties().getProperty('SARVAM_KEY');
   if (!sarvam) { Logger.log('SARVAM_KEY set nahi'); return; }
   Logger.log('TTS base64 length: ' + _sarvamTTS(sarvam, 'Namaste! Main Saathi hoon, bataiye kya madad karun?').length);
+}
+
+
+/**
+ * ============================================================
+ *  WEEKLY BACKUP — Firestore ka poora data har Sunday raat Drive me (private folder).
+ *  Folder: "Plot CRM Backups" · file: plotcrm-backup-YYYY-MM-DD.json · last 12 hafte rakhta hai.
+ *  SETUP (ek baar): installWeeklyBackup() → Run.   Test: backupFirestore() → Run → Logs.
+ *  ponytail: restore ka button nahi hai — zarurat pade to JSON file se wapas daalne ka script tab likhenge.
+ * ============================================================
+ */
+var BACKUP_COLLECTIONS = ['leads', 'standups', 'attendance', 'wall', 'awards', 'config', 'watemplates'];
+var BACKUP_KEEP = 12;
+
+function _backupFolder() {
+  var props = PropertiesService.getScriptProperties(), id = props.getProperty('BACKUP_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  var f = DriveApp.createFolder('Plot CRM Backups');   // private (sirf tumhara Drive)
+  props.setProperty('BACKUP_FOLDER_ID', f.getId());
+  return f;
+}
+
+function backupFirestore() {
+  var at = _fcmAccessToken();
+  var out = { at: new Date().toISOString(), project: FB_PROJECT, data: {} };
+  BACKUP_COLLECTIONS.forEach(function (c) {
+    var docs = [], token = '';
+    do {
+      var url = 'https://firestore.googleapis.com/v1/projects/' + FB_PROJECT + '/databases/(default)/documents/' + c +
+                '?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : '');
+      var res = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + at }, muteHttpExceptions: true });
+      if (res.getResponseCode() !== 200) throw new Error('Backup fail (' + c + '): ' + res.getContentText());
+      var j = JSON.parse(res.getContentText());
+      (j.documents || []).forEach(function (d) {
+        var o = _fsVal({ mapValue: { fields: d.fields || {} } }); o._id = d.name.split('/').pop(); docs.push(o);
+      });
+      token = j.nextPageToken || '';
+    } while (token);
+    out.data[c] = docs;
+  });
+  var folder = _backupFolder();
+  var name = 'plotcrm-backup-' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd') + '.json';
+  folder.createFile(name, JSON.stringify(out), 'application/json');
+  var files = [], it = folder.getFiles(); while (it.hasNext()) files.push(it.next());
+  files.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  files.slice(BACKUP_KEEP).forEach(function (f) { f.setTrashed(true); });   // purane hatao
+  Logger.log('✅ Backup: ' + name + ' — ' + BACKUP_COLLECTIONS.map(function (c) { return c + ' ' + out.data[c].length; }).join(', '));
+}
+
+function installWeeklyBackup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'backupFirestore') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('backupFirestore').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(2).create();
+  Logger.log('✅ Weekly backup chalu — har Sunday ~2 baje raat (India time).');
 }
