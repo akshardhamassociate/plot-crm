@@ -1083,13 +1083,21 @@ document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==='k'
 // ── 🎙️ Talking Agent "Saathi" — real assistant (Sarvam STT/TTS + OpenAI tool-calling) ──
 // Tools browser me chalte hain (app ke live data pe); server sirf OpenAI/Sarvam. Multi-round loop.
 let _ag=null;
-function openAgent(mode){
+// Aaj ki chat isi device pe yaad rehti hai (din badla = nayi chat). ponytail: localStorage — dusre phone pe sync chahiye to Firestore me le jaana.
+const _agKey=()=>'saathi_'+((user&&user.email)||'');
+function _agLoad(){ try{ const s=JSON.parse(localStorage.getItem(_agKey())||'null'); return (s&&s.date===today()&&Array.isArray(s.msgs)&&s.msgs.length)?s:null; }catch(e){ return null; } }
+function _agStore(){ try{ if(_ag) localStorage.setItem(_agKey(),JSON.stringify({date:today(),mode:_ag.mode,msgs:_ag.msgs})); }catch(e){} }
+function agNew(){ try{ localStorage.removeItem(_agKey()); }catch(e){} const m=document.querySelector('.modal-bg'); if(m)m.remove(); openAgent(_ag&&_ag.mode,true); }
+function openAgent(mode,fresh){
   if(!AUDIT_URL){ alert('Agent endpoint (AUDIT_URL) set nahi.'); return; }
-  const h=new Date(Date.now()+5.5*3600e3).getUTCHours();
-  _ag={ mode: mode||(h<14?'plan':'report'), msgs:[], rounds:0,
+  const h=new Date(Date.now()+5.5*3600e3).getUTCHours(), saved=fresh?null:_agLoad();
+  _ag={ mode: mode||(saved&&saved.mode)||(h<14?'plan':'report'), msgs:saved?saved.msgs:[], rounds:0,
     name:(hudMyName()||((user&&user.email||'').split('@')[0])||''), busy:false, rec:null, chunks:[], stream:null };
   _agUI();
-  _ag.msgs.push({role:'user',content: _ag.mode==='plan'
+  if(saved){   // purani chat wapas dikhao, seed dobara mat bhejo
+    _ag.msgs.forEach(m=>{ if(m.hide||typeof m.content!=='string'||!m.content) return; if(m.role==='user')_agUser(m.content); else if(m.role==='assistant')_agBub('ag',m.content); });
+    return; }
+  _ag.msgs.push({role:'user',hide:1,content: _ag.mode==='plan'
     ? 'Namaste. (context: abhi subah hai. Mera naam '+_ag.name+'. Mujhe greet karke poochho aaj ke kaam, ya main jo poochu usme madad karo.)'
     : 'Namaste. (context: abhi shaam hai. Mera naam '+_ag.name+'. Pehle today_standup dekh ke meri report lena shuru karo, ya main jo poochu usme madad karo.)'});
   agSend(null);
@@ -1098,7 +1106,8 @@ function _agUI(){
   const chips = _ag.mode==='plan' ? ['Mera aaj ka plan daalo','Aaj kiska follow-up due hai?','Pipeline value kitni hai?']
     : ['Meri report lo','Going cold leads kaunsi hain?','Mera weekly score?'];
   modal(`<h2>🎙️ Saathi <span class="tiny" style="font-weight:600;color:var(--muted)">· ${_ag.mode==='plan'?'Plan':'Report'}</span>
-      <button class="btn ghost sm" style="float:right;padding:4px 10px;font-size:.72rem" onclick="agSwitch()">${_ag.mode==='plan'?'Report mode':'Plan mode'}</button></h2>
+      <button class="btn ghost sm" style="float:right;padding:4px 10px;font-size:.72rem" onclick="agSwitch()">${_ag.mode==='plan'?'Report mode':'Plan mode'}</button>
+      <button class="btn ghost sm" style="float:right;padding:4px 10px;font-size:.72rem;margin-right:6px" onclick="agNew()" title="Purani chat hata ke nayi shuru karo">＋ Nayi</button></h2>
     <div class="msub">Bol ya likh ke baat karo — leads, follow-up, funnel, report… sab pooch/karwa sakte ho.</div>
     <div id="ag_convo" style="max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0"></div>
     <div id="ag_chips" style="display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 2px">${chips.map(c=>`<span class="chip" onclick="agQuick(this.textContent)">${esc(c)}</span>`).join('')}</div>
@@ -1108,9 +1117,9 @@ function _agUI(){
       <button class="btn" onclick="agTextSend()" style="padding:10px 14px">➤</button></div>
     <div class="tiny" id="ag_status" style="margin-top:6px;color:var(--muted)"></div>`);
 }
-function agSwitch(){ const m=document.querySelector('.modal-bg'); if(m)m.remove(); openAgent(_ag.mode==='plan'?'report':'plan'); }
+function agSwitch(){ const m=document.querySelector('.modal-bg'); if(m)m.remove(); openAgent(_ag.mode==='plan'?'report':'plan',true); }
 function agQuick(t){ const i=document.getElementById('ag_text'); if(i)i.value=t; agTextSend(); }
-function agTextSend(){ const i=document.getElementById('ag_text'); if(!i||_ag.busy)return; const t=(i.value||'').trim(); if(!t)return; i.value=''; _agUser(t); _ag.msgs.push({role:'user',content:t}); _ag.rounds=0; agSend(null); }
+function agTextSend(){ const i=document.getElementById('ag_text'); if(!i||_ag.busy)return; const t=(i.value||'').trim(); if(!t)return; i.value=''; _agUser(t); _ag.msgs.push({role:'user',content:t}); _ag.rounds=0; _agStore(); agSend(null); }
 function _agBub(side,txt){ const el=document.getElementById('ag_convo'); if(!el) return;
   const me=side==='me';
   el.insertAdjacentHTML('beforeend',`<div style="align-self:${me?'flex-end':'flex-start'};max-width:84%;background:${me?'var(--brand)':'#eef0f6'};color:${me?'#fff':'var(--ink)'};padding:9px 13px;border-radius:14px;font-size:.9rem;white-space:pre-wrap;box-shadow:var(--sh)">${esc(txt)}</div>`);
@@ -1164,7 +1173,7 @@ async function agSend(audioUrl){
       return agSend(null);   // loop: agent ko tool-results do
     }
     _ag.busy=false; _agMic(false); _agStatus('');
-    _ag.msgs.push({role:'assistant',content:r.reply||''}); _ag.rounds=0;
+    _ag.msgs.push({role:'assistant',content:r.reply||''}); _ag.rounds=0; _agStore();
     _agSay(r.reply, r.audio);
   }catch(e){ if(_ag) _ag.busy=false; _agMic(false); _agStatus('Network error — dobara try karo.'); }
 }

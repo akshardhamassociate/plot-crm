@@ -1094,7 +1094,8 @@ function _agentSan(msgs) {
 function _agentSystem() {
   return [
     'Tum "Saathi" ho — Akshardham Associates (Jhalawar me plot/zameen bechne wali real-estate company) ke Plot-CRM app ke andar ka voice assistant.',
-    'Natural, dostana, chhoti Hindi/Hinglish me baat karo — jaise ek madadgaar team-mate. Ek-do line par turn, zyada lamba nahi. Numbers short bolo.',
+    'Natural, dostana, chhoti Hindi/Hinglish me baat karo — jaise ek madadgaar team-mate. Ek-do line par turn, zyada lamba nahi.',
+    'Hamesha Roman Hinglish me likho (Devanagari nahi). Tumhara jawab awaaz me bhi bola jaata hai, isliye: emoji, bullet, markdown, symbols (₹ % * # /) mat likho; paise shabdon me likho jaise "5 lakh 70 hazaar rupaye", dates jaise "12 November".',
     'Tumhare paas TOOLS hain jinse tum app ka LIVE data dekh sakte ho aur kaam kar sakte ho. Jab user kuch bhi poochhe — kaunsi lead, kiska follow-up aaj due hai, funnel/pipeline value, kaun thanda pad gaya (going cold), kisi lead ka status/detail, ya daily plan/report daalna ho — to pehle sahi tool call karo, phir uske jawab se baat karo. Apne se data mat banao.',
     'Daily reporting: subah "plan" (aaj ke kaam) save_plan se, shaam "report" (kya hua + status + proof + feedback) save_report se. Report me har task ka status aur proof poochho, phir chhota feedback + score (0-10) do.',
     'Follow-up log karna ho to add_followup, nayi lead banani ho to create_lead (form khulega, user confirm karega), kahin le jana ho to open.',
@@ -1162,8 +1163,24 @@ function _sarvamSTT(key, audioUrl) {
   return (JSON.parse(res.getContentText()).transcript) || '';
 }
 
+// Roman Hinglish -> Devanagari (spoken form: numbers shabdon me) taaki Hindi awaaz sahi bole.
+// Screen pe Roman hi dikhta hai; ye sirf awaaz ke liye. Fail ho to original text.
+function _speakable(key, text) {
+  text = String(text || '').replace(/[*_#`>]/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
+  if (!text || /[ऀ-ॿ]/.test(text)) return text;   // khaali / pehle se Devanagari
+  try {
+    var res = UrlFetchApp.fetch('https://api.sarvam.ai/transliterate', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { 'api-subscription-key': key },
+      payload: JSON.stringify({ input: text, source_language_code: 'en-IN', target_language_code: 'hi-IN', spoken_form: true })
+    });
+    if (res.getResponseCode() === 200) return JSON.parse(res.getContentText()).transliterated_text || text;
+  } catch (e) {}
+  return text;
+}
+
 function _sarvamTTS(key, text) {
-  var t = String(text || '').slice(0, 1400); if (!t) return '';
+  var t = _speakable(key, String(text || '').slice(0, 1400)).slice(0, 2400); if (!t) return '';
   var res = UrlFetchApp.fetch('https://api.sarvam.ai/text-to-speech', {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { 'api-subscription-key': key },
