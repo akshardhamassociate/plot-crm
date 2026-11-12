@@ -1185,7 +1185,7 @@ async function _agTool(name,a){
     return {results: leads.filter(L=>L.name.toLowerCase().includes(q)||(dq&&digits(L.mobile).includes(dq))||(L.colony||'').toLowerCase().includes(q)).slice(0,8).map(C)}; }
   if(name==='lead_detail'){ const L=leads.find(x=>x.id===a.id)||leads.find(x=>digits(x.mobile)===digits(a.id||'')); if(!L) return {error:'lead nahi mili'};
     return {lead:Object.assign(C(L),{ptype:L.ptype||'',size:L.size||'',budget:(L.budgetMin||'')+'-'+(L.budgetMax||''),cash:L.cash||'',loan:L.loan||'',token:L.token||'',family:L.family||'',refBy:L.refBy||'',lineOfAction:L.lineOfAction||'',deal:L.deal?{total:L.deal.total,plots:L.deal.count,colony:L.deal.colony}:null,
-      need:L.need?{timeline:L.need.timeline||'',budget:L.need.budget||'',purpose:L.need.purpose||'',ready:L.need.ready||'',remarks:L.need.remarks||'',bharaBy:L.need.byName||'',date:L.need.ts?new Date(L.need.ts).toISOString().slice(0,10):''}:null,
+      need:(L.need&&L.need.ts)?{timeline:L.need.timeline||'',budget:L.need.budget||'',purpose:L.need.purpose||'',ready:L.need.ready||'',remarks:L.need.remarks||'',bharaBy:L.need.byName||'',date:L.need.ts?new Date(L.need.ts).toISOString().slice(0,10):''}:null,
       followUps:(L.followUps||[]).slice(0,4).map(f=>({date:f.date,baat:f.purpose||f.response||'',next:f.nextDate||'',status:stMap[f.next]?.l||''}))})}; }
   if(name==='list_leads'){ const k=a.kind; let list=[];
     if(k==='due_today')list=leads.filter(L=>dueDate(L)===today()); else if(k==='overdue')list=leads.filter(isOverdue);
