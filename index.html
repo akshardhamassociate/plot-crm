@@ -332,6 +332,40 @@
   .badge.ontime{background:#d1fae5;color:#047857}
   .badge.absent{background:#f3f4f6;color:#9ca3af}
   .off-set{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
+  /* attendance: calendar (mine) + status-group team board */
+  .cal-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .cal-sum div{background:#f6f7fb;border-radius:10px;padding:7px 9px}
+  .cal-sum span{display:block;font-size:.64rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .cal-sum b{font-size:1.05rem}
+  .cal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .cal-h div{text-align:center;font-size:.64rem;font-weight:700;color:var(--muted);padding-bottom:2px}
+  .cal-c,.wk-d{border:0;border-radius:9px;background:#f6f7fb;color:#94a3b8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;font:inherit;font-style:normal}
+  .cal-c{height:46px;gap:1px;cursor:pointer}
+  .cal-c b{font-size:.82rem;color:var(--ink)} .cal-c span{font-size:.6rem;font-weight:700}
+  .cal-c.ok,.wk-d.ok{background:#dcfce7;color:#15803d} .cal-c.late,.wk-d.late{background:#fef3c7;color:#b45309}
+  .cal-c.abs,.wk-d.abs{background:#fee2e2;color:#b91c1c} .cal-c.leave,.wk-d.leave{background:#e0f2fe;color:#0369a1}
+  .cal-c.hol,.cal-c.off,.wk-d.hol,.wk-d.off{background:#eceef3;color:#64748b} .cal-c.fut,.wk-d.fut{background:transparent;border:1px dashed var(--line)}
+  .cal-c.tod{box-shadow:inset 0 0 0 2px var(--brand)} .cal-c.sel{box-shadow:inset 0 0 0 2px #0f172a}
+  .cal-det{margin-top:9px;padding:8px 10px;border-radius:10px;background:#f6f7fb;font-size:.84rem}
+  .cal-leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:9px;font-size:.7rem;color:var(--muted)}
+  .cal-leg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  .cal-leg .ok{background:#86efac}.cal-leg .late{background:#fcd34d}.cal-leg .abs{background:#fca5a5}.cal-leg .leave{background:#7dd3fc}.cal-leg .hol{background:#cbd5e1}
+  .att-seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;text-transform:none;letter-spacing:0}
+  .att-seg button{border:0;background:#fff;padding:5px 13px;font:inherit;font-size:.74rem;font-weight:700;color:var(--muted);cursor:pointer}
+  .att-seg button.on{background:var(--brand);color:#fff}
+  .att-pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font:inherit;font-size:.76rem;font-weight:700;color:var(--ink);margin:0 5px 5px 0;cursor:pointer}
+  .att-pill.on{background:#eef0ff;border-color:#c7d2fe;color:#4338ca}
+  .att-bar{height:7px;border-radius:4px;background:#eceef3;overflow:hidden} .att-bar i{display:block;height:100%;background:#22c55e}
+  .att-gt{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px}
+  .att-gt.ok{color:#15803d}.att-gt.wait{color:var(--muted)}.att-gt.warn{color:#b45309}.att-gt.abs{color:#b91c1c}.att-gt.leave{color:#0369a1}
+  .att-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 10px 3px 3px;margin:0 5px 6px 0;font:inherit;font-size:.8rem;font-weight:600;color:var(--ink);cursor:pointer}
+  .att-chip .avatar{width:24px;height:24px;font-size:.72rem}
+  .att-chip.ok{background:#f0fdf4;border-color:#bbf7d0}.att-chip.late{background:#fffbeb;border-color:#fde68a}.att-chip.abs{background:#fef2f2;border-color:#fecaca}.att-chip.leave{background:#f0f9ff;border-color:#bae6fd}
+  .att-chip b{font-weight:800;color:#15803d} .att-chip.late b{color:#b45309}
+  .att-banner{padding:16px;text-align:center;font-weight:700;color:#475569;background:#f6f7fb}
+  .wk-r{display:grid;grid-template-columns:78px repeat(6,minmax(32px,1fr));gap:4px;align-items:center;margin-bottom:4px;font-size:.78rem}
+  .wk-h span{text-align:center;font-size:.64rem;font-weight:700;color:var(--muted);line-height:1.25}
+  .wk-d{height:28px;font-size:.64rem;font-weight:700}
 
   /* mobile bottom navigation bar (app-jaisa) */
   .bottomnav{display:none}
@@ -1238,14 +1272,15 @@ async function _agTool(name,a){
         notMarked:Object.values(OFFICE_STAFF).flat().filter(n=>!seen.has(n.toLowerCase()))}; }
     const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ki attendance sirf admin dekh sakte hain'};
     const doc=await db.collection('attendance').doc(attId(d,nm)).get(), r=doc.exists?doc.data():null;
-    return r?{name:nm,date:d,punchedIn:!!r.inTime,in:r.inTime||'',out:r.outTime||'',late:!!r.late,office:r.officeName||'',leave:!!(r.leave&&!r.inTime)}
-      :{name:nm,date:d,punchedIn:false,note:'is din attendance nahi lagi'}; }
+    const st=attStatus(r,d);
+    return r?{name:nm,date:d,status:st.l,punchedIn:!!r.inTime,in:r.inTime||'',out:r.outTime||'',late:!!r.late,office:r.officeName||'',leave:!!(r.leave&&!r.inTime)}
+      :{name:nm,date:d,status:st.l,punchedIn:false,note:(st.k==='hol'||st.k==='off')?'office band tha ('+st.l+')':'is din attendance nahi lagi'}; }
   if(name==='member_report'){ const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ki report sirf admin dekh sakte hain'};
     const h=await _agHist(nm);
     // Score Board wala hi formula: attendance(1) + plan(1) + report(1) roz; weekly = non-leave dino ka avg × 6
     const day=dt=>{ const r=h.att.find(x=>x.date===dt), s=h.std.find(x=>x.date===dt), t=(s&&Array.isArray(s.tasks))?s.tasks:[];
       const A=(r&&r.inTime)?1:0, P=t.length?1:0, R=(t.length&&t.every(x=>x.st))?1:0;
-      return {date:dt,leave:!!(r&&r.leave&&!r.inTime),att:A,plan:P,report:R,score:A+P+R,tasks:t.length,done:t.filter(x=>x.st).length}; };
+      return {date:dt,leave:isHoliday(dt)||!!(r&&r.leave&&!r.inTime),holiday:HOLIDAYS[dt]||'',att:A,plan:P,report:R,score:A+P+R,tasks:t.length,done:t.filter(x=>x.st).length}; };
     const last7=[]; for(let i=0;i<7;i++){ const x=new Date(); x.setUTCDate(x.getUTCDate()-i); last7.push(x.toISOString().slice(0,10)); }
     const wk=_weekDates(today()).map(day).filter(r=>!r.leave);
     return {name:nm, weekScore:wk.length?Math.round(wk.reduce((s,r)=>s+r.score,0)/wk.length*6):0, weekMax:18, last7:last7.map(day)}; }
@@ -2300,9 +2335,11 @@ function attShareReport(){
   const rows=[], lines=[]; let present=0,total=0;
   OFFICES.forEach(o=>{ const staff=OFFICE_STAFF[o.id]||[]; if(!staff.length) return;
     rows.push({t:o.name,b:true,c:'#4f46e5'}); lines.push('*'+o.name+'*');
-    staff.forEach(nm=>{ total++; const a=byKey[nm.toLowerCase()]; if(a)present++;
-      rows.push({t:(a?'✅ ':'❌ ')+nm+(a?'  '+a.inTime+(a.late?' (Late)':''):'  Absent'),pad:12,c:a?(a.late?'#b45309':'#047857'):'#b91c1c'});
-      lines.push((a?'✅ ':'❌ ')+nm+(a?' '+a.inTime+(a.late?' (Late)':''):' — Absent')); });
+    staff.forEach(nm=>{ total++; const s=attStatus(byKey[nm.toLowerCase()],att.date); if(s.t)present++;
+      const ic=s.t?'✅ ':(['leave','hol','off'].includes(s.k)?'🌴 ':s.k==='wait'?'⏳ ':'❌ ');
+      const txt=s.t?nm+'  '+s.t+(s.k==='late'?' (Late)':''):nm+'  '+s.l;
+      rows.push({t:ic+txt,pad:12,c:s.t?(s.k==='late'?'#b45309':'#047857'):(s.k==='abs'?'#b91c1c':'#64748b')});
+      lines.push(ic+(s.t?txt:nm+' — '+s.l)); });
   });
   const dt=fmtDate(att.date);
   const text='📋 *Attendance — '+dt+'*\n'+present+'/'+total+' present\n\n'+lines.join('\n')+'\n\n🙏 Jinhone attendance nahi lagayi, kripya abhi app me Punch In kar lein.\n\n📲 Attendance kholein: https://akshardhamassociate.github.io/plot-crm/#att';
@@ -2537,7 +2574,24 @@ const OFFICE_SETTERS = {};   // sirf admin (sir + Luv) office location set kar s
 function canSetOffice(oid){ if(isAdmin()) return true; const e=(user&&user.email||'').toLowerCase(); return (OFFICE_SETTERS[oid]||[]).includes(e); }
 const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
 const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
-let att = { date: today(), offices:{}, mineToday:null, mine:[], items:[] };
+let att = { date: today(), offices:{}, mineToday:null, mine:[], items:[], week:[], mode:'day', off:'all', calM:'', calSel:'', showOff:false };
+// ── Holidays: config/holidays.dates = {'YYYY-MM-DD':'Diwali'} (admin mark karta hai). Sunday hamesha off. ──
+let HOLIDAYS = {};
+async function holLoad(){ try{ const d=await db.collection('config').doc('holidays').get(); HOLIDAYS=(d.exists&&d.data().dates)||{}; }catch(e){} }
+const isHoliday = d => !!HOLIDAYS[d];
+const isSunday = d => new Date(d+'T00:00:00Z').getUTCDay()===0;
+const _addDays = (d,n) => { const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); };
+// Ek din ka status — calendar, team board aur WhatsApp report sab yahi use karte hain.
+// "Absent" sirf beete din ke liye; aaj punch nahi kiya = "Not in yet" (LATE_AFTER ke baad warn).
+function attStatus(rec,d){
+  if(rec&&rec.inTime) return rec.late?{k:'late',l:'Late',t:rec.inTime}:{k:'ok',l:'On time',t:rec.inTime};
+  if(isHoliday(d)) return {k:'hol',l:HOLIDAYS[d]||'Holiday'};
+  if(isSunday(d)) return {k:'off',l:'Sunday'};
+  if(rec&&rec.leave) return {k:'leave',l:'Leave'};
+  if(d<today()) return {k:'abs',l:'Absent'};
+  if(d===today()) return {k:'wait',l:'Not in yet',warn:istTime()>LATE_AFTER};
+  return {k:'fut',l:''};
+}
 const istTime = () => new Date(Date.now()+5.5*3600e3).toISOString().slice(11,16);   // HH:MM IST
 const attId = (date,name) => date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
 
@@ -2557,7 +2611,8 @@ function _dayScore(key,day){
   const report = (tasks.length>0 && tasks.every(t=>t.st)) ? 1 : 0;
   return { att, plan, report, total: att+plan+report };
 }
-function _isLeave(key,day){ return board.att.some(a=>(a.nameKey||'')===key && a.date===day && a.leave && !a.inTime); }
+// holiday = sabki chhutti (leave jaisa: score me nahi gina jaata)
+function _isLeave(key,day){ return isHoliday(day) || board.att.some(a=>(a.nameKey||'')===key && a.date===day && a.leave && !a.inTime); }
 // weekly: leave din ko baaki (non-leave) dino ka average milta hai → total = avg × 6
 function _weekScore(key){
   const days=_weekDates(board.date); let sum=0, worked=0;
@@ -2571,7 +2626,8 @@ async function boardLoad(){
     const [ss,as,aw]=await Promise.all([
       db.collection('standups').where('date','in',days).get(),
       db.collection('attendance').where('date','in',days).get(),
-      db.collection('awards').doc(days[0]).get()
+      db.collection('awards').doc(days[0]).get(),
+      holLoad()
     ]);
     board.std=ss.docs.map(d=>d.data());
     board.att=as.docs.map(d=>d.data());
@@ -2598,17 +2654,17 @@ function _memberReportHTML(name,days,std,att){
   const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], DOW=['Ravi','Som','Mangal','Budh','Guru','Shukra','Shani'];
   let aT=0,pT=0,rT=0,sum=0,worked=0;
   const data=days.slice().reverse().map(day=>{
-    const a=att.find(x=>x.date===day), onLeave=!!(a&&a.leave&&!a.inTime), attOk=(a&&a.inTime)?1:0;
+    const a=att.find(x=>x.date===day), onLeave=isHoliday(day)||!!(a&&a.leave&&!a.inTime), attOk=(a&&a.inTime)?1:0;
     const s=std.find(x=>x.date===day), tasks=(s&&Array.isArray(s.tasks))?s.tasks:[];
     const plan=tasks.length>0?1:0, doneN=tasks.filter(t=>t.st).length, report=(tasks.length>0&&tasks.every(t=>t.st))?1:0, tot=attOk+plan+report;
     if(!onLeave){ aT+=attOk; pT+=plan; rT+=report; sum+=tot; worked++; }
     const dt=new Date(day+'T00:00:00Z');
-    return {lbl:dt.getUTCDate()+' '+MON[dt.getUTCMonth()], dow:DOW[dt.getUTCDay()], onLeave, attOk, plan, tasks, doneN, report, tot};
+    return {lbl:dt.getUTCDate()+' '+MON[dt.getUTCMonth()], dow:DOW[dt.getUTCDay()], onLeave, hol:HOLIDAYS[day]||'', attOk, plan, tasks, doneN, report, tot};
   });
   const dot=ok=>`<span style="color:${ok?'#16a34a':'#dc2626'}">●</span>`;
   const body=data.map(r=>`<tr style="border-top:1px solid var(--line)">
       <td style="padding:8px 6px;white-space:nowrap">${r.lbl} <span class="tiny" style="color:var(--muted)">${r.dow}</span></td>
-      ${r.onLeave?`<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">🌴 Chhutti</td>`
+      ${r.onLeave?`<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">${r.hol?'🎉 '+esc(r.hol):'🌴 Chhutti'}</td>`
         :`<td style="text-align:center">${dot(r.attOk)}</td>
           <td style="text-align:center">${r.tasks.length?r.tasks.length+' task':'<span style="color:var(--muted)">—</span>'}</td>
           <td style="text-align:center">${r.tasks.length?r.doneN+'/'+r.tasks.length:'<span style="color:var(--muted)">—</span>'}</td>
@@ -2702,7 +2758,7 @@ function boardHTML(){
         <span style="cursor:pointer" onclick="boardToggleLeave('${esc(r.n)}')" title="Leave mark/hatane ke liye tap">${i+1}. ${esc(r.n)}${r.lv?' 🌴':''}</span>
         <button class="btn ghost" style="padding:1px 7px;margin-left:5px;font-size:.7rem" onclick="openMemberReport('${esc(r.n)}')" title="Pichhle 7 din ka report">📋</button></td>
       ${r.lv
-        ? `<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">🌴 On Leave</td>`
+        ? `<td colspan="4" style="text-align:center;color:#0891b2;font-weight:700">${isHoliday(board.date)?'🎉 '+esc(HOLIDAYS[board.date]):'🌴 On Leave'}</td>`
         : `<td style="text-align:center">${dot(r.d.att,due.att)}</td>
       <td style="text-align:center">${dot(r.d.plan,due.plan)}</td>
       <td style="text-align:center">${dot(r.d.report,due.report)}</td>
@@ -2777,9 +2833,12 @@ function getPos(){
 
 function openAtt(){ route.view='att'; route.id=null; att.date=today(); att.mineToday=null; att.mine=[]; att.items=[]; render(); attLoad(); window.scrollTo(0,0); }
 function attSetDate(d){ att.date=d; attLoad(); }
-function attShiftDay(n){ const dt=new Date(att.date+'T00:00'); dt.setDate(dt.getDate()+n); att.date=dt.toISOString().slice(0,10); attLoad(); }
+// UTC me shift (pehle local→UTC se IST me ‹ 2 din peeche aur › wahin atak jaata tha)
+function attShiftDay(n){ att.date=_addDays(att.date,n); attLoad(); }
+function attMode(m){ att.mode=m; attLoad(); }
+function attCalShift(n){ const [y,m]=(att.calM||today().slice(0,7)).split('-').map(Number); att.calM=new Date(Date.UTC(y,m-1+n,1)).toISOString().slice(0,7); att.calSel=''; render(); }
 
-async function attLoadOffices(){ try{ const d=await db.collection('config').doc('offices').get(); att.offices=d.exists?(d.data()||{}):{}; }catch(e){ att.offices={}; } }
+async function attLoadOffices(){ holLoad(); try{ const d=await db.collection('config').doc('offices').get(); att.offices=d.exists?(d.data()||{}):{}; }catch(e){ att.offices={}; } }
 async function attLoad(){
   const mine=hudMyName().toLowerCase();
   try{
@@ -2791,7 +2850,9 @@ async function attLoad(){
       att.mine=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     }
     if(canViewAllHA()){ const s=await db.collection('attendance').where('date','==',att.date).get();
-      att.items=s.docs.map(x=>({id:x.id,...x.data()})); }
+      att.items=s.docs.map(x=>({id:x.id,...x.data()}));
+      if(att.mode==='week'){ const w=await db.collection('attendance').where('date','in',_weekDates(att.date)).get(); att.week=w.docs.map(x=>x.data()); } }
+    await holLoad();
   }catch(e){ alert('Attendance load error: '+e.message); }
   if(route.view==='att') render();
 }
@@ -2834,73 +2895,159 @@ async function attPunchOut(){
 }
 
 function attView(){
-  const admin=isAdmin();               // office location set — sirf sir/Luv
-  const viewAll=canViewAllHA();        // sabki attendance dekhna — sir + Kamana
+  const admin=isAdmin();               // office location + holidays — sirf admin
+  const viewAll=canViewAllHA();        // sabki attendance dekhna — admin + Kamana
   const myName=hudMyName();
   const rec=att.mineToday, inDone=rec&&rec.inTime, outDone=rec&&rec.outTime;
+  const tdS=attStatus(rec,today());
   const status = inDone
     ? `<div class="att-status in"><div class="att-ic" style="background:#16a34a">${IC.check}</div>
         <div class="grow"><div class="att-big">Present ${rec.late?'<span class="badge late">Late</span>':'<span class="badge ontime">On time</span>'}</div>
         <div class="tiny">In: ${esc(rec.inTime)}${rec.officeName?' · '+esc(rec.officeName):''}${outDone?' · Out: '+esc(rec.outTime):''}</div></div></div>`
     : `<div class="att-status"><div class="att-ic" style="background:#9ca3af">${IC.cal}</div>
-        <div class="grow"><div class="att-big">Not punched in</div><div class="tiny">Office pahunch ke Punch In karo</div></div></div>`;
+        <div class="grow"><div class="att-big">${tdS.k==='hol'?'Holiday — '+esc(tdS.l):tdS.k==='off'?'Sunday — office off':'Not punched in'}</div><div class="tiny">${tdS.k==='hol'||tdS.k==='off'?'Enjoy the day off':'Reach the office, then punch in'}</div></div></div>`;
   const punch = `<div class="att-punch">
       <button class="btn green" onclick="attPunchIn()" ${inDone?'disabled style="opacity:.45"':''}>${IC.check} Punch In</button>
       <button class="btn" onclick="attPunchOut()" ${(!inDone||outDone)?'disabled style="opacity:.45"':''}>${IC.logout} Punch Out</button>
     </div>
-    <div class="tiny">Naam: <b>${myName?esc(myName):'—'}</b> · <a href="#" onclick="hudPickName();return false" style="color:var(--brand);font-weight:700">badlo</a></div>`;
-  const mineList = `<div class="sec" style="margin-top:20px">${IC.cal} Meri Attendance</div>
-    ${att.mine.length? att.mine.map(a=>`<div class="att-row">
-        <div class="grow"><b>${fmtDate(a.date)}</b> ${a.late?'<span class="badge late">Late</span>':''}<div class="tiny">${esc(a.officeName||'')}</div></div>
-        <div class="att-time">${esc(a.inTime||'—')}${a.outTime?' → '+esc(a.outTime):''}</div>
-      </div>`).join('') : '<div class="empty">Abhi koi attendance nahi.</div>'}`;
+    <div class="tiny">Name: <b>${myName?esc(myName):'—'}</b> · <a href="#" onclick="hudPickName();return false" style="color:var(--brand);font-weight:700">change</a></div>`;
 
   const offRowHTML=(o)=>{ const c=att.offices[o.id]; const set=c&&c.lat!=null;
     return `<div class="off-set"><div class="grow"><b>${esc(o.name)}</b>
-      <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location set nahi'}</div></div>
+      <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location not set'}</div></div>
       <button class="btn ${set?'ghost ':''}sm" onclick="attCapture('${o.id}','${esc(o.name)}')">${set?'Re-set':'Set location'}</button></div>`; };
-  const myOffices = OFFICES.filter(o=>canSetOffice(o.id));
-  const mySetSection = (!admin && myOffices.length) ? `<div class="sec" style="margin-top:20px">📍 Office Location</div>
-    <div class="tiny" style="margin:-4px 2px 10px">${esc(myOffices.map(o=>o.name).join(', '))} office me jaake "Set location" dabao — bas ek baar.</div>
-    ${myOffices.map(offRowHTML).join('')}` : '';
-  let adminPart='';
-  if(viewAll){
-    const offRows = admin? OFFICES.map(offRowHTML).join('') : '';
-    const byKey={}; att.items.forEach(a=>{ byKey[(a.nameKey||'').toLowerCase()]=a; });
-    const attRow=(nm,a)=>`<div class="att-row">
-        <div class="avatar" style="width:36px;height:36px;font-size:.85rem;background:${avatarColor(nm)}">${esc(nm[0].toUpperCase())}</div>
-        <div class="grow"><b>${esc(nm)}</b> ${a?(a.late?'<span class="badge late">Late</span>':'<span class="badge ontime">On&nbsp;time</span>'):'<span class="badge absent">Absent</span>'}</div>
-        <div class="att-time">${a?esc(a.inTime)+(a.outTime?' → '+esc(a.outTime):''):'—'}</div></div>`;
-    const groups = OFFICES.map(o=>{ const staff=OFFICE_STAFF[o.id]||[]; if(!staff.length) return '';
-      const present=staff.filter(nm=>byKey[nm.toLowerCase()]).length;
-      return `<div class="sec" style="margin-top:16px">${esc(o.name)} — ${present}/${staff.length} present</div>
-        ${staff.map(nm=>attRow(nm, byKey[nm.toLowerCase()])).join('')}`;
-    }).join('');
-    const rosterKeys=new Set(Object.values(OFFICE_STAFF).flat().map(n=>n.toLowerCase()));
-    const others=att.items.filter(a=>!rosterKeys.has((a.nameKey||'').toLowerCase()));
-    const othersHTML = others.length?`<div class="sec" style="margin-top:16px">Other</div>${others.map(a=>attRow(a.name||'?',a)).join('')}`:'';
-    adminPart = `
-      ${admin?`<div class="sec">📍 Office Locations <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">(ek baar set — sir only)</span></div>
-      <div class="tiny" style="margin:-4px 2px 10px">Har office me jaake ek baar "Set location" dabao. Uske baad punch-in sirf wahin ~${OFFICE_RADIUS}m ke andar hoga.</div>
-      ${offRows}`:''}
-      <div class="sec" style="margin-top:24px;display:flex;align-items:center;gap:8px">${IC.users} Attendance Board
-        <button class="btn sm" style="margin-left:auto;background:#6366f1" onclick="openBoard()">📊 Score Board</button></div>
-      <div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap">
-        <button class="btn ghost sm" onclick="attShiftDay(-1)">${IC.back}</button>
-        <input type="date" value="${att.date}" onchange="attSetDate(this.value)" style="width:auto">
-        <button class="btn ghost sm" onclick="attShiftDay(1)">${IC.chev}</button>
-        <button class="btn ghost sm" onclick="attSetDate(today())">Today</button>
-        <button class="btn sm" style="background:#22c55e;margin-left:auto" onclick="attShareReport()">${IC.wa} Report</button>
-      </div>
-      ${groups}${othersHTML}`;
-  }
+  // ⚙️ Office locations — ek baar ka setup, isliye chhupa rehta hai (koi office set na ho to khud khula)
+  const offList = admin ? OFFICES : OFFICES.filter(o=>canSetOffice(o.id));
+  const anyUnset = offList.some(o=>!(att.offices[o.id]&&att.offices[o.id].lat!=null));
+  const offOpen = att.showOff||anyUnset;
+  const offSection = offList.length ? `<button class="btn ghost sm" style="margin-top:16px" onclick="att.showOff=!att.showOff;render()">⚙️ Office locations ${offOpen?'▲':'▼'}</button>
+    ${offOpen?`<div class="tiny" style="margin:8px 2px 10px">Go to each office once and tap "Set location". Punch-in then works only within ~${OFFICE_RADIUS}m of an office.</div>${offList.map(offRowHTML).join('')}`:''}` : '';
+
   return `<div class="main-inner">
     <div class="page-title">Attendance</div>
-    <div class="page-sub">Office pahunch ke Punch In karo${viewAll?' · aur team ki attendance dekho':''}.</div>
+    <div class="page-sub">Punch in at the office${viewAll?' · see the whole team below':''}.</div>
     ${viewAll
-      ? `<div class="hud-wrap"><div class="hud-left"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}</div><div>${adminPart}</div></div>`
-      : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${mineList}${mySetSection}</div>`}
+      ? `<div class="hud-wrap"><div class="hud-left"><div class="card" style="padding:16px">${status}${punch}</div>${attCalHTML()}</div><div>${attTeamHTML()}${offSection}</div></div>`
+      : `<div style="max-width:600px"><div class="card" style="padding:16px">${status}${punch}</div>${attCalHTML()}${offSection}</div>`}
   </div>`;
+}
+// 📅 My attendance — phone jaisa month calendar
+function attCalHTML(){
+  const ym=att.calM||today().slice(0,7), [y,m]=ym.split('-').map(Number);
+  const first=ym+'-01', nDays=new Date(Date.UTC(y,m,0)).getUTCDate(), lead=new Date(first+'T00:00:00Z').getUTCDay();
+  const by={}; att.mine.forEach(a=>by[a.date]=a);
+  const start=att.mine.length?att.mine[att.mine.length-1].date:today();   // pehli attendance se pehle "Absent" mat dikhao
+  let pres=0,late=0,abs=0,mins=0,cells='';
+  for(let i=0;i<lead;i++) cells+='<div></div>';
+  for(let n=1;n<=nDays;n++){
+    const d=ym+'-'+String(n).padStart(2,'0'), r=by[d];
+    let s=attStatus(r,d); if(s.k==='abs'&&d<start) s={k:'fut',l:''};
+    if(s.t){ pres++; const [hh,mm]=s.t.split(':').map(Number); mins+=hh*60+mm; if(s.k==='late') late++; }
+    if(s.k==='abs') abs++;
+    const sub=s.t||({hol:'Holiday',off:'Off',leave:'Leave',abs:'Absent'}[s.k]||'');
+    cells+=`<button class="cal-c ${s.k}${d===today()?' tod':''}${d===att.calSel?' sel':''}" onclick="att.calSel='${d}';render()" title="${esc(s.l||'')}"><b>${n}</b><span>${esc(sub)}</span></button>`;
+  }
+  const avg=pres?Math.round(mins/pres):0;
+  const avgT=pres?String(Math.floor(avg/60)).padStart(2,'0')+':'+String(avg%60).padStart(2,'0'):'—';
+  const sel=(att.calSel||'').startsWith(ym)?att.calSel:'';
+  let det='';
+  if(sel){ const r=by[sel], s=attStatus(r,sel);
+    det=`<div class="cal-det"><b>${fmtDate(sel)}</b> · ${esc(s.l||'—')}${r&&r.inTime?' · In '+esc(r.inTime)+(r.outTime?' · Out '+esc(r.outTime):' · no punch-out')+(r.officeName?' · '+esc(r.officeName):''):''}</div>`; }
+  const monName=new Date(first+'T00:00:00Z').toLocaleString('en-IN',{month:'long',year:'numeric',timeZone:'UTC'});
+  return `<div class="sec" style="margin-top:20px">${IC.cal} My attendance</div>
+    <div class="card" style="padding:14px">
+      <div class="cal-sum"><div><span>Present</span><b>${pres}</b></div><div><span>Late</span><b style="color:#b45309">${late}</b></div><div><span>Absent</span><b style="color:#dc2626">${abs}</b></div><div><span>Avg in</span><b>${avgT}</b></div></div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin:10px 0 8px">
+        <button class="btn ghost sm" onclick="attCalShift(-1)" title="Previous month">${IC.back}</button><b>${monName}</b><button class="btn ghost sm" onclick="attCalShift(1)" title="Next month">${IC.chev}</button></div>
+      <div class="cal-g cal-h">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div>${x}</div>`).join('')}</div>
+      <div class="cal-g">${cells}</div>
+      ${det||'<div class="tiny" style="margin-top:8px;color:var(--muted)">Tap a date to see in/out time.</div>'}
+      <div class="cal-leg"><span><i class="ok"></i>On time</span><span><i class="late"></i>Late</span><span><i class="abs"></i>Absent</span><span><i class="leave"></i>Leave</span><span><i class="hol"></i>Holiday / Sunday</span></div>
+    </div>`;
+}
+// 👥 Team attendance — status ke hisaab se group (Day) ya hafte ka register (Week)
+function attTeamHTML(){
+  const admin=isAdmin(), wk=att.mode==='week';
+  const roster=OFFICES.map(o=>({o,staff:OFFICE_STAFF[o.id]||[]})).filter(x=>x.staff.length);
+  const allN=roster.flatMap(x=>x.staff), rk=new Set(allN.map(n=>n.toLowerCase()));
+  const byKey={}; att.items.forEach(a=>byKey[(a.nameKey||'').toLowerCase()]=a);
+  const extra=att.items.filter(a=>a.name&&!rk.has((a.nameKey||'').toLowerCase())).map(a=>a.name);   // roster me nahi, phir bhi punch kiya
+  const names = att.off==='all' ? allN.concat(extra) : ((roster.find(x=>x.o.id===att.off)||{staff:[]}).staff);
+  const cnt=staff=>staff.filter(n=>{ const r=byKey[n.toLowerCase()]; return r&&r.inTime; }).length;
+  const pill=(id,label,staff)=>`<button class="att-pill ${att.off===id?'on':''}" onclick="att.off='${id}';render()">${esc(label)}${wk?'':' '+cnt(staff)+'/'+staff.length}</button>`;
+  const days=_weekDates(att.date);
+  return `<div class="sec" style="margin-top:4px;display:flex;align-items:center;gap:8px">${IC.users} Team attendance
+      <span class="att-seg" style="margin-left:auto"><button class="${wk?'':'on'}" onclick="attMode('day')">Day</button><button class="${wk?'on':''}" onclick="attMode('week')">Week</button></span></div>
+    <div class="row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn ghost sm" onclick="attShiftDay(${wk?-7:-1})" title="Previous">${IC.back}</button>
+      ${wk?`<b>${fmtDate(days[0])} – ${fmtDate(days[5])}</b>`:`<input type="date" value="${att.date}" onchange="attSetDate(this.value)" style="width:auto">`}
+      <button class="btn ghost sm" onclick="attShiftDay(${wk?7:1})" title="Next">${IC.chev}</button>
+      <button class="btn ghost sm" onclick="attSetDate(today())">Today</button>
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        ${admin?`<button class="btn ghost sm" onclick="openHolidays()">🎉 Holidays</button>`:''}
+        <button class="btn sm" style="background:#6366f1" onclick="openBoard()">📊 Score board</button>
+        <button class="btn sm" style="background:#22c55e" onclick="attShareReport()">${IC.wa} Report</button></span>
+    </div>
+    <div style="margin-bottom:6px">${pill('all','All',allN)}${roster.map(x=>pill(x.o.id,x.o.name,x.staff)).join('')}</div>
+    ${wk?attWeekHTML(names):attDayHTML(names,byKey)}`;
+}
+function attDayHTML(names,byKey){
+  const d=att.date, g={ok:[],wait:[],abs:[],leave:[]};
+  names.forEach(n=>{ const s=attStatus(byKey[n.toLowerCase()],d); if(s.t) g.ok.push({n,s}); else if(g[s.k]) g[s.k].push({n,s}); else if(s.k==='fut') g.wait.push({n,s}); });
+  const chip=x=>`<button class="att-chip ${x.s.k}" onclick="openMemberReport('${esc(x.n)}')" title="Last 7 days"><span class="avatar" style="background:${avatarColor(x.n)}">${esc(x.n[0].toUpperCase())}</span>${esc(x.n)}${x.s.t?` <b>${esc(x.s.t)}</b>`:''}</button>`;
+  const grp=(title,cls,arr)=>arr.length?`<div class="att-gt ${cls}">${title} · ${arr.length}</div><div>${arr.map(chip).join('')}</div>`:'';
+  if(isHoliday(d)||isSunday(d)) return `<div class="card att-banner">${isHoliday(d)?'🎉 Holiday — '+esc(HOLIDAYS[d]):'Sunday — office off'}</div>${g.ok.length?`<div class="card" style="padding:14px;margin-top:10px">${grp('Came in anyway','ok',g.ok)}</div>`:''}`;
+  const here=g.ok.length, total=names.length, lateN=g.ok.filter(x=>x.s.k==='late').length;
+  const warn=g.wait.length&&g.wait[0].s.warn;
+  const parts=[here+' in', lateN+' late', g.wait.length?g.wait.length+' not in yet':'', g.abs.length?g.abs.length+' absent':'', g.leave.length?g.leave.length+' on leave':''].filter(Boolean);
+  return `<div class="card" style="padding:14px">
+      <div class="att-bar"><i style="width:${total?Math.round(here/total*100):0}%"></i></div>
+      <div class="tiny" style="margin:6px 0 2px">${parts.join(' · ')}</div>
+      ${grp('In office','ok',g.ok.sort((a,b)=>a.s.t.localeCompare(b.s.t)))}
+      ${grp(warn?'Not in yet — late after '+LATE_AFTER:'Not in yet', warn?'warn':'wait', g.wait)}
+      ${grp('Absent','abs',g.abs)}
+      ${grp('On leave','leave',g.leave)}
+      <div class="tiny" style="margin-top:6px;color:var(--muted)">Tap a name for their last 7 days.</div>
+    </div>`;
+}
+function attWeekHTML(names){
+  const days=_weekDates(att.date), by={}, D=['Mon','Tue','Wed','Thu','Fri','Sat'];
+  att.week.forEach(a=>by[(a.nameKey||'').toLowerCase()+'|'+a.date]=a);
+  const head=`<div class="wk-r wk-h"><span></span>${days.map((d,i)=>`<span>${D[i]}<br>${+d.slice(8)}</span>`).join('')}</div>`;
+  const rows=names.map(n=>{ const k=n.toLowerCase();
+    return `<div class="wk-r"><span class="ell" style="cursor:pointer;font-weight:600" onclick="openMemberReport('${esc(n)}')">${esc(n)}</span>${days.map(d=>{ const s=attStatus(by[k+'|'+d],d);
+      return `<i class="wk-d ${s.k}" title="${esc(fmtDate(d)+' · '+(s.l||'—')+(s.t?' '+s.t:''))}">${esc(s.t||(s.k==='leave'?'L':s.k==='hol'?'H':''))}</i>`; }).join('')}</div>`; }).join('');
+  return `<div class="card" style="padding:12px;overflow-x:auto">${head}${rows}
+      <div class="cal-leg"><span><i class="ok"></i>On time</span><span><i class="late"></i>Late</span><span><i class="abs"></i>Absent</span><span><i class="leave"></i>Leave (L)</span><span><i class="hol"></i>Holiday (H)</span></div></div>`;
+}
+// 🎉 Holidays — admin mark/hata sakta hai (range me; Sunday apne aap chhod deta hai)
+function openHolidays(){
+  if(!isAdmin()) return;
+  const list=Object.keys(HOLIDAYS).sort().reverse().slice(0,40);
+  modal(`<h2>🎉 Holidays</h2><div class="msub">Marked days show grey for everyone and don't count against the weekly score. Sundays are always off.</div>
+    <div class="row" style="gap:8px"><div class="field grow"><label>From</label><input type="date" id="hol_from" value="${att.date}"></div>
+      <div class="field grow"><label>To</label><input type="date" id="hol_to" value="${att.date}"></div></div>
+    <div class="field"><label>Name</label><input id="hol_name" placeholder="Diwali"></div>
+    <button class="btn" style="width:100%" onclick="holSave()">Mark holiday</button>
+    <div class="sec" style="margin-top:16px">Marked</div>
+    <div style="max-height:36vh;overflow:auto">${list.length?list.map(d=>`<div class="att-row"><div class="grow"><b>${fmtDate(d)}</b><div class="tiny">${esc(HOLIDAYS[d])}</div></div><button class="btn ghost sm" onclick="holRemove('${d}')">Remove</button></div>`).join(''):'<div class="empty">No holidays marked yet.</div>'}</div>
+    <button class="btn ghost" style="width:100%;margin-top:8px" onclick="this.closest('.modal-bg').remove()">Close</button>`);
+}
+async function holSave(){
+  const f=val('hol_from'), t=val('hol_to')||f, name=(val('hol_name')||'').trim()||'Holiday';
+  if(!f||t<f){ alert('"To" date must be on or after "From" date.'); return; }
+  const dates={}; for(let d=f,i=0; d<=t&&i<62; d=_addDays(d,1),i++){ if(!isSunday(d)) dates[d]=name; }
+  if(!Object.keys(dates).length){ alert('Only Sundays in that range — nothing to mark.'); return; }
+  try{ await db.collection('config').doc('holidays').set({dates,by:(user&&user.email||''),ts:Date.now()},{merge:true});
+    await holLoad(); toast(Object.keys(dates).length+' day(s) marked as holiday');
+    const m=document.querySelector('.modal-bg'); if(m) m.remove(); openHolidays(); render(); }
+  catch(e){ alert('Not saved: '+e.message); }
+}
+async function holRemove(d){
+  if(!confirm('Remove the holiday on '+fmtDate(d)+'?')) return;
+  try{ await db.collection('config').doc('holidays').update(new firebase.firestore.FieldPath('dates',d), firebase.firestore.FieldValue.delete());
+    await holLoad(); const m=document.querySelector('.modal-bg'); if(m) m.remove(); openHolidays(); render(); }
+  catch(e){ alert('Not removed: '+e.message); }
 }
 
 // mobile bottom nav — top tabs neeche fixed bar me
