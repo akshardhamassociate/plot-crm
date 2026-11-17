@@ -366,6 +366,37 @@
   .wk-r{display:grid;grid-template-columns:78px repeat(6,minmax(32px,1fr));gap:4px;align-items:center;margin-bottom:4px;font-size:.78rem}
   .wk-h span{text-align:center;font-size:.64rem;font-weight:700;color:var(--muted);line-height:1.25}
   .wk-d{height:28px;font-size:.64rem;font-weight:700}
+  /* huddle: plan/report form + team progress tiles */
+  .hp-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .hp-row .n{font-weight:800;color:var(--muted);width:18px;flex:none;font-size:.8rem}
+  .hr-row{border:1px solid var(--line);border-radius:11px;padding:8px 10px;margin-bottom:7px;background:#fff}
+  .hr-top{display:flex;align-items:center;gap:8px}
+  .st-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+  .st-seg button{border:0;border-left:1px solid var(--line);background:#fff;padding:6px 9px;font:inherit;font-size:.72rem;font-weight:700;color:var(--muted);cursor:pointer}
+  .st-seg button:first-child{border-left:0}
+  .st-seg button.done{background:#dcfce7;color:#15803d}.st-seg button.partial{background:#fef3c7;color:#b45309}.st-seg button.notdone{background:#fee2e2;color:#b91c1c}
+  .clip{border:0;background:none;cursor:pointer;font-size:1rem;padding:4px;opacity:.45;flex:none} .clip.has{opacity:1}
+  .yest-btn{width:100%;display:flex;align-items:center;gap:8px;text-align:left;border:1px solid var(--line);background:#f6f7fb;border-radius:11px;padding:9px 12px;font:inherit;font-size:.86rem;font-weight:600;color:var(--ink);cursor:pointer;margin-bottom:8px}
+  .hud-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .hud-tile{text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px;font:inherit;color:var(--ink);cursor:pointer;box-shadow:var(--sh);min-width:0}
+  .hud-tile b{display:block;font-size:.88rem} .hud-tile .tiny{margin-top:2px}
+  .hud-tile.rep{border-color:#bbf7d0;background:#f0fdf4}
+  .hud-tile.none{border-style:dashed;background:transparent;box-shadow:none;color:var(--muted);cursor:default}
+  .hud-tile .bar{height:5px;border-radius:3px;background:#eceef3;overflow:hidden;margin-top:7px} .hud-tile .bar i{display:block;height:100%;background:#22c55e}
+  /* home: my day */
+  .home-grid{display:grid;gap:14px;margin-top:14px}
+  @media(min-width:1000px){.home-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}}
+  .md-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .md-t{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:linear-gradient(180deg,#fff,#f8f9fe);text-align:left;font:inherit;color:var(--ink);cursor:pointer;box-shadow:var(--sh),var(--hl);min-width:0}
+  .md-t span{display:block;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .md-t b{display:block;font-size:1.05rem;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .md-t.ok{background:#f0fdf4;border-color:#bbf7d0}.md-t.ok b{color:#15803d}
+  .md-t.wn{background:#fffbeb;border-color:#fde68a}.md-t.wn b{color:#b45309}
+  .call-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line);cursor:pointer}
+  .hm-pill{font-size:.64rem;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap;flex:none}
+  .hm-pill.dn{background:#fee2e2;color:#b91c1c}.hm-pill.wn{background:#fef3c7;color:#b45309}.hm-pill.ac{background:#eef0ff;color:#4338ca}
+  .saathi-btn{display:flex;align-items:center;gap:9px;border:0;border-radius:14px;padding:9px 16px;cursor:pointer;color:#fff;font:inherit;text-align:left;background:linear-gradient(135deg,#6d5efc,#8b5cf6 55%,#a855f7);box-shadow:0 10px 24px -12px rgba(109,94,252,.7),inset 0 1px 0 rgba(255,255,255,.28)}
+  .saathi-btn b{display:block;font-size:.92rem} .saathi-btn small{display:block;font-size:.7rem;opacity:.9}
 
   /* mobile bottom navigation bar (app-jaisa) */
   .bottomnav{display:none}
@@ -1277,13 +1308,8 @@ async function _agTool(name,a){
       :{name:nm,date:d,status:st.l,punchedIn:false,note:(st.k==='hol'||st.k==='off')?'office band tha ('+st.l+')':'is din attendance nahi lagi'}; }
   if(name==='member_report'){ const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ki report sirf admin dekh sakte hain'};
     const h=await _agHist(nm);
-    // Score Board wala hi formula: attendance(1) + plan(1) + report(1) roz; weekly = non-leave dino ka avg × 6
-    const day=dt=>{ const r=h.att.find(x=>x.date===dt), s=h.std.find(x=>x.date===dt), t=(s&&Array.isArray(s.tasks))?s.tasks:[];
-      const A=(r&&r.inTime)?1:0, P=t.length?1:0, R=(t.length&&t.every(x=>x.st))?1:0;
-      return {date:dt,leave:isHoliday(dt)||!!(r&&r.leave&&!r.inTime),holiday:HOLIDAYS[dt]||'',att:A,plan:P,report:R,score:A+P+R,tasks:t.length,done:t.filter(x=>x.st).length}; };
     const last7=[]; for(let i=0;i<7;i++){ const x=new Date(); x.setUTCDate(x.getUTCDate()-i); last7.push(x.toISOString().slice(0,10)); }
-    const wk=_weekDates(today()).map(day).filter(r=>!r.leave);
-    return {name:nm, weekScore:wk.length?Math.round(wk.reduce((s,r)=>s+r.score,0)/wk.length*6):0, weekMax:18, last7:last7.map(day)}; }
+    return {name:nm, weekScore:_weekScoreOf(h.std,h.att,today()), weekMax:18, last7:last7.map(d=>_dayScoreOf(h.std,h.att,d))}; }
   if(name==='standup_history'){ const nm=_agWho(a.name); if(!_agCanSee(nm)) return {error:'Doosre member ke standup sirf admin dekh sakte hain'};
     const n=Math.min(Math.max(parseInt(a.days)||7,1),14), from=new Date(Date.now()-n*86400e3).toISOString().slice(0,10);
     const h=await _agHist(nm);
@@ -2298,7 +2324,7 @@ function hudFillDraftFor(date){
   if(!hud.draft.tasks.length) hud.draft.tasks=[_blankTask()];
   if(!hud.draft.issues.length) hud.draft.issues=[''];
 }
-let hud = { date: today(), items: [], mine: [], draft: blankDraft(), report:null, editing:false, execFilter:'' };
+let hud = { date: today(), items: [], mine: [], draft: blankDraft(), report:null, editing:false, execFilter:'', mode:'', open:{} };
 // Huddle ka naam LOGGED-IN EMAIL se (device-shared myName se nahi) — taaki har user ko sirf apna kaam dikhe
 function hudMyName(){ const e=(user&&user.email||'').toLowerCase(); return NAME_BY_EMAIL[e] || localStorage.getItem('hudName_'+e) || ''; }
 function hudSetMyName(n){ const e=(user&&user.email||'').toLowerCase(); if(e) localStorage.setItem('hudName_'+e, n); }
@@ -2359,7 +2385,9 @@ function hudShareReport(){
   shareReport('Daily Huddle — '+dt, posted.length+' posted'+(missing.length?' · '+missing.length+' pending':''), rows, text);
 }
 
-function openHuddle(){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft=blankDraft(); hud.report=null; hud.editing=false; hud.execFilter=''; render(); hudLoad(); window.scrollTo(0,0); }
+// mode: 'plan' | 'report' (Home ke tiles se seedha) — warna 2 baje se pehle plan, baad me report
+function openHuddle(mode){ route.view='huddle'; route.id=null; hud.date=today(); hud.mine=[]; hud.items=[]; hud.draft=blankDraft(); hud.report=null; hud.editing=false; hud.execFilter='';
+  hud.mode=(mode==='plan'||mode==='report')?mode:(new Date(Date.now()+5.5*3600e3).getUTCHours()<14?'plan':'report'); hud.open={}; render(); hudLoad(); window.scrollTo(0,0); }
 function hudEdit(id){ const s=hud.mine.find(x=>x.id===id); if(!s) return;
   hud.draft={ date:s.date, yesterday:stdYesterday(s), tasks:stdTasks(s), issues:stdIssues(s) };
   if(!hud.draft.tasks.length) hud.draft.tasks=[_blankTask()];
@@ -2374,10 +2402,10 @@ function hudDelTask(i){ hud.draft.tasks.splice(i,1); if(!hud.draft.tasks.length)
 function hudAddIssue(){ hud.draft.issues.push(''); render(); }
 function hudDelIssue(i){ hud.draft.issues.splice(i,1); if(!hud.draft.issues.length) hud.draft.issues.push(''); render(); }
 function hudFormDate(dstr){ hud.editing=false; hudFillDraftFor(dstr); render(); }
-function hudDelete(id){ if(!confirm('Ye standup delete karna hai?')) return;
+function hudDelete(id){ if(!confirm('Delete this standup?')) return;
   db.collection('standups').doc(id).delete().then(()=>{ toast('Deleted'); hudLoad(); }).catch(e=>alert(e.message)); }
 function hudSetDate(d){ hud.date=d; hudLoad(); }
-function hudShiftDay(n){ const dt=new Date(hud.date+'T00:00'); dt.setDate(dt.getDate()+n); hud.date=dt.toISOString().slice(0,10); hudLoad(); }
+function hudShiftDay(n){ hud.date=_addDays(hud.date,n); hudLoad(); }   // UTC (local→UTC se IST me date galat khisakti thi)
 
 async function hudLoad(){
   const mine=hudMyName().toLowerCase();
@@ -2417,17 +2445,17 @@ async function hudSaveStandup(){
   const yesterday=await build(hud.draft.yesterday,'yfile');
   const tasks=await build(hud.draft.tasks,'tfile');
   const issues=hud.draft.issues.map(x=>(x||'').trim()).filter(Boolean);
-  if(!tasks.length && !issues.length && !yesterday.length){ alert('Kuch to bharo — kal ka kaam, aaj ke task ya issue'); return; }
+  if(!tasks.length && !issues.length && !yesterday.length){ alert('Add at least one task, a blocker or yesterday\'s work.'); return; }
   const id=date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
   db.collection('standups').doc(id).set({ date, name, nameKey:name.toLowerCase(), yesterday, tasks, issues, ts:Date.now() }, {merge:true})
-    .then(()=>{ pushHuddleSheet({date, name, yesterday, tasks, issues}); toast(hud.editing?'Standup updated ✓':'Standup saved ✓'); hud.editing=false; hudLoad(); })
+    .then(()=>{ pushHuddleSheet({date, name, yesterday, tasks, issues}); toast(hud.editing?'Standup updated ✓':(hud.mode==='report'?'Report submitted ✓':'Plan saved ✓')); hud.editing=false; home.loaded=false; hudLoad(); })
     .catch(e=>alert('Save failed: '+e.message));
 }
 function hudFeedback(id){
   const el=document.getElementById('fb_'+id); if(!el) return;
   db.collection('standups').doc(id).set({ feedback:(el.value||'').trim(),
       feedbackBy:(user&&user.email?user.email.split('@')[0]:''), feedbackTs:Date.now() }, {merge:true})
-    .then(()=>{ toast('Feedback saved ✓'); hudLoad(); })
+    .then(()=>{ toast('Feedback saved ✓'); const m=document.querySelector('.modal-bg'); if(m) m.remove(); hudLoad(); })
     .catch(e=>alert(e.message));
 }
 
@@ -2450,111 +2478,119 @@ function hudCard(s, editable, own){
       <div class="grow"><div class="hud-name">${esc(nm)}</div><div class="tiny">${fmtDate(s.date)}</div></div>
       ${own?`<button class="btn ghost sm" onclick="hudEdit('${esc(s.id)}')">${IC.edit} Edit</button>`:''}
     </div>
-    ${yest.length?`<div class="hud-b" style="margin-bottom:10px"><span class="hud-lbl">Kal kya kiya tha</span>${rowsHTML(yest)}</div>`:''}
-    <div class="hud-b" style="margin-bottom:10px"><span class="hud-lbl">Aaj ke Task</span>${tasks.length?rowsHTML(tasks):'<div class="tiny">—</div>'}</div>
-    ${issues.length?`<div class="hud-b amber"><span class="hud-lbl">Issues</span>${issueHTML}</div>`:''}
+    ${yest.length?`<div class="hud-b" style="margin-bottom:10px"><span class="hud-lbl">Yesterday</span>${rowsHTML(yest)}</div>`:''}
+    <div class="hud-b" style="margin-bottom:10px"><span class="hud-lbl">Today's tasks</span>${tasks.length?rowsHTML(tasks):'<div class="tiny">—</div>'}</div>
+    ${issues.length?`<div class="hud-b amber"><span class="hud-lbl">Blockers</span>${issueHTML}</div>`:''}
     ${editable
       ? `<div class="hud-fb"><label>Feedback</label>
-          <textarea id="fb_${esc(s.id)}" rows="2" placeholder="Sir ka feedback…">${esc(s.feedback||'')}</textarea>
+          <textarea id="fb_${esc(s.id)}" rows="2" placeholder="Write feedback…">${esc(s.feedback||'')}</textarea>
           <button class="btn sm" style="margin-top:8px" onclick="hudFeedback('${esc(s.id)}')">${IC.check} Save feedback</button></div>`
       : (s.feedback ? `<div class="hud-fb"><div class="hud-fb-view">
-          <span class="hud-lbl">Sir's feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</span>
+          <span class="hud-lbl">Feedback${s.feedbackBy?' · '+esc(s.feedbackBy):''}</span>
           <div class="txt">${esc(s.feedback)}</div></div></div>` : '')}
     ${own?`<div style="margin-top:10px;text-align:right"><a href="#" onclick="hudDelete('${esc(s.id)}');return false" style="color:#dc2626;font-size:.78rem;font-weight:700">Delete</a></div>`:''}
   </div>`;
 }
 
+// ── Huddle form: subah "Morning plan" (sirf task lines), shaam "Evening report" (har task pe ek tap) ──
+const _istHour = () => new Date(Date.now()+5.5*3600e3).getUTCHours();
+function hudSetMode(m){ hud.mode=m; render(); }
+function hudSetSt(grp,i,st){ const t=hud.draft[grp][i]; if(t) t.st = t.st===st ? '' : st; render(); }
+function hudTog(k){ hud.open[k]=!hud.open[k]; render(); }
+function hudEnterTask(i){ const d=hud.draft; if(i===d.tasks.length-1){ d.tasks.push(_blankTask()); render(); }
+  setTimeout(()=>{ const el=document.getElementById('ht_'+(i+1)); if(el) el.focus(); },0); }
+// proof file turant upload (re-render me file input khaali ho jaata hai, isliye save tak rukna nahi)
+async function hudUpload(grp,i,inputId){ const u=await uploadFile(inputId); if(u&&hud.draft[grp][i]){ hud.draft[grp][i].proofUrl=u; toast('Proof attached ✓'); render(); } }
+function hudOpenCard(id){ const s=hud.items.find(x=>x.id===id); if(!s) return;
+  modal(`${hudCard(s,true)}<button class="btn ghost" style="width:100%;margin-top:10px" onclick="this.closest('.modal-bg').remove()">Close</button>`); }
+
 function huddleHTML(){
-  const admin=canViewAllHA();   // Kamana + sir: sabka board
+  const admin=canViewAllHA();   // Kamana + admin: team board
   const myName=hudMyName();
-  const d=hud.draft;
-  const posted=new Set(hud.items.map(x=>(x.nameKey||(x.name||'').toLowerCase())));
-  const missing=EXECS.filter(n=>!posted.has(n.toLowerCase()));
-  const stSelect=(grp,i,st)=>`<select onchange="hud.draft.${grp}[${i}].st=this.value" style="width:auto;flex:none;font-size:.82rem">
-            <option value="">Status</option>
-            <option value="done" ${st==='done'?'selected':''}>✓ Done</option>
-            <option value="partial" ${st==='partial'?'selected':''}>~ Partial</option>
-            <option value="notdone" ${st==='notdone'?'selected':''}>✕ Not Done</option>
-          </select>`;
-  const proofRow=(grp,i,t,prefix)=>`
-        <input placeholder="Proof/Result — text ya link (optional)" value="${esc(t.proof||'')}" oninput="hud.draft.${grp}[${i}].proof=this.value" style="margin-top:6px;font-size:.82rem">
-        <input id="${prefix}${i}" type="file" style="margin-top:6px;font-size:.72rem;padding:7px">
-        ${t.proofUrl?(_isImg(t.proofUrl)?`<a href="${esc(t.proofUrl)}" target="_blank" style="display:inline-block;margin-top:4px"><img src="${esc(t.proofUrl)}" loading="lazy" style="max-width:90px;max-height:90px;border-radius:6px;border:1px solid var(--line)"></a>`:`<a href="${esc(t.proofUrl)}" target="_blank" class="tiny" style="color:var(--brand);display:inline-block;margin-top:4px">📎 attached file</a>`):''}`;
-  const yestRows=d.yesterday.map((t,i)=>`
-      <div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px">
-        <div class="row" style="gap:6px;align-items:center">
-          <span style="font-weight:800;color:var(--muted);width:16px;flex:none">${i+1}.</span>
-          <input placeholder="Kal ka task ${i+1}" value="${esc(t.t)}" oninput="hud.draft.yesterday[${i}].t=this.value">
-          <button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelYest(${i})">✕</button>
-        </div>
-        <div class="row" style="gap:6px;margin-top:6px">${stSelect('yesterday',i,t.st)}
-          <input placeholder="Remark" value="${esc(t.rm)}" oninput="hud.draft.yesterday[${i}].rm=this.value" style="flex:1;font-size:.85rem">
-        </div>
-        ${proofRow('yesterday',i,t,'yfile')}
-      </div>`).join('');
-  const taskRows=d.tasks.map((t,i)=>`
-      <div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px">
-        <div class="row" style="gap:6px;align-items:center">
-          <span style="font-weight:800;color:var(--muted);width:16px;flex:none">${i+1}.</span>
-          <input placeholder="Aaj ka task ${i+1}" value="${esc(t.t)}" oninput="hud.draft.tasks[${i}].t=this.value">
-          ${d.tasks.length>1?`<button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelTask(${i})">✕</button>`:''}
-        </div>
-        <div class="row" style="gap:6px;margin-top:6px">${stSelect('tasks',i,t.st)}
-          <input placeholder="Remark" value="${esc(t.rm)}" oninput="hud.draft.tasks[${i}].rm=this.value" style="flex:1;font-size:.85rem">
-        </div>
-        ${proofRow('tasks',i,t,'tfile')}
-      </div>`).join('');
-  const issueRows=d.issues.map((x,i)=>`
-      <div class="row" style="gap:6px;align-items:center;margin-bottom:7px">
-        <span style="font-weight:800;color:var(--muted);width:16px;flex:none">${i+1}.</span>
-        <input placeholder="Issue ${i+1}" value="${esc(x)}" oninput="hud.draft.issues[${i}]=this.value">
-        ${d.issues.length>1?`<button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelIssue(${i})">✕</button>`:''}
-      </div>`).join('');
+  const d=hud.draft, mode=hud.mode||(_istHour()<14?'plan':'report');
+  const ST=[['done','Done'],['partial','Part'],['notdone','No']];
+  const stSeg=(grp,i,st)=>`<span class="st-seg">${ST.map(([k,l])=>`<button class="${st===k?k:''}" onclick="hudSetSt('${grp}',${i},'${k}')">${l}</button>`).join('')}</span>`;
+  // Report row: task + Done/Part/No + 📎 (remark/proof sirf khulne par)
+  const repRow=(grp,i,t,prefix)=>{ const k=grp+'-'+i, has=!!(t.rm||t.proof||t.proofUrl);
+    return `<div class="hr-row"><div class="hr-top">
+        ${t.t&&!hud.open['new-'+k]?`<div class="grow" style="min-width:0;font-size:.9rem">${esc(t.t)}</div>`
+          :`<input class="grow" placeholder="Task" value="${esc(t.t)}" oninput="hud.draft.${grp}[${i}].t=this.value" onfocus="hud.open['new-${k}']=true">`}
+        ${stSeg(grp,i,t.st)}
+        <button class="clip ${has?'has':''}" onclick="hudTog('${k}')" title="Remark / proof">📎</button></div>
+      ${hud.open[k]?`<div style="margin-top:7px">
+        <input placeholder="Remark" value="${esc(t.rm)}" oninput="hud.draft.${grp}[${i}].rm=this.value" style="font-size:.85rem">
+        <input placeholder="Proof / result — text or link" value="${esc(t.proof||'')}" oninput="hud.draft.${grp}[${i}].proof=this.value" style="margin-top:6px;font-size:.85rem">
+        <input id="${prefix}${i}" type="file" onchange="hudUpload('${grp}',${i},'${prefix}${i}')" style="margin-top:6px;font-size:.72rem;padding:7px">
+        ${t.proofUrl?(_isImg(t.proofUrl)?`<a href="${esc(t.proofUrl)}" target="_blank" style="display:inline-block;margin-top:4px"><img src="${esc(t.proofUrl)}" loading="lazy" style="max-width:90px;max-height:90px;border-radius:6px;border:1px solid var(--line)"></a>`:`<a href="${esc(t.proofUrl)}" target="_blank" class="tiny" style="color:var(--brand);display:inline-block;margin-top:4px">📎 Attached file</a>`):''}
+      </div>`:''}</div>`; };
+  const yN=d.yesterday.filter(t=>t.t).length, yDone=d.yesterday.filter(t=>t.t&&t.st==='done').length;
+  const yestHTML = yN ? `<button class="yest-btn" onclick="hudTog('yest')"><span class="grow"><span class="tiny" style="display:block;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Yesterday</span>${yDone} of ${yN} done${d.yesterday.some(t=>t.t&&!t.st)?' · tap to update':''}</span><span>${hud.open.yest?'▲':'▼'}</span></button>
+      ${hud.open.yest?d.yesterday.map((t,i)=>t.t?repRow('yesterday',i,t,'yfile'):'').join(''):''}` : '';
+  const issues=d.issues, showIss=hud.open.iss||issues.some(x=>(x||'').trim());
+  const issHTML = showIss ? `<label style="margin-top:14px">Blockers</label>${issues.map((x,i)=>`<div class="hp-row"><span class="n">${i+1}.</span>
+        <input placeholder="What's blocking you?" value="${esc(x)}" oninput="hud.draft.issues[${i}]=this.value">
+        ${issues.length>1?`<button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelIssue(${i})">✕</button>`:''}</div>`).join('')}
+      <button class="btn ghost sm" onclick="hudAddIssue()">${IC.add} Add blocker</button>`
+    : `<button class="btn ghost sm" style="margin-top:12px" onclick="hudTog('iss')">${IC.add} Add a blocker</button>`;
+  const planRows = d.tasks.map((t,i)=>`<div class="hp-row"><span class="n">${i+1}.</span>
+      <input id="ht_${i}" placeholder="Task ${i+1}" value="${esc(t.t)}" oninput="hud.draft.tasks[${i}].t=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();hudEnterTask(${i})}">
+      ${d.tasks.length>1?`<button class="iconbtn" style="background:#f1f5f9;color:#b91c1c;padding:7px;flex:none" onclick="hudDelTask(${i})">✕</button>`:''}</div>`).join('');
+  const planned=d.tasks.filter(t=>t.t.trim());
+  const pendingSt=planned.filter(t=>!t.st).length;
+  const body = mode==='plan'
+    ? `<label style="margin-top:12px">Today's tasks <span style="text-transform:none;font-weight:600;color:var(--faint)">(Enter = next line)</span></label>
+       ${planRows}<button class="btn ghost sm" onclick="hudAddTask()">${IC.add} Add task</button>${issHTML}`
+    : `<label style="margin-top:12px">How did today go?</label>
+       ${planned.length?d.tasks.map((t,i)=>(t.t.trim()||hud.open['new-tasks-'+i])?repRow('tasks',i,t,'tfile'):'').join('')
+         :`<div class="tiny" style="margin:4px 0 10px">No tasks planned for this day. <a href="#" onclick="hudSetMode('plan');return false" style="color:var(--brand);font-weight:700">Add your plan</a> or add work you did below.</div>`}
+       <button class="btn ghost sm" onclick="hudAddTask();hud.open['new-tasks-'+(hud.draft.tasks.length-1)]=true;render()">${IC.add} Add work done</button>${issHTML}`;
   const formCard=`<div class="card" style="padding:16px">
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
-        <b>${hud.editing?('Edit — '+fmtDate(d.date)):(admin?'Aapka apna Standup':'Aaj ka Standup')}</b>
-        <button class="btn ghost sm" onclick="hudPickName()">${myName?esc(myName):'Naam chuno'}</button>
+        <b>${hud.editing?'Edit — '+fmtDate(d.date):'Your standup'}</b>
+        <button class="btn ghost sm" onclick="hudPickName()">${myName?esc(myName):'Choose name'}</button></div>
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <span class="att-seg"><button class="${mode==='plan'?'on':''}" onclick="hudSetMode('plan')">Morning plan</button><button class="${mode==='report'?'on':''}" onclick="hudSetMode('report')">Evening report</button></span>
+        ${hud.open.date?`<input id="hud_date" type="date" value="${d.date}" onchange="hudFormDate(this.value)" style="width:auto">`
+          :`<a href="#" class="tiny" onclick="hudTog('date');return false" style="font-weight:700;color:var(--muted)">${fmtDate(d.date)} · change</a>`}
       </div>
-      <div class="field" style="margin-top:12px"><label>Date</label>
-        <input id="hud_date" type="date" value="${d.date}" onchange="hudFormDate(this.value)"></div>
-      <label>Kal kya kiya tha <span style="text-transform:none;font-weight:600;color:var(--faint)">(auto · status daalo)</span></label>
-      ${d.yesterday.length?yestRows:'<div class="tiny" style="margin-bottom:8px">Pichhle standup se apne aap aayega. Nahi to "+ Add" se daalo.</div>'}
-      <button class="btn ghost sm" onclick="hudAddYest()">${IC.add} Add</button>
-      <label style="margin-top:16px">Aaj ke Task <span style="text-transform:none;font-weight:600;color:var(--faint)">(subah: task likho · shaam: status bharo = Day Report)</span></label>
-      ${taskRows}
-      <button class="btn ghost sm" onclick="hudAddTask()">${IC.add} Add Task</button>
-      <label style="margin-top:16px">Issues / Blockers</label>
-      ${issueRows}
-      <button class="btn ghost sm" onclick="hudAddIssue()">${IC.add} Add Issue</button>
+      <div style="margin-top:12px">${yestHTML}</div>
+      ${body}
       <div class="row" style="gap:9px;margin-top:16px">
         ${hud.editing?`<button class="btn ghost grow" onclick="hudCancelEdit()">Cancel</button>`:''}
-        <button class="btn ${hud.editing?'grow':'wide'}" onclick="hudSaveStandup()">${IC.check} ${hud.editing?'Update':'Save Standup'}</button>
-      </div>
+        <button class="btn ${hud.editing?'grow':'wide'}" onclick="hudSaveStandup()">${IC.check} ${hud.editing?'Update':(mode==='plan'?'Save plan':'Submit report')}</button></div>
+      ${mode==='report'&&pendingSt?`<div class="tiny" style="margin-top:8px;color:#b45309">${pendingSt} task${pendingSt>1?'s':''} still need${pendingSt>1?'':'s'} a status — the report counts once every task has one.</div>`:''}
     </div>`;
-  const mineList=`<div class="sec">${IC.cal} Meri Standups</div>
-    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false,true)).join('') : '<div class="empty">Abhi koi standup nahi. Form se pehli entry bharo.</div>'}`;
-  const fitems = hud.execFilter ? hud.items.filter(x=>(x.nameKey||'')===hud.execFilter) : hud.items;
-  const board=admin ? `
-      <div class="sec" style="display:flex;align-items:center;gap:8px">${IC.users} Team Board — ${fmtDate(hud.date)}
-        <button class="btn sm" style="margin-left:auto;background:#6366f1" onclick="openBoard()">📊 Score Board</button></div>
-      <div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <button class="btn ghost sm" onclick="hudShiftDay(-1)">${IC.back}</button>
+  const mineList=`<div class="sec">${IC.cal} My standups</div>
+    ${hud.mine.length ? hud.mine.map(s=>hudCard(s,false,true)).join('') : '<div class="empty">No standups yet. Add your first plan.</div>'}`;
+  // Team board — progress tiles (bina plan wale dashed)
+  let board='';
+  if(admin){
+    const by={}; hud.items.forEach(s=>{ by[(s.nameKey||(s.name||'')).toLowerCase()]=s; });
+    const names=EXECS.concat(hud.items.map(s=>s.name).filter(n=>n&&!EXECS.some(e=>e.toLowerCase()===n.toLowerCase())));
+    const info=names.map(n=>{ const s=by[n.toLowerCase()], t=s?stdTasks(s).filter(x=>x.t):[];
+      return {n,s,t,done:t.filter(x=>x.st==='done').length,upd:t.filter(x=>x.st).length,rep:t.length>0&&t.every(x=>x.st),iss:s?stdIssues(s).length:0}; })
+      .sort((a,b)=>(b.rep-a.rep)||((b.t.length>0)-(a.t.length>0))||(b.s?1:0)-(a.s?1:0));
+    const N=names.length, plans=info.filter(x=>x.t.length).length, reps=info.filter(x=>x.rep).length;
+    const tile=x=>!x.s?`<div class="hud-tile none"><b>${esc(x.n)}</b><div class="tiny">No plan yet</div></div>`
+      :`<button class="hud-tile ${x.rep?'rep':''}" onclick="hudOpenCard('${esc(x.s.id)}')"><b class="ell">${esc(x.n)}</b>
+          <div class="tiny">${x.t.length?(x.rep?`${x.t.length} tasks · ${x.done} done`:x.upd?`${x.t.length} tasks · ${x.upd} updated`:`${x.t.length} tasks · planned`):'Blockers only'}${x.iss?` · ⚠ ${x.iss}`:''}${x.s.feedback?' · 💬':''}</div>
+          <div class="bar"><i style="width:${x.t.length?Math.round(x.done/x.t.length*100):0}%"></i></div></button>`;
+    board=`<div class="sec" style="display:flex;align-items:center;gap:8px">${IC.users} Team board — ${fmtDate(hud.date)}</div>
+      <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn ghost sm" onclick="hudShiftDay(-1)" title="Previous">${IC.back}</button>
         <input type="date" value="${hud.date}" onchange="hudSetDate(this.value)" style="width:auto">
-        <button class="btn ghost sm" onclick="hudShiftDay(1)">${IC.chev}</button>
+        <button class="btn ghost sm" onclick="hudShiftDay(1)" title="Next">${IC.chev}</button>
         <button class="btn ghost sm" onclick="hudSetDate(today())">Today</button>
-        <button class="btn sm" style="background:#22c55e;margin-left:auto" onclick="hudShareReport()">${IC.wa} Report</button>
-      </div>
-      <div class="field" style="margin-bottom:12px"><label>Executive</label>
-        <select onchange="hud.execFilter=this.value;render()">
-          <option value="">Saare executives</option>
-          ${EXECS.map(n=>`<option value="${esc(n.toLowerCase())}" ${hud.execFilter===n.toLowerCase()?'selected':''}>${esc(n)}</option>`).join('')}
-        </select>
-      </div>
-      ${(!hud.execFilter && missing.length) ? `<div class="alert"><div class="a-ic">${IC.bell}</div><div class="grow"><b>Standup pending</b><div class="tiny" style="color:var(--ink)">${missing.map(esc).join(', ')}</div></div></div>` : ''}
-      ${fitems.length ? fitems.map(s=>hudCard(s,true)).join('') : `<div class="empty">${hud.execFilter?'Is executive ne is din standup nahi bhara.':'Is din kisi ne standup nahi bhara.'}</div>`}` : '';
+        <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" style="background:#6366f1" onclick="openBoard()">📊 Score board</button>
+        <button class="btn sm" style="background:#22c55e" onclick="hudShareReport()">${IC.wa} Report</button></span></div>
+      <div class="cal-sum" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+        <div><span>Plans in · due ${BOARD_PLAN_BY} am</span><b>${plans}/${N}</b></div><div><span>Reports in · due 6 pm</span><b>${reps}/${N}</b></div></div>
+      <div class="hud-tiles">${info.map(tile).join('')}</div>
+      <div class="tiny" style="margin-top:8px;color:var(--muted)">Tap a tile to see the standup and give feedback.</div>`;
+  }
   return `<div class="main-inner">
     <div class="page-title">Daily Huddle</div>
-    <div class="page-sub">Apna standup daalo${admin?' · aur poori team ka board dekho':''}.</div>
+    <div class="page-sub">Plan in the morning, report in the evening${admin?' · plus the team board':''}.</div>
     <div class="hud-wrap">
       <div class="hud-left">${formCard}</div>
       <div>${admin ? board : mineList}</div>
@@ -3173,44 +3209,123 @@ function wallHTML(){
   </div>`;
 }
 // ════ HOME DASHBOARD ════
-function openHome(){ route.view='home'; route.id=null; render(); if(!wall.cfg) engageLoad(); window.scrollTo(0,0); }
+function openHome(){ route.view='home'; route.id=null; home.loaded=false; render(); if(!wall.cfg) engageLoad(); window.scrollTo(0,0); }
+// ── Home "My day": aaj kya bacha hai (attendance / plan / report) + aaj kisko call karna hai ──
+let home = { loaded:false, loading:false, att:null, std:null, wk:null, teamIn:null, teamN:0, plans:null };
+// Score Board wala formula (roz: attendance + plan + report; hafta = non-leave dino ka avg × 6)
+function _dayScoreOf(std,att,d){
+  const r=att.find(x=>x.date===d), s=std.find(x=>x.date===d), t=(s&&Array.isArray(s.tasks))?s.tasks:[];
+  const A=(r&&r.inTime)?1:0, P=t.length?1:0, R=(t.length&&t.every(x=>x.st))?1:0;
+  return {date:d,leave:isHoliday(d)||!!(r&&r.leave&&!r.inTime),holiday:HOLIDAYS[d]||'',att:A,plan:P,report:R,score:A+P+R,tasks:t.length,done:t.filter(x=>x.st).length};
+}
+function _weekScoreOf(std,att,ref){ const wk=_weekDates(ref).map(d=>_dayScoreOf(std,att,d)).filter(r=>!r.leave);
+  return wk.length?Math.round(wk.reduce((s,r)=>s+r.score,0)/wk.length*6):0; }
+async function homeLoad(){
+  home.loading=true;
+  const me=hudMyName(), k=(me||'').toLowerCase(), td=today();
+  try{
+    await holLoad();
+    if(me){
+      const [s,a]=await Promise.all([db.collection('standups').where('nameKey','==',k).get(), db.collection('attendance').where('nameKey','==',k).get()]);
+      const std=s.docs.map(x=>x.data()), att=a.docs.map(x=>x.data());
+      home.att=att.find(x=>x.date===td)||null; home.std=std.find(x=>x.date===td)||null; home.wk=_weekScoreOf(std,att,td);
+    }
+    if(canViewAllHA()){
+      const roster=Object.values(OFFICE_STAFF).flat(), rk=new Set(roster.map(n=>n.toLowerCase()));
+      const [a,s]=await Promise.all([db.collection('attendance').where('date','==',td).get(), db.collection('standups').where('date','==',td).get()]);
+      home.teamN=roster.length; home.teamIn=a.docs.map(x=>x.data()).filter(x=>x.inTime&&rk.has((x.nameKey||'').toLowerCase())).length;
+      home.plans=s.docs.map(x=>x.data()).filter(x=>Array.isArray(x.tasks)&&x.tasks.length).length;
+    }
+  }catch(e){ console.warn('home load',e); }
+  home.loading=false; home.loaded=true;
+  if(route.view==='home') render();
+}
+// Aaj kisko call karna hai: overdue (sabse purana upar) → aaj due → going cold
+function _homeCalls(){
+  const td=today(), seen=new Set(), out=[];
+  const days=d=>Math.round((Date.parse(td)-Date.parse(d))/864e5);
+  leads.filter(isOverdue).map(L=>({L,d:dueDate(L)})).sort((a,b)=>(a.d||'').localeCompare(b.d||''))
+    .forEach(({L,d})=>{ if(!seen.has(L.id)){ seen.add(L.id); out.push({L,pill:'dn',txt:d?days(d)+'d overdue':'overdue'}); } });
+  leads.filter(L=>dueDate(L)===td).forEach(L=>{ if(!seen.has(L.id)){ seen.add(L.id); out.push({L,pill:'ac',txt:'today'}); } });
+  leads.filter(isCold).sort((a,b)=>coldDays(b)-coldDays(a)).forEach(L=>{ if(!seen.has(L.id)){ seen.add(L.id); out.push({L,pill:'wn',txt:coldDays(L)+'d quiet'}); } });
+  return out;
+}
 function homeHTML(){
-  const ho=isHuddleOnly();
-  const nm=((hudMyName()||((user&&user.email||'').split('@')[0])||'').split(' ')[0]);
-  const h=new Date(Date.now()+5.5*3600e3).getUTCHours();
+  if(!home.loaded&&!home.loading) setTimeout(homeLoad,0);
+  const ho=isHuddleOnly(), me=hudMyName();
+  const nm=((me||((user&&user.email||'').split('@')[0])||'').split(' ')[0]);
+  const h=_istHour(), td=today();
   const greet=h<12?'Good morning':(h<17?'Good afternoon':'Good evening');
-  const dueToday=leads.filter(L=>dueDate(L)===today()).length;
+  const dayLbl=new Date(td+'T00:00:00Z').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+  const bdays=todaysBirthdays(), q=quoteOfDay();
+  const off=isHoliday(td)||isSunday(td);
+  // 3 "My day" tiles
+  const tile=(lbl,val,cls,onclick)=>`<button class="md-t ${cls}" onclick="${onclick}"><span>${lbl}</span><b>${val}</b></button>`;
+  const ld=!home.loaded;
+  const a=home.att, s=home.std, tasks=(s&&Array.isArray(s.tasks))?s.tasks.filter(x=>x.t):[];
+  const attT = !me ? tile('Attendance','Set name','wn','hudPickName()')
+    : ld ? tile('Attendance','…','','openAtt()')
+    : a&&a.inTime ? tile('Attendance',esc(a.inTime)+(a.late?' · late':''),a.late?'wn':'ok','openAtt()')
+    : off ? tile('Attendance','Day off','','openAtt()')
+    : tile('Attendance','Punch in','wn','openAtt()');
+  const planT = ld ? tile("Today's plan",'…','',"openHuddle('plan')")
+    : tasks.length ? tile("Today's plan",tasks.length+' task'+(tasks.length>1?'s':''),'ok',"openHuddle('plan')")
+    : off ? tile("Today's plan",'—','',"openHuddle('plan')")
+    : tile("Today's plan",'Add plan','wn',"openHuddle('plan')");
+  const reported=tasks.length&&tasks.every(x=>x.st);
+  const repT = ld ? tile('Report','…','',"openHuddle('report')")
+    : reported ? tile('Report','Done','ok',"openHuddle('report')")
+    : off ? tile('Report','—','',"openHuddle('report')")
+    : h>=BOARD_REPORT_BY ? tile('Report','Due now','wn',"openHuddle('report')")
+    : tile('Report','by 6 pm','',"openHuddle('report')");
+  // Call today
+  const calls=ho?[]:_homeCalls(), top=calls.slice(0,5);
+  const callRow=({L,pill,txt})=>`<div class="call-row" onclick="go('detail','${esc(L.id)}')">
+      <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:${avatarColor(L.name||'?')}">${esc((L.name||'?')[0].toUpperCase())}</div>
+      <div class="grow" style="min-width:0"><b class="ell" style="display:block">${esc(L.name||'—')}</b><div class="tiny ell">${esc(L.colony||'')}${L.colony?' · ':''}${esc(stMap[L.status]?.l||L.status||'')}</div></div>
+      <span class="hm-pill ${pill}">${esc(txt)}</span>
+      ${L.mobile?`<a class="iconbtn" href="tel:${esc(digits(L.mobile))}" onclick="event.stopPropagation()" title="Call" style="background:#eef0ff;color:#4338ca;padding:8px">${IC.phone||'📞'}</a>`:''}
+    </div>`;
+  const callCard = ho ? '' : `<div class="card" style="padding:14px 14px 6px">
+      <div class="row" style="align-items:center;gap:8px;margin-bottom:4px"><b class="grow">Call today${calls.length?' · '+calls.length:''}</b>
+        ${calls.length>top.length?`<button class="btn ghost sm" onclick="tab('reminders')">See all</button>`:''}
+        <button class="btn ghost sm" onclick="openLeadForm()">${IC.add} Lead</button></div>
+      ${top.length?top.map(callRow).join(''):'<div class="tiny" style="padding:10px 0 12px">All caught up — no calls due today. 🎉</div>'}
+    </div>`;
+  // Numbers
+  const num=(lbl,val,onclick)=>`<button class="md-t" onclick="${onclick}"><span>${lbl}</span><b>${val}</b></button>`;
   const pending=leads.filter(isOverdue).length+leads.filter(isNew).length;
-  const bdays=todaysBirthdays(), q=quoteOfDay(), st=storyOfDay();
-  const metric=(n,t,onclick,danger)=>`<div onclick="${onclick}" style="flex:1;border:1px solid var(--line);border-radius:16px;padding:15px 16px;cursor:pointer;background:linear-gradient(180deg,#fff,#f8f9fe);box-shadow:var(--sh),var(--hl)"><div class="tiny" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">${t}</div><div style="font-size:2rem;font-weight:800;line-height:1;margin-top:5px;letter-spacing:-.02em${danger?';color:var(--danger)':''}">${n}</div></div>`;
-  const qa=(icon,label,onclick,tint)=>`<button onclick="${onclick}" style="flex:1;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 6px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,#fff,#f9fafe);cursor:pointer;box-shadow:var(--sh),var(--hl)"><span style="width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;background:${tint||'#eef0ff'};box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 3px rgba(15,23,42,.08)">${icon}</span><span style="font-size:.74rem;font-weight:700;color:var(--ink)">${label}</span></button>`;
-  const avH=(nm,sz)=>`<div style="width:${sz}px;height:${sz}px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:${Math.round(sz*0.42)}px;background:${avatarColor(nm||'?')}">${esc((nm||'?')[0].toUpperCase())}</div>`;
-  const peek=(wall.posts||[]).slice(0,2);
+  const nums=[
+    (!ho&&isAdmin()) ? num('Pipeline',inr(_funnelTotal('')),'openFunnel()') : (!ho ? num('Alerts',pending,"tab('reminders')") : ''),
+    me ? num('Week score',ld?'…':(home.wk||0)+'/18',`openMemberReport('${esc(me)}')`) : '',
+    canViewAllHA() ? num('Team in',home.teamIn==null?'…':home.teamIn+'/'+home.teamN,'openAtt()') : (!ho ? num('Due today',leads.filter(L=>dueDate(L)===td).length,"tab('today')") : '')
+  ].filter(Boolean).join('');
+  const peek=(wall.posts||[])[0];
+  const avH=(n,sz)=>`<div style="width:${sz}px;height:${sz}px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:${Math.round(sz*0.42)}px;background:${avatarColor(n||'?')}">${esc((n||'?')[0].toUpperCase())}</div>`;
+  const side=`
+    ${nums?`<div class="md-tiles">${nums}</div>`:''}
+    ${canViewAllHA()&&home.plans!=null?`<div class="tiny" style="margin:-2px 2px 0;color:var(--muted)">Standups today: ${home.plans}/${home.teamN} · <a href="#" onclick="openHuddle();return false" style="color:var(--brand);font-weight:700">open huddle</a></div>`:''}
+    ${q?`<div class="card" style="padding:12px;border-left:3px solid #6366f1;border-radius:0 14px 14px 0"><div class="tiny" style="font-weight:800;color:#6366f1">QUOTE OF THE DAY</div><div style="margin-top:4px">${esc(q)}</div></div>`:''}
+    <div class="card" style="padding:12px">
+      <div class="row" style="align-items:center;gap:8px"><b class="grow">Wall</b><button class="btn ghost sm" onclick="openWall()">See all</button></div>
+      ${peek?`<div class="row" style="gap:10px;align-items:flex-start;margin-top:8px;cursor:pointer" onclick="openWall()">${avH(peek.byName||peek.by,28)}
+          <div class="grow" style="min-width:0"><b>${esc(peek.byName||peek.by||'?')}</b> <span class="tiny" style="color:var(--muted)">· ${_ago(peek.ts)}</span>
+          ${peek.text?`<div class="tiny" style="color:var(--ink);margin-top:2px">${esc(peek.text.length>110?peek.text.slice(0,110)+'…':peek.text)}</div>`:''}</div></div>`
+        :`<div class="tiny" style="margin-top:6px">No posts yet — <a href="#" onclick="openWall();return false" style="color:var(--brand);font-weight:700">write the first one</a></div>`}
+    </div>`;
   return `<div class="main-inner">
-    <h2 class="page-title" style="margin-bottom:2px">${greet}${nm?', '+esc(nm):''} 👋</h2>
-    <div class="page-sub">${fmtDate(today())}</div>
-    <button onclick="openAgent()" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:12px;padding:16px 14px;border:none;border-radius:18px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#6d5efc 0%,#8b5cf6 55%,#a855f7 100%);box-shadow:0 12px 28px -12px rgba(109,94,252,.65),inset 0 1px 0 rgba(255,255,255,.28)">
-      <span style="font-size:1.9rem;line-height:1">🎙️</span>
-      <span style="text-align:left"><span style="display:block;font-weight:800;font-size:1.05rem;letter-spacing:-.01em">Saathi se baat karo</span><span style="display:block;font-size:.78rem;opacity:.93">Bolo ya likho — plan, report, leads, funnel</span></span>
-    </button>
-    ${bdays.length?`<div class="card" style="padding:12px;background:linear-gradient(135deg,#fde68a,#fca5a5);border:none;margin-top:12px"><b>🎉 Aaj: ${bdays.map(b=>esc(b.name)+(b.type==='anniv'?' 💍':' 🎂')).join(' · ')}</b><div class="tiny">Team ko wish karein!</div></div>`:''}
-    ${!ho?`<div class="row" style="gap:10px;margin-top:14px">${metric(dueToday,'Aaj due',"tab('today')")}${metric(pending,'Alerts',"tab('reminders')",true)}</div>`:''}
-    ${(!ho&&isAdmin())?`<div class="card" style="padding:14px;margin-top:12px;cursor:pointer;background:linear-gradient(135deg,#e0e7ff,#bfdbfe);border:none" onclick="openFunnel()"><div class="tiny" style="font-weight:800;color:#4338ca">📈 FUNNEL VALUE</div><div style="font-size:1.5rem;font-weight:800;margin-top:2px">${inr(_funnelTotal(''))}</div><div class="tiny" style="color:#4338ca">tap → full dashboard</div></div>`:''}
-    <div class="sec" style="margin-top:18px">Quick actions</div>
-    <div class="row" style="gap:10px;flex-wrap:wrap">
-      ${qa('✅','Punch In','openAtt()','#e9f8ef')}
-      ${qa('📝','Standup','openHuddle()','#eef0ff')}
-      ${!ho?qa('➕','Add Lead','openLeadForm()','#fdf0e0'):''}
-      ${qa('📣','Wall','openWall()','#fdeef3')}
+    <div class="row" style="align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="grow"><h2 class="page-title" style="margin-bottom:2px">${greet}${nm?', '+esc(nm):''} 👋</h2><div class="page-sub">${esc(dayLbl)}${isHoliday(td)?' · 🎉 '+esc(HOLIDAYS[td]):''}</div></div>
+      <button class="saathi-btn" onclick="openAgent()"><span style="font-size:1.25rem">🎙️</span><span><b>Ask Saathi</b><small>talk or type</small></span></button>
     </div>
-    ${q?`<div class="card" style="padding:12px;border-left:3px solid #6366f1;margin-top:18px"><div class="tiny" style="font-weight:800;color:#6366f1">💬 QUOTE OF THE DAY</div><div style="margin-top:4px">${esc(q)}</div></div>`:''}
-    ${st?`<div class="card" style="padding:12px;border-left:3px solid #10b981;margin-top:12px"><div class="tiny" style="font-weight:800;color:#10b981">📖 STORY OF THE DAY</div><div style="margin-top:4px;white-space:pre-wrap">${esc(st)}</div></div>`:''}
-    <div class="sec" style="margin-top:18px"><span class="grow">📣 Wall</span><button class="btn ghost sm" onclick="openWall()">Sab dekho</button></div>
-    ${peek.length? peek.map(p=>`<div class="card" style="padding:12px;margin-bottom:10px" onclick="openWall()">
-        <div class="row" style="gap:10px;align-items:center">${avH(p.byName||p.by,30)}<div class="grow" style="min-width:0"><b>${esc(p.byName||p.by||'?')}</b><div class="tiny" style="color:var(--muted)">${_ago(p.ts)}</div></div></div>
-        ${p.text?`<div style="margin-top:6px;white-space:pre-wrap">${esc(p.text.length>140?p.text.slice(0,140)+'…':p.text)}</div>`:''}
-        ${p.img?`<img src="${esc(p.img)}" loading="lazy" style="max-width:100%;border-radius:10px;margin-top:8px">`:''}
-      </div>`).join('') : `<div class="card" style="padding:14px;text-align:center"><div class="tiny" style="color:var(--muted)">Abhi koi post nahi — <a href="#" onclick="openWall();return false" style="color:var(--brand);font-weight:700">pehla post karo</a> 🎉</div></div>`}
+    ${bdays.length?`<div class="card" style="padding:12px;background:linear-gradient(135deg,#fde68a,#fca5a5);border:none;margin-top:12px"><b>🎉 Today: ${bdays.map(b=>esc(b.name)+(b.type==='anniv'?' 💍':' 🎂')).join(' · ')}</b><div class="tiny">Wish the team!</div></div>`:''}
+    <div class="home-grid">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div><div class="sec" style="margin:0 2px 8px">My day</div><div class="md-tiles">${attT}${planT}${repT}</div></div>
+        ${callCard}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">${side}</div>
+    </div>
   </div>`;
 }
 // ════ TEAM HUB ════
