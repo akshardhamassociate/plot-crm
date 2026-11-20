@@ -11,6 +11,7 @@
     "@capacitor/android": "^6.2.0",
     "@capacitor/app": "^6.0.2",
     "@capacitor/push-notifications": "^6.0.4",
-    "@capacitor/geolocation": "^6.1.0"
+    "@capacitor/geolocation": "^6.1.0",
+    "@capacitor/share": "^6.0.0"
   }
 }

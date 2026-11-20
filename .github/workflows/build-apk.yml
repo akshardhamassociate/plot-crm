@@ -71,10 +71,10 @@ jobs:
           sed -i "/com.android.tools.build:gradle/a\        classpath 'com.google.gms:google-services:4.4.2'" android/build.gradle
           echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
 
-      - name: Permissions (location + mic + notifications)
+      - name: Permissions (location + mic + camera + notifications)
         run: |
           MF=android/app/src/main/AndroidManifest.xml
-          for P in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION RECORD_AUDIO MODIFY_AUDIO_SETTINGS POST_NOTIFICATIONS; do
+          for P in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION RECORD_AUDIO MODIFY_AUDIO_SETTINGS CAMERA POST_NOTIFICATIONS; do
             grep -q "android.permission.$P\"" "$MF" || sed -i "s#</manifest>#    <uses-permission android:name=\"android.permission.$P\" />\n</manifest>#" "$MF"
           done
           echo "--- permissions in manifest ---"; grep -o 'android.permission.[A-Z_]*' "$MF" | sort -u
