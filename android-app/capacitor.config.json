@@ -1,0 +1,9 @@
+{
+  "appId": "com.akshardham.plotcrm",
+  "appName": "Plot CRM",
+  "webDir": "www",
+  "server": {
+    "url": "https://akshardhamassociate.github.io/plot-crm/",
+    "androidScheme": "https"
+  }
+}

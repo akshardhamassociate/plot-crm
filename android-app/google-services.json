@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "795511910978",
+    "project_id": "plot-crm",
+    "storage_bucket": "plot-crm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:795511910978:android:100c02104bba39176c73db",
+        "android_client_info": {
+          "package_name": "com.akshardham.plotcrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDn_WIYJhLx6ArZYFgej3P1wkJHi5qkT0c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

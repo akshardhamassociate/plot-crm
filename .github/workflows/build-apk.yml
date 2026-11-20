@@ -1,0 +1,138 @@
+name: Build APK
+
+# Plot CRM Android app (Capacitor shell jo live site kholta hai) banata hai — mic + location + notifications ke saath.
+# Hamesha ek hi pakki key se sign → aage ke saare APK purane ke upar update ho jaate hain.
+# Build hone ke baad plot-crm.apk + version.json khud commit → app me "Update" banner aa jaata hai.
+#
+# Ek baar setup (repo Settings → Secrets → Actions):
+#   APK_KEYSTORE_B64       = plotcrm-release.p12 file ka base64
+#   APK_KEYSTORE_PASSWORD  = us keystore ka password   (alias: plotcrm)
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Version (jaise 1.2)'
+        required: true
+        default: '1.2'
+      note:
+        description: 'Is update me kya naya hai'
+        required: false
+        default: 'Mic (Saathi voice) + naya design. IS BAAR (sirf ek baar): pehle purana Plot CRM app uninstall karo, phir ye install karo — warna "App not installed" aayega.'
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - name: Check signing secrets
+        working-directory: .
+        env:
+          KS: ${{ secrets.APK_KEYSTORE_B64 }}
+          PW: ${{ secrets.APK_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS" ] || [ -z "$PW" ]; then
+            echo "::error::APK_KEYSTORE_B64 / APK_KEYSTORE_PASSWORD secret set nahi. Bina pakki key ke har APK alag key se banega aur update nahi hoga — pehle secrets daalo."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Capacitor
+        run: npm install
+
+      - name: Add Android platform
+        run: npx cap add android && npx cap sync android
+
+      - name: App icon
+        run: npx capacitor-assets generate --android
+
+      - name: Firebase (push notifications)
+        run: |
+          cp google-services.json android/app/google-services.json
+          sed -i "/com.android.tools.build:gradle/a\        classpath 'com.google.gms:google-services:4.4.2'" android/build.gradle
+          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+
+      - name: Permissions (location + mic + notifications)
+        run: |
+          MF=android/app/src/main/AndroidManifest.xml
+          for P in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION RECORD_AUDIO MODIFY_AUDIO_SETTINGS POST_NOTIFICATIONS; do
+            grep -q "android.permission.$P\"" "$MF" || sed -i "s#</manifest>#    <uses-permission android:name=\"android.permission.$P\" />\n</manifest>#" "$MF"
+          done
+          echo "--- permissions in manifest ---"; grep -o 'android.permission.[A-Z_]*' "$MF" | sort -u
+          grep -q RECORD_AUDIO "$MF" || { echo "::error::RECORD_AUDIO manifest me nahi gaya"; exit 1; }
+
+      - name: Version
+        env:
+          VN: ${{ inputs.versionName }}
+        run: |
+          VC=$((100 + ${{ github.run_number }}))
+          sed -i -E "s/versionCode [0-9]+/versionCode $VC/; s/versionName \"[^\"]*\"/versionName \"$VN\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
+      - name: Build signed release APK
+        env:
+          KS: ${{ secrets.APK_KEYSTORE_B64 }}
+          PW: ${{ secrets.APK_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$KS" | base64 -d > "$RUNNER_TEMP/plotcrm-release.p12"
+          cd android && chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/plotcrm-release.p12" \
+            -Pandroid.injected.signing.store.password="$PW" \
+            -Pandroid.injected.signing.key.alias=plotcrm \
+            -Pandroid.injected.signing.key.password="$PW"
+          rm -f "$RUNNER_TEMP/plotcrm-release.p12"
+
+      - name: Verify signature
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK" || { echo "::error::Signed APK nahi bana"; ls -R android/app/build/outputs/apk; exit 1; }
+          SIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$SIGNER" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          cp "$APK" ../plot-crm.apk
+
+      - name: Publish (plot-crm.apk + version.json)
+        working-directory: .
+        env:
+          VN: ${{ inputs.versionName }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          node -e "require('fs').writeFileSync('version.json', JSON.stringify({versionName:process.env.VN, url:'plot-crm.apk', note:process.env.NOTE}, null, 2)+'\n')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add plot-crm.apk version.json
+          git commit -m "APK v$VN — $NOTE"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Refresh GitHub Pages
+        working-directory: .
+        continue-on-error: true
+        run: |
+          curl -s -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages/builds" | head -c 300
+
+      - name: Keep a copy as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plot-crm-apk-${{ inputs.versionName }}
+          path: plot-crm.apk
