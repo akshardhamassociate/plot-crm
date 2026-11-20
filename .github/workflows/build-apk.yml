@@ -88,27 +88,32 @@ jobs:
           sed -i -E "s/versionCode [0-9]+/versionCode $VC/; s/versionName \"[^\"]*\"/versionName \"$VN\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
 
-      - name: Build signed release APK
+      - name: Build release APK (unsigned)
+        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --stacktrace
+
+      # Gradle ki jagah Android ka apna apksigner — har galti ka asli message ::error:: annotation me aata hai
+      - name: Sign with the fixed key + verify
         env:
-          KS: ${{ secrets.APK_KEYSTORE_B64 }}
+          KS_B64: ${{ secrets.APK_KEYSTORE_B64 }}
           PW: ${{ secrets.APK_KEYSTORE_PASSWORD }}
         run: |
-          echo "$KS" | base64 -d > "$RUNNER_TEMP/plotcrm-release.p12"
-          cd android && chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace \
-            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/plotcrm-release.p12" \
-            -Pandroid.injected.signing.store.password="$PW" \
-            -Pandroid.injected.signing.key.alias=plotcrm \
-            -Pandroid.injected.signing.key.password="$PW"
-          rm -f "$RUNNER_TEMP/plotcrm-release.p12"
-
-      - name: Verify signature
-        run: |
-          APK=android/app/build/outputs/apk/release/app-release.apk
-          test -f "$APK" || { echo "::error::Signed APK nahi bana"; ls -R android/app/build/outputs/apk; exit 1; }
-          SIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
-          "$SIGNER" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
-          cp "$APK" ../plot-crm.apk
+          KS="$RUNNER_TEMP/plotcrm-release.p12"
+          printf '%s' "$KS_B64" | tr -d ' \r\n' | base64 -d > "$KS" || { echo "::error::APK_KEYSTORE_B64 secret base64 nahi lag raha — Part 1 ka copy wala command dobara chala ke secret update karo"; exit 1; }
+          BT=$(ls -d "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"/build-tools/*/ 2>/dev/null | sort -V | tail -1)
+          [ -n "$BT" ] || { echo "::error::Android build-tools nahi mile (ANDROID_HOME=$ANDROID_HOME)"; exit 1; }
+          IN=$(ls android/app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          [ -n "$IN" ] || { echo "::error::Release APK nahi bana: $(ls -R android/app/build/outputs 2>&1 | tr '\n' ' ' | head -c 400)"; exit 1; }
+          echo "built: $IN  ·  build-tools: $BT"
+          "${BT}zipalign" -f -p 4 "$IN" "$RUNNER_TEMP/aligned.apk" || { echo "::error::zipalign fail"; exit 1; }
+          if ! "${BT}apksigner" sign --ks "$KS" --ks-type PKCS12 --ks-key-alias plotcrm --ks-pass env:PW --key-pass env:PW \
+               --out "$RUNNER_TEMP/signed.apk" "$RUNNER_TEMP/aligned.apk" 2> "$RUNNER_TEMP/sign.err"; then
+            echo "::error::Sign fail (password ya alias galat?): $(tr '\n' ' ' < "$RUNNER_TEMP/sign.err" | head -c 500)"; rm -f "$KS"; exit 1
+          fi
+          rm -f "$KS"
+          OUT=$("${BT}apksigner" verify --print-certs "$RUNNER_TEMP/signed.apk" 2>&1) || { echo "::error::Verify fail: $(echo "$OUT" | tr '\n' ' ' | head -c 500)"; exit 1; }
+          echo "$OUT" | grep -E "certificate (DN|SHA-256)" || true
+          echo "::notice::APK signed — $(echo "$OUT" | grep -m1 'certificate DN' | sed 's/.*DN: //')"
+          cp "$RUNNER_TEMP/signed.apk" ../plot-crm.apk
 
       - name: Publish (plot-crm.apk + version.json)
         working-directory: .
