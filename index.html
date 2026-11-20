@@ -701,7 +701,7 @@ const CLOUDINARY = { cloud:'dlcxawjii', preset:'plot_crm_unsigned' };   // owner
 const VAPID = 'BOVxp8fAyBpN93x_Wf25euE8gUp6KtyjaqpNAAh7LdgDmW0dHUFOQOQQvbsqrMqsDemRTi4vBqgRTGiI6mlKWow';
 let messaging = null; try{ messaging = firebase.messaging(); }catch(_){}
 let swReg = null;
-const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji'];   // executives — dropdown me pehle se dikhenge
+const EXECS = ['Rupesh Ji','Kamana ji','Sunil Meghwal Ji','Sunil Pankaj Ji','Leeladhar ji','Krishan Ji','Raghavendra Ji','Shaffat Ji','Rahul','Bhavesh','Luv','Rashid Ji','Ankush Mehra'];   // executives — dropdown me pehle se dikhenge
 const NOTIFY_URL = 'https://plot-crm-notify.vercel.app/api/notify';   // instant-notification server (Vercel) — deploy ke baad apni URL daalna
 const AUDIT_URL  = 'https://script.google.com/macros/s/AKfycbzg03zxLfHawG5NG4fK4bkOd7kZAdKz9lJS2t-UkAhVFc-9xsEADcLWQGpOo-dZtPiV/exec';   // Smart Call Log ka Apps Script /exec URL (calllog wala same). Khaali = recording auto-audit OFF.
 
@@ -2599,14 +2599,16 @@ function huddleHTML(){
 }
 
 // ── ATTENDANCE ────────────────────────────────────────────────────────────────
-const OFFICES = [ {id:'kota',name:'Kota'}, {id:'jhalawar',name:'Jhalawar'}, {id:'khanpur',name:'Khanpur'} ];
-const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster)
+const OFFICES = [ {id:'kota',name:'Kota'}, {id:'jhalawar',name:'Jhalawar'}, {id:'khanpur',name:'Khanpur'}, {id:'sarola',name:'Sarola'} ];   // Sarola = Tejas Vihar project office
+const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster). Punch-in kisi bhi office se ho sakta hai — ye sirf board ka group hai.
   kota:['Rahul','Luv','Sunil Pankaj Ji','Krishan Ji','Kamana ji','Rashid Ji','Shaffat Ji','Bhavesh'],
   jhalawar:['Sunil Meghwal Ji','Raghavendra Ji'],
-  khanpur:['Rupesh Ji','Leeladhar ji']
+  khanpur:['Rupesh Ji','Leeladhar ji'],
+  sarola:['Ankush Mehra']   // kabhi Khanpur/Kota bhi — wahan se bhi punch ho jaayega
 };
-// Office location set access — admin (sir+Luv) sab office; niche wale sirf apne office ke liye
-const OFFICE_SETTERS = {};   // sirf admin (sir + Luv) office location set kar sakte hain
+// Office location set access — admin sab office; niche wale sirf apne office ke liye.
+// ⚠ Firestore rules me bhi us email ko config/offices ki sirf us office ki key likhne ki permission chahiye.
+const OFFICE_SETTERS = { sarola:['akdrupesh@gmail.com'] };   // Rupesh Ji — Sarola (Tejas Vihar) ki location
 function canSetOffice(oid){ if(isAdmin()) return true; const e=(user&&user.email||'').toLowerCase(); return (OFFICE_SETTERS[oid]||[]).includes(e); }
 const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
 const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
