@@ -2612,6 +2612,8 @@ const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster). Pun
 const OFFICE_SETTERS = { sarola:['akdrupesh@gmail.com'] };   // Rupesh Ji — Sarola (Tejas Vihar) ki location
 function canSetOffice(oid){ if(isAdmin()) return true; const e=(user&&user.email||'').toLowerCase(); return (OFFICE_SETTERS[oid]||[]).includes(e); }
 const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
+const GPS_SLACK = 150;       // kamzor (indoor) GPS ki ±accuracy tak chhoot → max asli doori = RADIUS + SLACK (300m)
+const GPS_COARSE = 800;      // isse zyada ± = phone "approximate location" de raha hai → precise ON karwao
 const LATE_AFTER = '10:20';  // is time (IST) ke baad punch-in = Late
 let att = { date: today(), offices:{}, mineToday:null, mine:[], items:[], week:[], mode:'day', off:'all', calM:'', calSel:'', showOff:false };
 // ── Holidays: config/holidays.dates = {'YYYY-MM-DD':'Diwali'} (admin mark karta hai). Sunday hamesha off. ──
@@ -2852,22 +2854,40 @@ function distM(la1,lo1,la2,lo2){ const R=6371000, r=x=>x*Math.PI/180;
   const dLa=r(la2-la1), dLo=r(lo2-lo1);
   const x=Math.sin(dLa/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
   return 2*R*Math.asin(Math.sqrt(x)); }
-function getPos(){
-  const G = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation;
-  if(isNative() && G){                        // APK: native Geolocation plugin (sahi runtime permission)
-    return (async ()=>{
-      const perm = await G.requestPermissions().catch(()=>null);
-      if(perm && perm.location==='denied') throw new Error('Location "Allow" karo — Settings → Apps → Plot CRM → Permissions → Location');
-      const p = await G.getCurrentPosition({ enableHighAccuracy:true, timeout:15000 });
-      return { latitude:p.coords.latitude, longitude:p.coords.longitude, accuracy:p.coords.accuracy };
-    })();
+// APK remote URL kholta hai, isliye Capacitor.Plugins.Geolocation khud nahi judta — registerPlugin se native GPS lo (_capApp jaisa)
+function _geoPlugin(){
+  try{ if(!isNative()||!window.Capacitor) return null;
+    return (Capacitor.Plugins&&Capacitor.Plugins.Geolocation) || (Capacitor.registerPlugin?Capacitor.registerPlugin('Geolocation'):null);
+  }catch(_){ return null; }
+}
+const PRECISE_HELP='Settings → Apps → Plot CRM → Permissions → Location → "Allow" + "Use precise location" ON karo.';
+async function getPos(){
+  const G=_geoPlugin();
+  if(G){                                       // APK: native GPS (behtar accuracy + sahi permission)
+    try{
+      const perm=await G.requestPermissions().catch(()=>null);
+      if(perm && perm.location==='denied' && perm.coarseLocation!=='granted') throw new Error('Location "Allow" nahi hai. '+PRECISE_HELP);
+      const p=await G.getCurrentPosition({ enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+      return { latitude:p.coords.latitude, longitude:p.coords.longitude, accuracy:p.coords.accuracy,
+               approxOnly: !!(perm && perm.location!=='granted' && perm.coarseLocation==='granted') };
+    }catch(e){ if(/Allow/.test(e.message||'')) throw e; }   // plugin hi na ho (purana APK) → web GPS
   }
-  return new Promise((res,rej)=>{             // browser (Chrome): web geolocation
+  return new Promise((res,rej)=>{             // browser / WebView: web geolocation
     if(!navigator.geolocation) return rej(new Error('Is device me GPS support nahi'));
-    navigator.geolocation.getCurrentPosition(p=>res(p.coords),
+    navigator.geolocation.getCurrentPosition(p=>res({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}),
       e=>rej(new Error(e.code===1?'Location permission deni hogi — "Allow" karo':(e.message||'Location nahi mili'))),
       {enableHighAccuracy:true, timeout:15000, maximumAge:0});
   });
+}
+// Andar GPS ki pehli reading aksar kamzor hoti hai — 3 baar tak lo, sabse sahi (kam ±) wali rakho
+async function getBestPos(goodAcc){
+  let best=null;
+  for(let i=0;i<3;i++){
+    let c; try{ c=await getPos(); }catch(e){ if(!best) throw e; break; }
+    if(!best||(c.accuracy||9e9)<(best.accuracy||9e9)) best=c;
+    if((best.accuracy||9e9)<=goodAcc) break;
+  }
+  return best;
 }
 
 function openAtt(){ route.view='att'; route.id=null; att.date=today(); att.mineToday=null; att.mine=[]; att.items=[]; render(); attLoad(); window.scrollTo(0,0); }
@@ -2900,7 +2920,10 @@ async function attCapture(oid, oname){
   if(att.offices[oid] && att.offices[oid].lat!=null){
     if(!confirm(oname+' ki location pehle se set hai. Change karni hai? (Normally nahi karni chahiye)')) return;
   }
-  let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message); return; }
+  let c; try{ toast('📍 GPS le rahe hain… 10 sec ruko'); c=await getBestPos(25); }catch(e){ alert('Location error: '+e.message); return; }
+  const acc=Math.round(c.accuracy||0);
+  if(c.approxOnly||acc>GPS_COARSE){ alert('Phone sirf andaaze wali location de raha hai (±'+acc+'m) — isse office ka pin galat lagega.\n\n'+PRECISE_HELP); return; }
+  if(acc>50 && !confirm('GPS abhi kamzor hai (±'+acc+'m). Office ke beech me / khidki ke paas 20 second ruk ke dobara try karna behtar hai.\n\nPhir bhi isi location ko '+oname+' office set karein?')) return;
   try{
     await db.collection('config').doc('offices').set({ [oid]:{ name:oname, lat:c.latitude, lng:c.longitude,
       acc:Math.round(c.accuracy||0), setBy:(user&&user.email||''), setAt:Date.now() } }, {merge:true});
@@ -2914,17 +2937,38 @@ async function attPunchIn(){
   // kisi bhi office pe punch — bas us office ke andar hona zaroori (nearest office check)
   const targets = OFFICES.map(o=>({o, cfg:att.offices[o.id]})).filter(x=>x.cfg && x.cfg.lat!=null);
   if(!targets.length){ alert('Kisi bhi office ki location abhi set nahi hui.\nSir/Lov ko bolo office pe jaake "Set location" dabaye.'); return; }
-  let c; try{ c=await getPos(); }catch(e){ alert('Location error: '+e.message+'\n\nPhone me location/GPS ON karo aur is site ko "Allow" karo.'); return; }
+  let c; try{ toast('📍 Location le rahe hain… kuch second ruko'); c=await getBestPos(40); }catch(e){ alert('Location error: '+e.message+'\n\nPhone me location/GPS ON karo aur is app ko "Allow" karo.'); return; }
+  const acc=Math.round(c.accuracy||9999);
   let best=null;
   for(const {o,cfg} of targets){ const d=distM(c.latitude,c.longitude,cfg.lat,cfg.lng); if(!best||d<best.d) best={o,d}; }
-  if(best.d>OFFICE_RADIUS){ alert(`Aap kisi bhi office ke paas nahi ho.\nSabse nazdeek: ${best.o.name} (~${Math.round(best.d)}m door). Office ke andar pahunch ke Punch In karo.`); return; }
+  const v=attCheckRange(best.d,acc,!!c.approxOnly);
+  if(!v.ok){
+    _attLogFail(name,best,acc,v.why);
+    const home=officeOf(name), homeCfg=home&&att.offices[home];
+    const unset = home && !(homeCfg&&homeCfg.lat!=null) ? `\n\n⚠ Aapke office (${(OFFICES.find(o=>o.id===home)||{}).name}) ki location abhi set hi nahi hui — admin / office in-charge se "Set location" karwao.` : '';
+    alert(v.why==='coarse'
+      ? `Phone sirf andaaze wali (approximate) location de raha hai (±${acc}m), isliye office pakka nahi ho pa raha.\n\n${PRECISE_HELP}\nPhone ki Location settings me "Google Location Accuracy" bhi ON karo.${unset}`
+      : `Sabse nazdeek office ${best.o.name} ~${Math.round(best.d)}m door dikh raha hai (GPS ±${acc}m).\n\nOffice ke andar ho to: khidki / darwaze ke paas 10–20 second ruk ke dobara Punch In dabao.\nPhir bhi na ho to admin ko batao — attempt save ho gaya hai, wo dekh lenge.${unset}`);
+    return;
+  }
   const t=istTime(), late=t>LATE_AFTER, date=today();
   try{
     await db.collection('attendance').doc(attId(date,name)).set({ date, name, nameKey:name.toLowerCase(),
       office:best.o.id, officeName:best.o.name, inTime:t, inLat:c.latitude, inLng:c.longitude,
-      inDist:Math.round(best.d), late, ts:Date.now() }, {merge:true});
+      inDist:Math.round(best.d), inAcc:acc, late, ts:Date.now() }, {merge:true});
     toast(late?('Punch-in ✓ '+t+' (Late)') : ('Punch-in ✓ '+t)); attLoad();
   }catch(e){ alert('Save error: '+e.message); }
+}
+// Range ka faisla (test hota hai): seedhi doori radius ke andar = OK; warna kamzor GPS ki ± (max SLACK) tak chhoot
+function attCheckRange(d,acc,approxOnly){
+  if(d<=OFFICE_RADIUS) return {ok:true};
+  if(approxOnly||acc>GPS_COARSE) return {ok:false,why:'coarse'};
+  return (d-Math.min(acc,GPS_SLACK))<=OFFICE_RADIUS ? {ok:true} : {ok:false,why:'far'};
+}
+// Fail hua punch-in us din ke attendance doc me note — admin board par "Punch-in problems" me dikhta hai
+function _attLogFail(name,best,acc,why){
+  try{ db.collection('attendance').doc(attId(today(),name)).set({ date:today(), name, nameKey:name.toLowerCase(),
+    punchFails: firebase.firestore.FieldValue.arrayUnion({ t:istTime(), office:best.o.name, dist:Math.round(best.d), acc, why }) },{merge:true}).catch(()=>{}); }catch(_){}
 }
 async function attPunchOut(){
   const name=hudMyName(); if(!name){ alert('Pehle naam chuno'); return; }
@@ -2953,7 +2997,7 @@ function attView(){
 
   const offRowHTML=(o)=>{ const c=att.offices[o.id]; const set=c&&c.lat!=null;
     return `<div class="off-set"><div class="grow"><b>${esc(o.name)}</b>
-      <div class="tiny">${set?('✓ Location set'+(c.acc?' · ~'+c.acc+'m':'')):'Location not set'}</div></div>
+      <div class="tiny">${set?('✓ Location set'+(c.acc?' · GPS ±'+c.acc+'m':'')):'<span style="color:#b91c1c;font-weight:700">Location not set</span>'}${set&&c.acc>50?' <span style="color:#b45309;font-weight:700">· weak — re-set recommended</span>':''}</div></div>
       <button class="btn ${set?'ghost ':''}sm" onclick="attCapture('${o.id}','${esc(o.name)}')">${set?'Re-set':'Set location'}</button></div>`; };
   // ⚙️ Office locations — ek baar ka setup, isliye chhupa rehta hai (koi office set na ho to khud khula)
   const offList = admin ? OFFICES : OFFICES.filter(o=>canSetOffice(o.id));
@@ -3046,8 +3090,18 @@ function attDayHTML(names,byKey){
       ${grp(warn?'Not in yet — late after '+LATE_AFTER:'Not in yet', warn?'warn':'wait', g.wait)}
       ${grp('Absent','abs',g.abs)}
       ${grp('On leave','leave',g.leave)}
+      ${attProblemsHTML(names,byKey)}
       <div class="tiny" style="margin-top:6px;color:var(--muted)">Tap a name for their last 7 days.</div>
     </div>`;
+}
+// Fail hue punch-in (doori + GPS ±) — ek hi office se sab ko ~same doori aur chhota ± dikhe = us office ka pin galat hai
+function attProblemsHTML(names,byKey){
+  const rows=names.map(n=>({n,r:byKey[n.toLowerCase()]})).filter(x=>x.r&&Array.isArray(x.r.punchFails)&&x.r.punchFails.length);
+  if(!rows.length) return '';
+  return `<div class="att-gt warn">Punch-in problems · ${rows.length}</div>
+    ${rows.map(x=>{ const f=x.r.punchFails[x.r.punchFails.length-1], n=x.r.punchFails.length;
+      return `<div class="tiny" style="margin:3px 0;color:var(--ink)">⚠ <b>${esc(x.n)}</b> — ${f.why==='coarse'?'phone gave only approximate location':'~'+esc(f.dist)+'m from '+esc(f.office)} (GPS ±${esc(f.acc)}m) · ${n} ${n>1?'tries':'try'}, last ${esc(f.t)}${x.r.inTime?' · <span style="color:#15803d;font-weight:700">punched in later ✓</span>':''}</div>`; }).join('')}
+    <div class="tiny" style="margin-top:4px;color:var(--muted)">If several people show about the same distance from one office with a small ±, that office's saved location is wrong — go there and tap Re-set under ⚙️ Office locations.</div>`;
 }
 function attWeekHTML(names){
   const days=_weekDates(att.date), by={}, D=['Mon','Tue','Wed','Thu','Fri','Sat'];
