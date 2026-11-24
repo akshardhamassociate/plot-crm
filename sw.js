@@ -14,7 +14,7 @@ firebase.initializeApp({
 firebase.messaging();   // background notifications (auto-display)
 
 const APP_URL = 'https://akshardhamassociate.github.io/plot-crm/';
-const CACHE = 'plotcrm-v3';   // bump → purani cache (stale calllog.html) apne aap saaf
+const CACHE = 'plotcrm-v4';   // bump → purani cache (stale calllog.html) apne aap saaf
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil((async () => {
@@ -69,7 +69,8 @@ self.addEventListener('fetch', e => {
       e.respondWith((async () => {
         const c = await caches.open(CACHE);
         try {
-          const res = await fetch(req);
+          // no-cache = har baar server se poochho (GitHub Pages 10 min max-age deta hai, warna update ke baad purana page chalta rehta)
+          const res = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
           if (res && res.ok) c.put(req, res.clone());
           return res;
         } catch (_) {
