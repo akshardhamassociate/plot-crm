@@ -2609,7 +2609,7 @@ const OFFICE_STAFF = {   // kaun employee kis office me (attendance roster). Pun
 };
 // Office location set access — admin sab office; niche wale sirf apne office ke liye.
 // ⚠ Firestore rules me bhi us email ko config/offices ki sirf us office ki key likhne ki permission chahiye.
-const OFFICE_SETTERS = { sarola:['akdrupesh@gmail.com'] };   // Rupesh Ji — Sarola (Tejas Vihar) ki location
+const OFFICE_SETTERS = { sarola:['akdrupesh@gmail.com','akdankushmehra@gmail.com'] };   // Rupesh Ji + Ankush — Sarola (Tejas Vihar) ki location
 function canSetOffice(oid){ if(isAdmin()) return true; const e=(user&&user.email||'').toLowerCase(); return (OFFICE_SETTERS[oid]||[]).includes(e); }
 const OFFICE_RADIUS = 150;   // meters — GPS drift tolerance. Office me hoke bhi door dikhe to badha dena.
 const GPS_SLACK = 150;       // kamzor (indoor) GPS ki ±accuracy tak chhoot → max asli doori = RADIUS + SLACK (300m)
