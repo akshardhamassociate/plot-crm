@@ -576,7 +576,7 @@ function openMore(){
       ${!ho?tile('🔎','Search',"openPalette()"):''}
       ${synAllowed()?tile('📊','Synopsis',"openSynopsis()",true):''}
       ${!ho?tile('🏘️','Colonies',"openColonies()"):''}
-      ${isAdmin()?tile('📇','Team numbers',"openTeamPhones()"):''}
+      ${isAdmin()?tile('📇','Team WhatsApp numbers',"openTeamPhones()"):''}
       ${tile('🎙️','Saathi (voice)',"openAgent()",true)}
       ${(!ho&&isAdmin())?tile('📈','Funnel',"openFunnel()"):''}
       ${(!ho&&isAdmin())?tile('🏘️','Colony fix',"openColonyMgr()"):''}
@@ -963,6 +963,7 @@ function sideHTML(){
       ${synAllowed()?`<button class="nav-item ${route.view==='synopsis'?'on':''}" onclick="openSynopsis()">📊 Synopsis</button>`:''}
       ${isAdmin()?`<button class="nav-item ${route.view==='funnel'?'on':''}" onclick="openFunnel()">📈 Funnel</button>`:''}
       ${isAdmin()?`<button class="nav-item" onclick="openColonyMgr()">🏘️ Colony fix</button>`:''}
+      ${isAdmin()?`<button class="nav-item" onclick="openTeamPhones()">📇 Team WhatsApp numbers</button>`:''}
       <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">${IC.wall} Wall</button>
       <button class="nav-item" onclick="location.href='calllog.html'">${IC.phone} Call Log</button>
       <button class="nav-item ${route.view==='forms'?'on':''}" onclick="tab('forms')">📄 Forms</button>
@@ -3792,6 +3793,7 @@ function teamHTML(){
     <div class="page-sub">Huddle, attendance aur reporting</div>
     <div style="margin-top:16px">
       ${card('📝','Daily Huddle','Kal/aaj ke task + issues','openHuddle()')}
+      ${isAdmin()?card('📇','Team WhatsApp numbers','Tag karne par inhi numbers pe WhatsApp jaata hai','openTeamPhones()'):''}
       ${card('✅','Attendance','Punch in/out + board','openAtt()')}
       ${admin?card('📊','Score Board','Att/Plan/Report + weekly score','openBoard()'):''}
     </div>
