@@ -394,6 +394,15 @@
   .md-t.wn{background:#fffbeb;border-color:#fde68a}.md-t.wn b{color:#b45309}
   .call-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line);cursor:pointer}
   .hm-pill{font-size:.64rem;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap;flex:none}
+  .nav-sub{margin:-2px 0 4px 18px;border-left:2px solid rgba(255,255,255,.12);padding-left:6px}
+  .nav-subitem{display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;color:rgba(255,255,255,.7);font:inherit;font-size:.78rem;font-weight:600;padding:5px 8px;border-radius:8px;cursor:pointer;text-align:left}
+  .nav-subitem:hover,.nav-subitem.on{background:rgba(255,255,255,.1);color:#fff}
+  .nav-subitem .ell{flex:1;min-width:0}
+  .nav-subn{font-size:.68rem;opacity:.7}
+  .col-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+  .col-card{text-align:left;border:1px solid var(--line);background:linear-gradient(180deg,#fff,#f8f9fe);border-radius:14px;padding:12px 14px;font:inherit;color:var(--ink);cursor:pointer;box-shadow:var(--sh),var(--hl);min-width:0}
+  .col-card b{display:block;font-size:.95rem}
+  .col-n{margin:4px 0 2px;color:var(--muted);font-size:.8rem}.col-n span{font-size:1.3rem;font-weight:800;color:var(--ink)}
   .out-seg{display:flex;flex-wrap:wrap;gap:6px}
   .out-seg button{flex:1;min-width:110px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 6px;font:inherit;font-size:.8rem;font-weight:700;color:var(--muted);cursor:pointer}
   .out-seg button.on{border-color:var(--brand);background:#eef0ff;color:#4338ca}
@@ -566,6 +575,8 @@ function openMore(){
       ${!ho?tile('⬇️','Export',"exportCSV()"):''}
       ${!ho?tile('🔎','Search',"openPalette()"):''}
       ${synAllowed()?tile('📊','Synopsis',"openSynopsis()",true):''}
+      ${!ho?tile('🏘️','Colonies',"openColonies()"):''}
+      ${isAdmin()?tile('📇','Team numbers',"openTeamPhones()"):''}
       ${tile('🎙️','Saathi (voice)',"openAgent()",true)}
       ${(!ho&&isAdmin())?tile('📈','Funnel',"openFunnel()"):''}
       ${(!ho&&isAdmin())?tile('🏘️','Colony fix',"openColonyMgr()"):''}
@@ -840,7 +851,7 @@ async function uploadFile(inputId){                // uploads to Cloudinary, ret
 
 // ── routing / filters ────────────────────────────────────────────────────────
 let route = {view:'home', id:null};
-const go = (view,id=null)=>{ route={view,id}; render(); window.scrollTo(0,0); };
+const go = (view,id=null)=>{ route={view,id}; if(view==='detail'&&id) _markTagSeen(id); render(); window.scrollTo(0,0); };
 function tab(v){ route.view=v; route.id=null; render(); window.scrollTo(0,0); }
 let f = {q:'', status:'', colony:'', exec:'', from:'', to:'', cold:false};
 let page=1, pageSize=25, dragId=null;
@@ -942,6 +953,8 @@ function sideHTML(){
       <button class="nav-item ${route.view==='today'?'on':''}" onclick="tab('today')">${IC.cal} Today${dueToday?` <span class="dot" style="background:var(--brand)">${dueToday}</span>`:''}</button>
       <button class="nav-item ${route.view==='reminders'?'on':''}" onclick="tab('reminders')">${IC.bell} Reminders${pending?` <span class="dot">${pending}</span>`:''}</button>
       <button class="nav-item ${route.view==='list'?'on':''}" onclick="tab('list')">${IC.users} Leads</button>
+      <button class="nav-item ${route.view==='colonies'?'on':''}" onclick="openColonies()">🏘️ Colonies</button>
+      ${sideColoniesHTML()}
       <button class="nav-item ${route.view==='kanban'?'on':''}" onclick="tab('kanban')">${IC.board} Board</button>
       <button class="nav-item ${route.view==='team'?'on':''}" onclick="openTeam()">${IC.team} Team</button>
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
@@ -1543,7 +1556,7 @@ function leadCard(L){
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
-      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
+      <div class="tiny ell">🏘️ ${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''}${L.city?' · 📍 '+esc(L.city):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
       <div class="tiny ell" style="display:flex;align-items:center;gap:6px;${od?'color:var(--danger);font-weight:600':''}">
         ${od?'<span class="odot"></span>':''}${esc(next)}</div>
       ${L.lineOfAction?`<div class="tiny ell" style="color:#4338ca;font-weight:600;margin-top:1px">🎯 ${esc(L.lineOfAction.split('\n')[0])}</div>`:''}
@@ -1610,7 +1623,7 @@ function todayCard(L, urgent){
     <div class="avatar" style="background:${avatarColor(L.name)}">${esc(L.name[0]||'?')}</div>
     <div class="grow" onclick="go('detail','${L.id}')" style="cursor:pointer">
       <div class="row"><b class="grow ell">${esc(L.name)}</b>${badge(L.status)}</div>
-      <div class="tiny ell">${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
+      <div class="tiny ell">🏘️ ${esc(L.colony||'—')}${L.plot?' · Plot '+esc(L.plot):''}${L.city?' · 📍 '+esc(L.city):''} · 👤 ${esc(ownerOf(L))}${assignedExtra(L).length?' +'+assignedExtra(L).length:''}</div>
       <div class="tiny ell" style="color:${urgent?'var(--danger)':'var(--brand)'};font-weight:600">${fu && fu.nextDate ? (urgent?'⚠ ':'')+fmtDate(fu.nextDate)+(fu.nextAction?' · '+esc(fu.nextAction):'') : (L.contactAfter ? (urgent?'⚠ ':'')+'📅 Contact after '+fmtDate(L.contactAfter) : '🆕 Naya — kaam shuru karo')}</div>
     </div>
     <a class="plain" href="tel:${esc(L.mobile)}"><button class="iconbtn" style="background:var(--ok);border:none">${IC.phone}</button></a>
@@ -1641,7 +1654,11 @@ function detailHTML(){
         <a class="plain grow" href="tel:${esc(L.mobile)}"><button class="btn call wide">${IC.phone} Call</button></a>
         <a class="plain grow" href="https://wa.me/${waNo}" target="_blank" rel="noopener"><button class="btn wa wide">${IC.wa} WhatsApp</button></a>
       </div>
-      <button class="btn wide" style="background:#0ea5e9;margin-top:11px" onclick="openWaTemplates('${L.id}')">${IC.wa} WhatsApp Template bhejein (Hindi)</button>
+      <div class="row" style="gap:11px;margin-top:11px">
+        <button class="btn grow" style="background:#0ea5e9" onclick="openWaTemplates('${L.id}')">${IC.wa} WhatsApp Template</button>
+        <button class="btn grow" style="background:#f59e0b" onclick="openTag('${L.id}')">🔔 Tag karo</button>
+      </div>
+      ${tagsCardHTML(L)}
 
       ${(()=>{ const loa=L.lineOfAction||'', hist=L.loaHistory||[], last=hist[hist.length-1];
         return `<div class="card" style="padding:14px;border-left:4px solid #6366f1;background:linear-gradient(180deg,#f5f3ff,#ffffff);margin-top:14px">
@@ -1653,7 +1670,7 @@ function detailHTML(){
 
       <div class="sec">Lead details ${badge(L.status)}</div>
       <div class="card" style="padding:4px 15px">
-        ${kv('Occupation',L.occupation)}${kv('City / Address',L.city)}${kv('Colony',L.colony)}
+        ${kv('Occupation',L.occupation)}${kv('Address (gaon / shehar)',L.city)}${L.colony?`<div class="kv"><b>Colony / Project</b><span class="grow"><a href="#" onclick="openColony(${esc(JSON.stringify(L.colony.trim()))});return false" style="color:var(--brand);font-weight:700">${esc(L.colony)} ›</a></span></div>`:''}
         ${kv('Preferred plot',L.plot)}${kv('Lead source',L.source + (L.agent?` (${L.agent})`:''))}
         ${kv('Owner',ownerOf(L))}${assignedExtra(L).length?kv('Assigned',assignedExtra(L).join(', ')):''}${kv('Added on',fmtDate(L.createdAt))}${kv('Added by', L.createdByName||(L.createdBy?L.createdBy.split('@')[0]:'')||'Purani lead')}
         ${(L.rec||L.photo)?`<div style="padding:10px 0 6px">${attHTML(L.rec,IC.mic,'Recording')}${attHTML(L.photo,IC.cam,'Photo')}</div>`:''}
@@ -1838,9 +1855,9 @@ function openLeadForm(id){
       <div class="field"><label>Mobile *</label><input id="l_mobile" inputmode="tel" value="${esc(L.mobile||'')}"></div>
       <div class="field"><label>Occupation</label><input id="l_occ" value="${esc(L.occupation||'')}"></div>
     </div>
-    <div class="field"><label>City / Address</label><input id="l_city" value="${esc(L.city||'')}"></div>
+    <div class="field"><label>Customer ka address (gaon / shehar)</label><input id="l_city" value="${esc(L.city||'')}" placeholder="e.g. Khanpur — customer kahan rehta hai"></div>
     <div class="grid2">
-      <div class="field"><label>Colony</label><input id="l_colony" list="colonyDL" value="${esc(L.colony||'')}" autocomplete="off">
+      <div class="field"><label>Colony / Project (jahan plot chahiye)</label><input id="l_colony" list="colonyDL" value="${esc(L.colony||'')}" autocomplete="off" placeholder="e.g. Vinayak — list se chuno">
         <datalist id="colonyDL">${uniq(leads.map(x=>x.colony).filter(Boolean)).sort().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
         <div class="tiny" style="margin-top:3px">Pehle wali list me se chuno — naya tabhi likho jab sach me nayi colony ho.</div></div>
       <div class="field"><label>Preferred plot</label><input id="l_plot" value="${esc(L.plot||'')}"></div>
@@ -2309,7 +2326,12 @@ const NAME_BY_EMAIL = {
   'shanu.akshardham@gmail.com':'Rashid Ji',  // CRM + Huddle dono (huddle-only NAHI)
   'trainer.akshardham@gmail.com':'Luv',      // Lov — backup admin
   'telecaller1.akd@gmail.com':'Kamana ji',   // Kamana — Huddle + Attendance (naam auto-set)
-  'akdankushmehra@gmail.com':'Ankush Mehra'  // Ankush — Sarola (Tejas Vihar), kabhi Khanpur/Kota
+  'akdankushmehra@gmail.com':'Ankush Mehra', // Ankush — Sarola (Tejas Vihar), kabhi Khanpur/Kota
+  'akdrupesh@gmail.com':'Rupesh Ji',          // (Code.gs SHEETID_TO_EMAIL se) — tag notification + naam auto
+  'akdsunil88@gmail.com':'Sunil Pankaj Ji',
+  'akd.sunilm@gmail.com':'Sunil Meghwal Ji',
+  'akd.leeladhar@gmail.com':'Leeladhar ji',
+  'akd.raghav@gmail.com':'Raghavendra Ji'
 };
 // ---- Huddle task/issue helpers (numbered entries + status reporting) ----
 const HUD_ST={done:{l:'✓ Done',c:'#047857',bg:'#d1fae5'},partial:{l:'~ Partial',c:'#b45309',bg:'#fef3c7'},notdone:{l:'✕ Not Done',c:'#b91c1c',bg:'#fee2e2'}};
@@ -3391,6 +3413,7 @@ function homeHTML(){
     <div class="home-grid">
       <div style="display:flex;flex-direction:column;gap:14px">
         <div><div class="sec" style="margin:0 2px 8px">My day</div><div class="md-tiles">${attT}${planT}${repT}</div></div>
+        ${ho?'':myTagsHTML()}
         ${callCard}
       </div>
       <div style="display:flex;flex-direction:column;gap:12px">${side}</div>
@@ -3586,6 +3609,179 @@ function synopsisHTML(){
   </div>`;
 }
 
+// ════ TAG → WHATSAPP (+ app notification + "dekha" record) ════
+const PUBLIC_URL='https://akshardhamassociate.github.io/plot-crm/';
+let TEAM_PHONES={};   // config/team.phones = {'Rupesh Ji':'98XXXXXXXX'} — admin "📇 Team numbers" se bharta hai
+async function teamPhonesLoad(){ try{ const d=await db.collection('config').doc('team').get(); TEAM_PHONES=(d.exists&&d.data().phones)||{}; }catch(e){} }
+const _waNum = p => { let n=String(p||'').replace(/\D/g,''); if(n.length===10) n='91'+n; return n; };
+const _myName = () => hudMyName() || _crmName();
+const _emailOf = name => Object.keys(NAME_BY_EMAIL).find(e=>NAME_BY_EMAIL[e]===name) || '';
+const leadLink = id => PUBLIC_URL + '#lead=' + encodeURIComponent(id);
+// Apps Script ko POST (login token ke saath) — jawab ki zarurat nahi
+function _postServer(type,record){ if(!AUDIT_URL) return; _idt().then(t=>fetch(AUDIT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({type,record,idt:t})})).catch(()=>{}); }
+async function _copyText(t){
+  try{ await navigator.clipboard.writeText(t); toast('Copied ✓'); return; }catch(e){}
+  const ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} ta.remove(); ok?toast('Copied ✓'):alert('Copy nahi hua — text long-press karke copy karo.');
+}
+
+function openTeamPhones(){
+  if(!isAdmin()) return;
+  teamPhonesLoad().then(()=>modal(`<h2>📇 Team numbers</h2><div class="msub">Kisi ko tag karne par WhatsApp inhi numbers pe jaata hai (10 digit).</div>
+    <div style="max-height:55vh;overflow:auto">${EXECS.map((n,i)=>`<div class="row" style="gap:8px;align-items:center;margin-bottom:7px">
+      <b class="grow ell" style="min-width:0">${esc(n)}</b><input id="tp_${i}" inputmode="numeric" placeholder="98XXXXXXXX" value="${esc(TEAM_PHONES[n]||'')}" style="width:150px;flex:none"></div>`).join('')}</div>
+    <div class="row" style="gap:11px;margin-top:10px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="saveTeamPhones()">Save</button></div>`));
+}
+async function saveTeamPhones(){
+  const phones={}, bad=[];
+  EXECS.forEach((n,i)=>{ let v=digits(val('tp_'+i)||''); if(!v) return; if(v.length===12&&v.startsWith('91')) v=v.slice(2); if(v.length!==10) bad.push(n); else phones[n]=v; });
+  if(bad.length){ alert('Ye number 10 digit ke nahi hain: '+bad.join(', ')); return; }
+  try{ await db.collection('config').doc('team').set({phones,by:(user&&user.email||''),ts:Date.now()}); TEAM_PHONES=phones;
+       toast('Team numbers saved ✓'); const m=document.querySelector('.modal-bg'); if(m) m.remove(); }
+  catch(e){ alert('Save nahi hua: '+e.message); }
+}
+
+function openTag(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  teamPhonesLoad().then(()=>{ const me=_myName();
+    modal(`<h2>🔔 Tag karo</h2><div class="msub">${esc(L.name)}${L.colony?' · '+esc(L.colony):''}</div>
+      <div class="field"><label>Kisko (ek se zyada bhi chun sakte ho)</label>
+        <div class="out-seg" id="tg_to">${EXECS.filter(n=>n!==me).map(n=>`<button type="button" data-v="${esc(n)}" onclick="this.classList.toggle('on')">${esc(n)}${TEAM_PHONES[n]?'':' ⚠'}</button>`).join('')}</div>
+        <div class="tiny" style="margin-top:5px">⚠ = number nahi daala — inhe alag WhatsApp nahi jaayega (group / app notification jaayega).${isAdmin()?' <a href="#" onclick="openTeamPhones();return false" style="color:var(--brand);font-weight:700">Team numbers</a>':''}</div></div>
+      <div class="field"><label>Kya karna hai</label><textarea id="tg_msg" rows="3" placeholder="e.g. Aaj call karke site visit fix karo"></textarea></div>
+      <div class="field"><label>WhatsApp kahan</label><div class="out-seg" id="tg_mode">
+        <button type="button" data-v="ind" class="on" onclick="outPick(this)">👤 Har bande ko alag</button>
+        <button type="button" data-v="grp" onclick="outPick(this)">👥 Group me</button></div></div>
+      <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+        <button class="btn grow" onclick="saveTag('${id}')">Tag + WhatsApp</button></div>`);
+  });
+}
+async function saveTag(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  const to=[...document.querySelectorAll('#tg_to button.on')].map(b=>b.dataset.v), msg=(val('tg_msg')||'').trim(), mode=_segVal('tg_mode')||'ind';
+  if(!to.length){ alert('Kam se kam ek bande ko chuno'); return; }
+  if(!msg){ alert('Kya karna hai — 1 line likho'); return; }
+  const t={ id:uid(), to, by:_myName(), byEmail:(user&&user.email||''), msg, mode, ts:Date.now(), seen:{} };
+  L.tags=[t].concat(L.tags||[]); L.ts=Date.now();
+  await putLead(L);
+  _postServer('tag',{ leadId:L.id, leadName:L.name, to:to.map(_emailOf).filter(Boolean), by:t.by, msg });   // APK me notification → tap = yahi lead
+  const m=document.querySelector('.modal-bg'); if(m) m.remove();
+  openTagSend(L.id,t.id);
+}
+function _tagText(L,t,toTxt){
+  return `🔔 *${toTxt}* — ${t.by} ne aapko tag kiya\n\n👤 *${L.name}*${L.colony?' · '+L.colony:''}${L.mobile?' · '+L.mobile:''}\n📝 ${t.msg}\n\n👉 Lead kholo: ${leadLink(L.id)}`;
+}
+let _tagOut=[];
+function openTagSend(lid,tid){
+  const L=leads.find(x=>x.id===lid), t=L&&(L.tags||[]).find(x=>x.id===tid); if(!t) return;
+  _tagOut = t.mode==='grp'
+    ? [{label:'👥 WhatsApp group me bhejo', num:'', text:_tagText(L,t,t.to.map(n=>'@'+n).join(' ')), grp:true}]
+    : t.to.map(n=>({label:'👤 '+n, num:_waNum(TEAM_PHONES[n]), text:_tagText(L,t,n)}));
+  modal(`<h2>📲 WhatsApp bhejo</h2>
+    <div class="msub">${t.mode==='grp'?'Button dabao → WhatsApp me group chuno → Send':'Har naam pe dabao → WhatsApp khulega → Send'}</div>
+    ${_tagOut.map((o,i)=>`<button class="btn ${o.num||o.grp?'':'ghost'} wide" style="margin-bottom:8px" onclick="_tagSend(${i},this)">${esc(o.label)}${o.num||o.grp?'':' — number nahi, text copy karo'}</button>`).join('')}
+    <div class="tiny" style="margin:4px 0 10px">✓ Tag save ho gaya. Jinke phone me app + notifications ON hain, unhe app notification bhi gaya. Wo lead kholenge to yahan "👀 Dekha" time aa jaayega.</div>
+    <button class="btn ghost wide" onclick="this.closest('.modal-bg').remove()">Done</button>`);
+}
+function _tagSend(i,btn){
+  const o=_tagOut[i]; if(!o) return;
+  if(!o.num&&!o.grp){ _copyText(o.text); return; }
+  window.open('https://wa.me/'+(o.num||'')+'?text='+encodeURIComponent(o.text),'_blank');
+  if(btn){ btn.textContent='✓ '+o.label; btn.classList.add('ghost'); }
+}
+// Tagged banda lead khole → "dekha" time save (bahana khatam)
+function _markTagSeen(id){
+  const L=leads.find(x=>x.id===id); if(!L||!Array.isArray(L.tags)||!L.tags.length) return;
+  const me=_myName(); if(!me) return; let ch=false;
+  L.tags.forEach(t=>{ if((t.to||[]).includes(me)&&!(t.seen&&t.seen[me])){ t.seen=Object.assign({},t.seen,{[me]:Date.now()}); ch=true; } });
+  if(ch) putLead(L);
+}
+const _hm = ts => { const d=new Date(ts+5.5*3600e3); return fmtDate(d.toISOString().slice(0,10))+' '+d.toISOString().slice(11,16); };
+function tagsCardHTML(L){
+  const tags=(L.tags||[]).slice(0,6); if(!tags.length) return '';
+  return `<div class="sec">🔔 Tags (${(L.tags||[]).length})</div>
+    ${tags.map(t=>`<div class="card" style="padding:10px 13px;margin-bottom:8px">
+      <div class="tiny"><b style="color:var(--ink)">${esc(t.by||'')}</b> → ${esc((t.to||[]).join(', '))} · ${_hm(t.ts)}${t.mode==='grp'?' · 👥 group':''}</div>
+      <div style="margin-top:4px">${esc(t.msg||'')}</div>
+      <div class="tiny" style="margin-top:5px">${(t.to||[]).map(n=>t.seen&&t.seen[n]?`<span style="color:#15803d;font-weight:700">👀 ${esc(n)} ${_hm(t.seen[n]).split(' ').pop()}</span>`:`<span style="color:#b45309;font-weight:700">⏳ ${esc(n)} ne abhi nahi dekha</span>`).join(' · ')}</div>
+    </div>`).join('')}`;
+}
+// Home: mujhe tag kiya gaya, abhi dekha nahi
+function myTagsHTML(){
+  const me=_myName(); if(!me) return '';
+  const rows=[]; leads.forEach(L=>(L.tags||[]).forEach(t=>{ if((t.to||[]).includes(me)&&!(t.seen&&t.seen[me])) rows.push({L,t}); }));
+  if(!rows.length) return '';
+  rows.sort((a,b)=>b.t.ts-a.t.ts);
+  return `<div class="card" style="padding:14px 14px 6px;border-left:4px solid #f59e0b;border-radius:0 14px 14px 0">
+    <b>🔔 Aapko tag kiya gaya · ${rows.length}</b>
+    ${rows.slice(0,5).map(({L,t})=>`<div class="call-row" onclick="go('detail','${esc(L.id)}')"><div class="grow" style="min-width:0">
+      <b class="ell" style="display:block">${esc(L.name)}</b><div class="tiny ell">${esc(t.by)}: ${esc(t.msg)}</div></div><span class="hm-pill wn">${esc(_hm(t.ts).split(' ').pop())}</span></div>`).join('')}
+  </div>`;
+}
+// Link (#lead=<id>) ya notification tap → wahi lead (leads load hone tak ruko)
+function _openLeadDeep(id){
+  if(!id) return;
+  if(leads.some(L=>L.id===id)){ window._pendingLead=null; go('detail',id); try{ history.replaceState(null,'',location.pathname); }catch(_){} }
+  else window._pendingLead=id;
+}
+function _leadFromHash(){ const h=(location.hash||'').slice(1); return /^lead=/i.test(h)?decodeURIComponent(h.slice(5)):''; }
+function _pnActionSetup(){
+  if(window._pnAct||!isNative()) return;
+  try{
+    const P=pnPlugin()||(window.Capacitor&&Capacitor.registerPlugin?Capacitor.registerPlugin('PushNotifications'):null); if(!P||!P.addListener) return;
+    window._pnAct=true;
+    P.addListener('pushNotificationActionPerformed', a=>{ const d=(a&&a.notification&&a.notification.data)||{}; if(d.leadId) _openLeadDeep(String(d.leadId)); });
+  }catch(_){}
+}
+window.addEventListener('hashchange',()=>{ const id=_leadFromHash(); if(id&&user) _openLeadDeep(id); });
+
+// ════ COLONY-WISE VIEW ════
+const _colOf = L => (L.colony||'').trim() || '(Colony nahi)';
+function _colStats(){
+  const m={};
+  leads.forEach(L=>{ const c=_colOf(L), s=m[c]||(m[c]={c,total:0,open:0,hot:0,visits:0,booked:0,val:0,due:0});
+    s.total++; if(OPEN.includes(L.status)) s.open++; if(L.status==='hot') s.hot++; if((L.visits||[]).length||L.status==='visit') s.visits++;
+    if(L.status==='booked'){ s.booked++; s.val+=(L.deal&&L.deal.total)||0; } if(isOverdue(L)||dueDate(L)===today()) s.due++; });
+  return Object.values(m).sort((a,b)=>b.total-a.total||a.c.localeCompare(b.c));
+}
+function openColonies(){ route.view='colonies'; route.id=null; render(); window.scrollTo(0,0); }
+function openColony(c){ route.view='colony'; route.id=c; render(); window.scrollTo(0,0); }
+function coloniesHTML(){
+  const st=_colStats();
+  return `<div class="main-inner">
+    <h2 style="font-size:1.35rem;font-weight:800;letter-spacing:-.02em;margin:0">🏘️ Colonies</h2>
+    <div class="page-sub">${st.length} colonies · tap karke us colony ki saari leads dekho.</div>
+    <div class="col-grid" style="margin-top:14px">${st.map(s=>`<button class="col-card" onclick="openColony(${esc(JSON.stringify(s.c))})">
+      <b class="ell">${esc(s.c)}</b>
+      <div class="col-n"><span>${s.total}</span> leads</div>
+      <div class="tiny">${[s.hot&&`🔥 ${s.hot} hot`, s.visits&&`🏠 ${s.visits} visit`, s.booked&&`🎉 ${s.booked} booked`, s.due&&`⏰ ${s.due} due`].filter(Boolean).join(' · ')||'—'}</div>
+    </button>`).join('')}</div>
+    ${isAdmin()?`<button class="btn ghost sm" style="margin-top:14px" onclick="openColonyMgr()">🏘️ Colony naam theek karo (duplicate merge)</button>`:''}
+  </div>`;
+}
+function colonyHTML(){
+  const c=route.id, list=leads.filter(L=>_colOf(L)===c).sort((a,b)=>leadTime(b)-leadTime(a));
+  const by=k=>list.filter(L=>L.status===k).length, val=list.filter(L=>L.status==='booked').reduce((x,L)=>x+((L.deal&&L.deal.total)||0),0);
+  const tile=(l,v)=>`<div class="md-t" style="cursor:default"><span>${l}</span><b>${v}</b></div>`;
+  return `<div class="main-inner">
+    <button class="btn ghost sm" style="margin-bottom:10px" onclick="openColonies()">${IC.back} Colonies</button>
+    <h2 style="font-size:1.35rem;font-weight:800;letter-spacing:-.02em;margin:0">🏘️ ${esc(c)}</h2>
+    <div class="page-sub" style="margin-top:2px">${list.length} leads</div>
+    <div class="md-tiles" style="grid-template-columns:repeat(auto-fit,minmax(105px,1fr));margin-top:12px">
+      ${tile('Open',list.filter(L=>OPEN.includes(L.status)).length)}${tile('Hot 🔥',by('hot'))}${tile('Site visits',list.filter(L=>(L.visits||[]).length).length)}${tile('Booked',by('booked'))}${val?tile('Booked value',inr(val)):''}
+    </div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:12px 0">${STATUSES.map(s=>{ const n=by(s.k); return n?`<span class="hm-pill" style="background:${s.bg||'#eef0ff'};color:${s.c||'#4338ca'}">${esc(s.l)} ${n}</span>`:''; }).join('')}</div>
+    <button class="btn wide" style="margin-bottom:12px" onclick="openLeadForm();setTimeout(()=>{ const i=document.getElementById('l_colony'); if(i&&!i.value) i.value=${esc(JSON.stringify(c==='(Colony nahi)'?'':c))}; },140)">${IC.add} Is colony me nayi lead</button>
+    ${list.length?list.map(leadCard).join(''):'<div class="empty">Is colony me koi lead nahi.</div>'}
+  </div>`;
+}
+function sideColoniesHTML(){
+  const st=_colStats().filter(s=>s.c!=='(Colony nahi)').slice(0,10);
+  if(!st.length) return '';
+  return `<div class="nav-sub">${st.map(s=>`<button class="nav-subitem ${route.view==='colony'&&route.id===s.c?'on':''}" onclick="openColony(${esc(JSON.stringify(s.c))})"><span class="ell">${esc(s.c)}</span><span class="nav-subn">${s.total}</span></button>`).join('')}</div>`;
+}
+
 // ════ TEAM HUB ════
 function openTeam(){ route.view='team'; route.id=null; render(); window.scrollTo(0,0); }
 function teamHTML(){
@@ -3658,6 +3854,8 @@ function render(){
                   route.view==='funnel' ? funnelHTML() :
                   route.view==='att' ? attView() :
                   route.view==='synopsis' ? synopsisHTML() :
+                  route.view==='colonies' ? coloniesHTML() :
+                  route.view==='colony' ? colonyHTML() :
                   route.view==='board' ? boardHTML() :
                   route.view==='wall' ? wallHTML() :
                   route.view==='huddle' ? huddleHTML() :
@@ -3745,17 +3943,19 @@ auth.onAuthStateChanged(u=>{
     if(isHuddleOnly()){ leads=[]; attLoadOffices();
       if(hv==='att') openAtt(); else if(hv==='wall') openWall(); else { route.view='huddle'; render(); hudLoad(); }
       return; }
-    attLoadOffices();
+    attLoadOffices(); teamPhonesLoad(); _pnActionSetup();
+    const deepLead=_leadFromHash(); if(deepLead) window._pendingLead=deepLead;   // WhatsApp tag link (#lead=<id>)
     if(!unsub){
       unsub = col().onSnapshot(snap=>{
         const all = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
           if(!Array.isArray(L.followUps)) L.followUps=[]; if(!L.need) L.need={}; return L; });
         deletedLeads = all.filter(L=>L.deleted);     // bin
         leads = all.filter(L=>!L.deleted);           // active (sab jagah yahi use hota)
+        if(window._pendingLead && leads.some(L=>L.id===window._pendingLead)){ _openLeadDeep(window._pendingLead); updateBadge(); return; }
         render(); updateBadge();
       }, err=>{ alert('Data load error: '+err.message); });
     }
-    _deepOpen(hv);   // link se seedha us section pe
+    if(!deepLead) _deepOpen(hv);   // link se seedha us section pe
   } else {
     if(unsub){ unsub(); unsub=null; }
     leads=[]; renderLogin();

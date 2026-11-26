@@ -236,6 +236,8 @@ function doPost(e) {
       saveRecordingToDrive(record);
     } else if (type === 'huddle') {
       huddleToSheet_(ss, record);
+    } else if (type === 'tag') {
+      tagNotify_(record);
     }
 
     return ContentService
@@ -608,13 +610,13 @@ function _tokensForEmail(accessToken, email) {
   return out;
 }
 
-function _sendFcm(accessToken, token, title, body) {
+function _sendFcm(accessToken, token, title, body, data) {
   const url = 'https://fcm.googleapis.com/v1/projects/' + FB_PROJECT + '/messages:send';
   const msg = { message: {
     token: token,
     notification: { title: title, body: body },
     android: { priority: 'HIGH', notification: { channel_id: 'reminders', sound: 'default' } },
-    data: { type: 'assign' }
+    data: data || { type: 'assign' }   // FCM data me sirf string values
   }};
   UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + accessToken }, muteHttpExceptions: true, payload: JSON.stringify(msg) });
@@ -692,6 +694,16 @@ function installAssignNotify() {
   });
   ScriptApp.newTrigger('notifyNewAssignments').timeBased().everyMinutes(5).create();
   Logger.log('✅ Assign-notification chalu — har 5 min me naye assign check honge.');
+}
+
+// Plot CRM me kisi ko tag kiya → us bande ke phone pe notification (tap = wahi lead khulti hai, data.leadId)
+function tagNotify_(rec) {
+  let at; try { at = _fcmAccessToken(); } catch (e) { Logger.log('Tag push token error: ' + e.message); return; }
+  const title = '🔔 ' + String(rec.by || 'Team').slice(0, 40) + ' ne tag kiya';
+  const body = String(rec.leadName || 'Lead').slice(0, 60) + ': ' + String(rec.msg || '').slice(0, 140);
+  (rec.to || []).slice(0, 15).forEach(em => {
+    _tokensForEmail(at, String(em).toLowerCase()).forEach(tk => _sendFcm(at, tk, title, body, { type: 'tag', leadId: String(rec.leadId || '') }));
+  });
 }
 
 function testAssignPush() {
