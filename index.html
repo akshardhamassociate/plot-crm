@@ -733,12 +733,14 @@ async function _jsonp(url){ const tok=await _idt(); return new Promise((res,rej)
   s.src=url+(url.includes('?')?'&':'?')+'callback='+cb+'&t='+Date.now()+'&idt='+encodeURIComponent(tok);
   document.body.appendChild(s);
 });}
-function _ckStr(r){ return 'intro'+(r.intro?'✓':'✗')+' rapport'+(r.rapport?'✓':'✗')+' Q'+(r.questions?'✓':'✗')+' req'+(r.requirement?'✓':'✗')+' tone'+(r.tone?'✓':'✗')+' next'+(r.nextstep?'✓':'✗'); }
+function _ckStr(r){ return 'intro'+(r.intro?'✓':'✗')+' rapport'+(r.rapport==null?'–':r.rapport?'✓':'✗')+' Q'+(r.questions?'✓':'✗')+' req'+(r.requirement?'✓':'✗')+' tone'+(r.tone?'✓':'✗')+' next'+(r.nextstep?'✓':'✗'); }
 // recUrl ko audit karke lead (ya uske followup) pe save karo. fuId diya to wahi followup, warna lead-level.
 async function auditRec(leadId, recUrl, fuId){
   if(!AUDIT_URL || !recUrl) return false;
   try{
-    const r = await _jsonp(AUDIT_URL + (AUDIT_URL.includes('?')?'&':'?') + 'audit=' + encodeURIComponent(recUrl));
+    const L0 = leads.find(x=>x.id===leadId), fu0 = fuId&&L0 ? (L0.followUps||[]).find(f=>f.id===fuId) : null;
+    const who = (fu0&&fu0.by) || (L0&&ownerOf(L0)) || '';   // telecaller (Kamana mam) ke audit me rapport point nahi lagta
+    const r = await _jsonp(AUDIT_URL + (AUDIT_URL.includes('?')?'&':'?') + 'audit=' + encodeURIComponent(recUrl) + '&who=' + encodeURIComponent(who));
     if(!r || r.error) return false;
     const L = leads.find(x=>x.id===leadId); if(!L) return false;
     const a = { score:r.score||'', checks:_ckStr(r), note:r.note||'', issues:r.issues||'' };
@@ -804,7 +806,7 @@ async function manualAudit(leadId, fuId, btn){
 }
 function auditBox(a){
   if(!a||!a.score) return '';
-  const n=parseInt(a.score)||0, c=n>=5?'#16a34a':(n>=3?'#d97706':'#dc2626');
+  const m=String(a.score).match(/(\d+)\s*\/\s*(\d+)/), q=m?(+m[1])/(+m[2]||6):(parseInt(a.score)||0)/6, c=q>=0.8?'#16a34a':(q>=0.5?'#d97706':'#dc2626');   // 4/5 aur 5/6 dono hare
   return `<div style="border:1px solid var(--line);border-left:3px solid ${c};border-radius:8px;padding:7px 9px;margin:8px 0;font-size:12px">
     <div style="font-weight:700;color:${c}">🎧 AI Audit · ${esc(a.score)}</div>
     ${a.checks?`<div class="tiny" style="margin-top:3px">${esc(a.checks)}</div>`:''}

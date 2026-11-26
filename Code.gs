@@ -86,7 +86,7 @@ function doGet(e) {
   // AI audit — plot-crm poochta hai ?audit=<recording URL> (Cloudinary). Gemini audit JSON wapas.
   if (e && e.parameter && e.parameter.audit) {
     var _a = {};
-    try { _a = auditFromUrl(String(e.parameter.audit)); } catch (er) { _a = { error: er.message }; }
+    try { _a = auditFromUrl(String(e.parameter.audit), e.parameter.who); } catch (er) { _a = { error: er.message }; }
     return ContentService
       .createTextOutput(cb + '(' + JSON.stringify(_a) + ')')
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
@@ -725,33 +725,51 @@ var AUDIT_CHECKLIST = [
   'nextstep: Call ke end me next step set kiya? (kab aana hai / follow-up / kya bhejna hai)'
 ];
 
-function _runAudit(bytes, mime) {
+// Telecaller (office se phone — jaise Kamana mam) ke audit me "rapport" point nahi; wo sirf field agents ke liye.
+// Pehchaan: naam/ID me kamana/telecaller, ya Call Log Team me us member pe Telecaller = Yes.
+var NO_RAPPORT_MATCH = /kamana|telecaller/i;
+function _noRapport(who) {
+  who = String(who || '').trim(); if (!who) return false;
+  if (NO_RAPPORT_MATCH.test(who)) return true;
+  try {
+    var k = who.toLowerCase(), f = k.replace(/\s+ji$/, '').split(/\s+/)[0];
+    var u = readSheet(SpreadsheetApp.getActiveSpreadsheet(), SHEET_USERS).filter(function (x) {
+      var id = String(x['login id'] || x['loginid'] || x['id'] || '').toLowerCase(), nm = String(x['name'] || '').toLowerCase();
+      return id === k || nm === k || (f && nm.split(/\s+/)[0] === f);
+    })[0];
+    return !!(u && (u['telecaller'] === 'yes' || String(u['tc']).toLowerCase() === 'true'));
+  } catch (e) { return false; }
+}
+function _auditSchema(noRapport) {
+  var p = { intro:{type:'BOOLEAN'}, rapport:{type:'BOOLEAN'}, questions:{type:'BOOLEAN'}, requirement:{type:'BOOLEAN'},
+            tone:{type:'BOOLEAN'}, nextstep:{type:'BOOLEAN'}, score:{type:'STRING'}, note:{type:'STRING'}, issues:{type:'STRING'} };
+  var req = ['intro','rapport','questions','requirement','tone','nextstep','score','note','issues'];
+  if (noRapport) { delete p.rapport; req = req.filter(function (k) { return k !== 'rapport'; }); }
+  return { type:'OBJECT', properties:p, required:req };
+}
+
+function _runAudit(bytes, mime, noRapport) {
   var key = PropertiesService.getScriptProperties().getProperty('GEMINI_KEY');
   if (!key) throw new Error('GEMINI_KEY script property set nahi hai.');
   if (bytes.length > 18 * 1024 * 1024) throw new Error('recording bahut badi (inline audit limit ~18MB)');
   var b64 = Utilities.base64Encode(bytes);
 
+  var list = noRapport ? AUDIT_CHECKLIST.filter(function (c) { return c.indexOf('rapport:') !== 0; }) : AUDIT_CHECKLIST, N = list.length;
   var prompt =
     'Tum ek real-estate telecalling QA auditor ho. Niche ek Hindi/Hinglish call recording hai — ' +
     'Akshardham Associates (Jhalawar me plot/zameen bechne wali company) ke telecaller aur ek customer ke beech. ' +
     'Call ko dhyan se suno aur SIRF telecaller ki performance ko is checklist pe parkho:\n' +
-    AUDIT_CHECKLIST.map(function (c, i) { return (i + 1) + '. ' + c; }).join('\n') +
+    list.map(function (c, i) { return (i + 1) + '. ' + c; }).join('\n') +
     '\n\nHar point ka true/false do (true = sahi kiya). ' +
-    'score = kitne true / 6 (jaise "4/6"). ' +
+    'score = kitne true / ' + N + ' (jaise "4/' + N + '"). ' +
     'note = 1-2 line Hinglish me overall feedback. ' +
     'issues = sabse badi 1-2 kami jo sudharni chahiye (Hinglish). ' +
-    'Agar recording me awaaz saaf nahi / call hui hi nahi lagti to sab false, score "0/6", note me wajah likho.';
+    (noRapport ? 'Ye office telecaller ki call hai — rapport / personal baat na hone ko kami MAT gino, na note me na issues me. ' : '') +
+    'Agar recording me awaaz saaf nahi / call hui hi nahi lagti to sab false, score "0/' + N + '", note me wajah likho.';
 
   var payload = {
     contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: mime, data: b64 } } ] }],
-    generationConfig: {
-      temperature: 0.2, responseMimeType: 'application/json',
-      responseSchema: { type: 'OBJECT', properties: {
-        intro:{type:'BOOLEAN'}, rapport:{type:'BOOLEAN'}, questions:{type:'BOOLEAN'},
-        requirement:{type:'BOOLEAN'}, tone:{type:'BOOLEAN'}, nextstep:{type:'BOOLEAN'},
-        score:{type:'STRING'}, note:{type:'STRING'}, issues:{type:'STRING'}
-      }, required:['intro','rapport','questions','requirement','tone','nextstep','score','note','issues'] }
-    }
+    generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: _auditSchema(noRapport) }
   };
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
             GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(key);
@@ -762,20 +780,22 @@ function _runAudit(bytes, mime) {
   var out = j.candidates && j.candidates[0] && j.candidates[0].content &&
             j.candidates[0].content.parts && j.candidates[0].content.parts[0].text;
   if (!out) throw new Error('Gemini se khaali jawab: ' + res.getContentText());
-  return JSON.parse(out);
+  var r = JSON.parse(out);
+  if (noRapport) r.rapport = null;   // telecaller pe lagu nahi
+  return r;
 }
 
-function auditRecording(fileId) {
+function auditRecording(fileId, noRapport) {
   var file = DriveApp.getFileById(fileId), blob = file.getBlob();
-  return _runAudit(blob.getBytes(), _audioMime(file.getName(), blob.getContentType()));
+  return _runAudit(blob.getBytes(), _audioMime(file.getName(), blob.getContentType()), noRapport);
 }
 
-function auditFromUrl(url) {
+function auditFromUrl(url, who) {
   if (!url) throw new Error('url nahi di');
   var res = UrlFetchApp.fetch(url, { muteHttpExceptions:true, followRedirects:true });
   if (res.getResponseCode() !== 200) throw new Error('recording fetch fail ' + res.getResponseCode());
   var blob = res.getBlob();
-  return _runAudit(blob.getBytes(), _audioMime(url, blob.getContentType()));
+  return _runAudit(blob.getBytes(), _audioMime(url, blob.getContentType()), _noRapport(who));
 }
 
 function _audioMime(name, fallback) {
@@ -786,7 +806,7 @@ function _audioMime(name, fallback) {
 }
 
 function _checksStr(r) {
-  return 'intro'+(r.intro?'✓':'✗') + ' rapport'+(r.rapport?'✓':'✗') +
+  return 'intro'+(r.intro?'✓':'✗') + ' rapport'+(r.rapport==null?'–':r.rapport?'✓':'✗') +
        ' Q'+(r.questions?'✓':'✗') + ' req'+(r.requirement?'✓':'✗') +
        ' tone'+(r.tone?'✓':'✗') + ' next'+(r.nextstep?'✓':'✗');
 }
@@ -818,7 +838,8 @@ function auditNewRecordings() {
     if (!row) continue;
     if (String(sheet.getRange(row, idx['AuditedAt']).getValue() || '').trim()) continue;
     try {
-      var r = auditRecording(f.getId());
+      var who = sheet.getRange(row, 2, 1, 2).getValues()[0];   // uid, user
+      var r = auditRecording(f.getId(), _noRapport(who[0]) || _noRapport(who[1]));
       sheet.getRange(row, idx['AuditScore']).setValue(r.score || '');
       sheet.getRange(row, idx['AuditChecks']).setValue(_checksStr(r));
       sheet.getRange(row, idx['AuditNote']).setValue(r.note || '');
