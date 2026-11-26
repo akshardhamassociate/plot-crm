@@ -394,6 +394,10 @@
   .md-t.wn{background:#fffbeb;border-color:#fde68a}.md-t.wn b{color:#b45309}
   .call-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line);cursor:pointer}
   .hm-pill{font-size:.64rem;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap;flex:none}
+  .out-seg{display:flex;flex-wrap:wrap;gap:6px}
+  .out-seg button{flex:1;min-width:110px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 6px;font:inherit;font-size:.8rem;font-weight:700;color:var(--muted);cursor:pointer}
+  .out-seg button.on{border-color:var(--brand);background:#eef0ff;color:#4338ca}
+  .hm-pill.ok{background:#dcfce7;color:#15803d}
   .hm-pill.dn{background:#fee2e2;color:#b91c1c}.hm-pill.wn{background:#fef3c7;color:#b45309}.hm-pill.ac{background:#eef0ff;color:#4338ca}
   .saathi-btn{display:flex;align-items:center;gap:9px;border:0;border-radius:14px;padding:9px 16px;cursor:pointer;color:#fff;font:inherit;text-align:left;background:linear-gradient(135deg,#6d5efc,#8b5cf6 55%,#a855f7);box-shadow:0 10px 24px -12px rgba(109,94,252,.7),inset 0 1px 0 rgba(255,255,255,.28)}
   .saathi-btn b{display:block;font-size:.92rem} .saathi-btn small{display:block;font-size:.7rem;opacity:.9}
@@ -561,6 +565,7 @@ function openMore(){
       ${!ho?tile('⬆️','Import',"importCSV()"):''}
       ${!ho?tile('⬇️','Export',"exportCSV()"):''}
       ${!ho?tile('🔎','Search',"openPalette()"):''}
+      ${synAllowed()?tile('📊','Synopsis',"openSynopsis()",true):''}
       ${tile('🎙️','Saathi (voice)',"openAgent()",true)}
       ${(!ho&&isAdmin())?tile('📈','Funnel',"openFunnel()"):''}
       ${(!ho&&isAdmin())?tile('🏘️','Colony fix',"openColonyMgr()"):''}
@@ -940,6 +945,7 @@ function sideHTML(){
       <button class="nav-item ${route.view==='huddle'?'on':''}" onclick="openHuddle()">${IC.inbox} Huddle</button>
       <button class="nav-item ${route.view==='att'?'on':''}" onclick="openAtt()">${IC.check} Attendance</button>
       ${canViewAllHA()?`<button class="nav-item ${route.view==='board'?'on':''}" onclick="openBoard()">${IC.board} Score Board</button>`:''}
+      ${synAllowed()?`<button class="nav-item ${route.view==='synopsis'?'on':''}" onclick="openSynopsis()">📊 Synopsis</button>`:''}
       ${isAdmin()?`<button class="nav-item ${route.view==='funnel'?'on':''}" onclick="openFunnel()">📈 Funnel</button>`:''}
       ${isAdmin()?`<button class="nav-item" onclick="openColonyMgr()">🏘️ Colony fix</button>`:''}
       <button class="nav-item ${route.view==='wall'?'on':''}" onclick="openWall()">${IC.wall} Wall</button>
@@ -1681,6 +1687,9 @@ function detailHTML(){
           </div>`;
       })():''}
 
+      <div class="sec"><span class="grow">🏠 Site visits (${(L.visits||[]).length})</span><button class="btn ghost sm" onclick="openVisit('${L.id}')">${IC.add} Visit report</button></div>
+      ${(L.visits||[]).length? L.visits.map(visitCard).join('') : `<div class="tiny" style="margin-bottom:11px">Visit ho jaaye to "Visit report" bharo — tabhi Daily Synopsis me ginti aur report jaayegi.</div>`}
+
       <div class="sec">Follow-up history (${(L.followUps||[]).length})</div>
       ${(L.followUps||[]).length? L.followUps.map(fuCard).join('') :
         `<div class="tiny" style="margin-bottom:11px">No follow-ups yet. Add one below.</div>`}
@@ -1993,6 +2002,7 @@ function openFU(id){
     </div>
     <div class="field"><label>Purpose</label><input id="fu_purpose" placeholder="e.g. Site visit follow-up"></div>
     <div class="field"><label>Response</label><textarea id="fu_response" rows="2" placeholder="What did the customer say…"></textarea></div>
+    <div class="field"><label>Call ka nateeja</label>${outSeg('fu_out',OUTCOMES,'')}</div>
     <div class="grid2">
       <div class="field"><label>Next date (reminder)</label><input type="date" id="fu_ndate"></div>
       <div class="field"><label>Next action</label><input id="fu_naction" placeholder="e.g. Booking amount"></div>
@@ -2018,7 +2028,7 @@ async function saveFU(id){
   const fu={ id:uid(), date:val('fu_date')||today(), by:val('fu_by'),
     purpose:val('fu_purpose'), response:val('fu_response'),
     nextDate:val('fu_ndate'), nextAction:val('fu_naction'),
-    prev:L.status, next, rec, photo };
+    prev:L.status, next, rec, photo, out:_segVal('fu_out') };
   L.followUps.unshift(fu);
   L.status = next; L.ts=Date.now();
   await putLead(L);
@@ -2064,7 +2074,7 @@ function saveBooking(id){
   const colony=(val('bk_colony')||'').trim();
   const plots=_bk.map(p=>({no:(p.no||'').trim(), value:parseInt(String(p.value).replace(/[^0-9]/g,''))||0})).filter(p=>p.no||p.value);
   const total=plots.reduce((a,p)=>a+p.value,0);
-  L.deal={ colony, plots, total, count:plots.length||1, by:(user&&user.email||''), ts:Date.now() };
+  L.deal={ colony, plots, total, count:plots.length||1, by:(user&&user.email||''), ts:Date.now(), ts0:(L.deal&&L.deal.ts0)||Date.now() };
   if(colony && !L.colony) L.colony=colony;
   L.status='booked'; L.ts=Date.now();
   putLead(L).then(()=>{ toast('Booking saved ✓'); const m=document.querySelector('.modal-bg'); if(m)m.remove(); render(); });
@@ -3385,6 +3395,195 @@ function homeHTML(){
     </div>
   </div>`;
 }
+// ════ DAILY SYNOPSIS + call nateeja + site visit report ════
+// Call/follow-up ka nateeja (Call Log me bhi yahi keys): pos/think/no = baat hui, nopick = nahi lagi
+const OUTCOMES=[{k:'pos',l:'✅ Positive'},{k:'think',l:'🤔 Soch raha'},{k:'no',l:'❌ Nahi chahiye'},{k:'nopick',l:'📵 Nahi uthaya'}];
+const VISIT_OUT=[{k:'liked',l:'✅ Pasand aaya',o:'pos'},{k:'think',l:'🤔 Soch rahe',o:'think'},{k:'no',l:'❌ Pasand nahi',o:'no'}];
+function outPick(b){ const p=b.parentElement, was=b.classList.contains('on'); p.querySelectorAll('button').forEach(x=>x.classList.remove('on')); if(!was) b.classList.add('on'); }
+const _segVal = id => { const b=document.querySelector('#'+id+' button.on'); return b?b.dataset.v:''; };
+const outSeg = (id,list,cur) => `<div class="out-seg" id="${id}">${list.map(o=>`<button type="button" data-v="${o.k}" class="${cur===o.k?'on':''}" onclick="outPick(this)">${o.l}</button>`).join('')}</div>`;
+
+// ── Site visit report: visit HO JAAYE tab bharo — tabhi Synopsis me ginti + report jaati hai ──
+function openVisit(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  modal(`<h2>🏠 Site visit report</h2><div class="msub">${esc(L.name)} · ${esc(L.mobile||'')}</div>
+    <div class="grid2">
+      <div class="field"><label>Visit date</label><input type="date" id="sv_date" value="${today()}"></div>
+      <div class="field"><label>Visit karwaya (executive)</label>${execSelect('sv_by', hudMyName() || localStorage.getItem('myName') || ownerOf(L) || '')}</div>
+    </div>
+    <div class="field"><label>Kahan dikhaya (colony / plot no.)</label><input id="sv_place" value="${esc(L.colony||'')}" placeholder="e.g. Tejas Vihar — plot 12, 14"></div>
+    <div class="field"><label>Kaun-kaun aaya</label><input id="sv_people" placeholder="e.g. Pati-patni + bhai"></div>
+    <div class="field"><label>Customer ka reaction</label>${outSeg('sv_out',VISIT_OUT,'')}</div>
+    <div class="grid2">
+      <div class="field"><label>Agla kadam</label><input id="sv_next" placeholder="e.g. Token amount, family ko dikhana"></div>
+      <div class="field"><label>Agli date (reminder)</label><input type="date" id="sv_ndate"></div>
+    </div>
+    <div class="field"><label>Visit me kya hua (short)</label><textarea id="sv_notes" rows="3" placeholder="Kya pasand aaya, kya sawaal the, budget / loan ki baat…"></textarea></div>
+    <div class="field"><label>Photo (optional)</label><input type="file" id="sv_photo" accept="image/*"></div>
+    <div class="row" style="gap:11px">
+      <button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="saveVisit('${id}')">Save visit report</button></div>`);
+}
+async function saveVisit(id){
+  const L=leads.find(x=>x.id===id); if(!L) return;
+  const by=val('sv_by'), out=_segVal('sv_out'), notes=(val('sv_notes')||'').trim();
+  if(!by){ alert('Visit kisne karwaya — executive chuno'); return; }
+  if(!out){ alert('Customer ka reaction chuno (✅ / 🤔 / ❌)'); return; }
+  if(!notes){ alert('Visit me kya hua — 1-2 line likho (report me jaata hai)'); return; }
+  document.querySelectorAll('.modal .btn').forEach(b=>{ b.disabled=true; });
+  const photo=await uploadFile('sv_photo');
+  const v={ id:uid(), date:val('sv_date')||today(), by, place:(val('sv_place')||'').trim(), people:(val('sv_people')||'').trim(),
+            out, next:(val('sv_next')||'').trim(), nextDate:val('sv_ndate')||'', notes, photo, byEmail:(user&&user.email||''), ts:Date.now() };
+  L.visits=[v].concat(L.visits||[]);
+  const prev=L.status, nextSt=(prev==='fresh'||prev==='warm')?'visit':prev;   // visit ho gaya = kam se kam Visit stage
+  L.followUps=L.followUps||[];
+  L.followUps.unshift({ id:uid(), date:v.date, by, purpose:'Site visit done'+(v.place?' — '+v.place:''), response:notes,
+    nextDate:v.nextDate, nextAction:v.next, prev, next:nextSt, out:(VISIT_OUT.find(x=>x.k===out)||{}).o||'', visitId:v.id, photo });
+  L.status=nextSt; L.ts=Date.now();
+  await putLead(L);
+  const m=document.querySelector('.modal-bg'); if(m) m.remove(); toast('Site visit report saved ✓'); render();
+}
+function visitCard(v){
+  const o=VISIT_OUT.find(x=>x.k===v.out);
+  return `<div class="card" style="padding:11px 14px;margin-bottom:9px">
+    <div class="row" style="gap:8px;align-items:center"><b class="grow">${fmtDate(v.date)} · ${esc(v.by||'')}</b>${o?`<span class="hm-pill ${v.out==='liked'?'ok':v.out==='no'?'dn':'wn'}">${o.l}</span>`:''}</div>
+    ${v.place?`<div class="tiny" style="margin-top:3px">📍 ${esc(v.place)}${v.people?' · 👥 '+esc(v.people):''}</div>`:(v.people?`<div class="tiny" style="margin-top:3px">👥 ${esc(v.people)}</div>`:'')}
+    <div style="margin-top:5px;white-space:pre-wrap;font-size:.88rem">${esc(v.notes||'')}</div>
+    ${v.next||v.nextDate?`<div class="tiny" style="margin-top:4px">➡️ ${esc(v.next||'')}${v.nextDate?' · '+fmtDate(v.nextDate):''}</div>`:''}
+    ${v.photo?`<a href="${esc(v.photo)}" target="_blank" class="tiny" style="color:var(--brand);font-weight:700;display:inline-block;margin-top:4px">📷 Photo</a>`:''}
+  </div>`;
+}
+
+// ── Daily Synopsis ──
+const SYN_SAROLA_EMAILS=['akdrupesh@gmail.com','akdankushmehra@gmail.com','shanu.akshardham@gmail.com'];   // Sarola ki report (Krishan ji + Kamana ji ko poori dikhti hai)
+const synFull = () => canViewAllHA();
+const synAllowed = () => synFull() || SYN_SAROLA_EMAILS.includes((user&&user.email||'').toLowerCase());
+const isSarolaColony = c => /sarola|tejas/i.test(c||'');
+const CL_ID_EXEC={krishan:'Krishan Ji',rupesh:'Rupesh Ji',sunil:'Sunil Pankaj Ji',luv:'Luv',leeladhar:'Leeladhar ji',raghavendra:'Raghavendra Ji',ragahavdendra:'Raghavendra Ji',sunilmeghwal:'Sunil Meghwal Ji',sunilmeghawal:'Sunil Meghwal Ji',rashid:'Rashid Ji',ankush:'Ankush Mehra'};
+// Call Log ke naam/ID aur CRM ke naam ek jaise karo (warna ek banda do line me aata)
+function _execName(raw,id){
+  const r=String(raw||'').trim(), lo=r.toLowerCase();
+  const ex=EXECS.find(e=>e.toLowerCase()===lo); if(ex) return ex;
+  const k=String(id||'').toLowerCase(); if(CL_ID_EXEC[k]) return CL_ID_EXEC[k];
+  const f=lo.replace(/\s+ji$/,'').split(/\s+/)[0], m=EXECS.filter(e=>e.toLowerCase().split(/\s+/)[0]===f);
+  if(f&&m.length===1) return m[0];
+  const em=NAME_BY_EMAIL[lo]; if(em) return em;
+  return r||'—';
+}
+function _outKey(s){ s=String(s||''); return s==='pos'?'pos':s==='think'?'think':s==='no'?'no':(s==='nopick'||s==='notpicked')?'nopick':s==='other'?'other':''; }
+let syn={date:'',scope:'',cl:null,loading:false,err:'',text:''};
+function openSynopsis(){ if(!synAllowed()) return; route.view='synopsis'; route.id=null; syn.date=syn.date||today(); syn.scope=synFull()?(syn.scope||'all'):'sarola'; render(); if(!syn.cl&&!syn.loading) synLoad(); window.scrollTo(0,0); }
+async function synLoad(){
+  syn.loading=true; syn.err=''; if(route.view==='synopsis') render();
+  try{ const r=await _jsonp(AUDIT_URL); if(!r||r.error) throw new Error((r&&r.error)||'no data');
+       syn.cl={logs:r.logs||[],contacts:r.contacts||[],users:r.users||[]}; }
+  catch(e){ syn.err='Call Log ka data nahi aaya ('+e.message+') — sirf CRM ka hisaab dikh raha hai.'; syn.cl=syn.cl||{logs:[],contacts:[],users:[]}; }
+  syn.loading=false; if(route.view==='synopsis') render();
+}
+function synCompute(date,scope){
+  const exF=scope.startsWith('ex:')?scope.slice(3):'', colF=scope.startsWith('col:')?scope.slice(4):'';
+  const sarolaStaff=new Set((OFFICE_STAFF.sarola||[]).map(n=>n.toLowerCase()));
+  const leadIn = L => scope==='sarola' ? isSarolaColony(L.colony) : colF ? (L.colony||'')===colF : true;
+  const okEx = n => !exF || n===exF;
+  const clIn = n => okEx(n) && (scope==='all' || !!exF || (scope==='sarola' && sarolaStaff.has(n.toLowerCase())));   // Call Log me colony nahi — Sarola = Sarola office ka staff
+  const cl=syn.cl||{logs:[],contacts:[],users:[]};
+  const uname=(id,fb)=>{ const u=cl.users.find(x=>x.id===id); return _execName(u?u.name:(fb||''),id); };
+  const T={given:0,calls:0,pos:0,think:0,no:0,nopick:0,other:0,fu:0,visits:0,newLeads:0,book:0,bookVal:0};
+  const E={}, C={}, visits=[];
+  const e=n=>E[n]||(E[n]={n,given:0,calls:0,fu:0,pos:0,visits:0,newLeads:0,book:0});
+  const c=n=>C[n]||(C[n]={n,fu:0,pos:0,visits:0,newLeads:0,book:0,bookVal:0});
+  const bump=(n,o)=>{ if(o){ T[o]++; if(o==='pos') e(n).pos++; } };
+  if(!colF){
+    cl.contacts.forEach(k=>{ if(String(k.notified||'').slice(0,10)!==date) return; const n=uname(k.assignedTo||k.uid,k.user); if(!clIn(n)) return; T.given++; e(n).given++; });
+    cl.logs.forEach(l=>{ if(String(l.date||'').slice(0,10)!==date) return; const n=uname(l.uid,l.user); if(!clIn(n)) return; T.calls++; e(n).calls++; bump(n,_outKey(l.callStatus)); });
+  }
+  leads.forEach(L=>{ if(!leadIn(L)) return; const col=L.colony||'(colony nahi)';
+    if((L.createdAt||'')===date){ const n=_execName(L.createdByName||ownerOf(L)); if(okEx(n)){ T.newLeads++; e(n).newLeads++; c(col).newLeads++; } }
+    (L.followUps||[]).forEach(f=>{ if(f.date!==date||f.visitId) return; const n=_execName(f.by); if(!okEx(n)) return;
+      T.fu++; e(n).fu++; c(col).fu++; const o=_outKey(f.out); bump(n,o); if(o==='pos') c(col).pos++; });
+    (L.visits||[]).forEach(v=>{ if(v.date!==date) return; const n=_execName(v.by); if(!okEx(n)) return; T.visits++; e(n).visits++; c(col).visits++; visits.push({L,v,n}); });
+    const d=L.deal; if(d&&(d.ts0||d.ts)&&new Date(d.ts0||d.ts).toISOString().slice(0,10)===date){
+      const n=_execName(NAME_BY_EMAIL[(d.by||'').toLowerCase()]||ownerOf(L)); if(okEx(n)){ T.book++; T.bookVal+=d.total||0; e(n).book++; c(col).book++; c(col).bookVal+=d.total||0; } }
+  });
+  const act=x=>x.given+x.calls+x.fu+x.visits+x.newLeads+x.book;
+  const inS=leads.filter(leadIn);
+  return { T, visits,
+    E:Object.values(E).filter(act).sort((a,b)=>(b.calls+b.fu)-(a.calls+a.fu)||b.visits-a.visits),
+    C:Object.values(C).filter(x=>x.fu+x.visits+x.newLeads+x.book).sort((a,b)=>(b.fu+b.visits*3)-(a.fu+a.visits*3)),
+    dueTom: date===today()?inS.filter(L=>dueDate(L)===_addDays(date,1)).length:null,
+    overdue: date===today()?inS.filter(isOverdue).length:null };
+}
+function synText(r,date,label){
+  const T=r.T, dl=new Date(date+'T00:00:00Z').toLocaleDateString('en-IN',{day:'numeric',month:'short',weekday:'short',timeZone:'UTC'});
+  const join=a=>a.filter(Boolean).join(' · ');
+  const L=[`📊 *Daily Synopsis — ${dl}*${label?' · '+label:''}`,''];
+  L.push(join([`📞 Calls: ${T.given} diye`, `${T.calls} hue`]));
+  if(T.fu) L.push(`📝 CRM follow-ups: ${T.fu}`);
+  const outs=join([T.pos&&`✅ Positive ${T.pos}`, T.think&&`🤔 Soch rahe ${T.think}`, T.no&&`❌ Nahi chahiye ${T.no}`, T.nopick&&`📵 Nahi uthaya ${T.nopick}`]);
+  if(outs) L.push(outs);
+  L.push(join([`🏠 Site visits: ${T.visits}`, `🆕 Nayi leads: ${T.newLeads}`, `🎉 Booking: ${T.book}${T.bookVal?' ('+inr(T.bookVal)+')':''}`]));
+  if(r.visits.length){ L.push('', `🏠 *Site visit report (${r.visits.length})*`);
+    r.visits.forEach(({L:ld,v,n})=>{ const o=VISIT_OUT.find(x=>x.k===v.out);
+      L.push(`• *${ld.name}*${v.place?' — '+v.place:(ld.colony?' — '+ld.colony:'')} · by ${n}${o?' · '+o.l:''}`);
+      if(v.notes) L.push(`   📝 ${v.notes.replace(/\s+/g,' ').slice(0,160)}`);
+      if(v.next||v.nextDate) L.push(`   ➡️ ${join([v.next, v.nextDate&&fmtDate(v.nextDate)])}`); }); }
+  if(r.E.length){ L.push('', '👥 *Executive-wise*');
+    r.E.forEach(x=>L.push(`• ${x.n} — ${join([(x.calls||x.given)&&`${x.calls} calls${x.given?' ('+x.given+' diye)':''}`, x.fu&&`${x.fu} CRM`, x.pos&&`${x.pos} ✅`, x.visits&&`${x.visits} 🏠`, x.newLeads&&`${x.newLeads} 🆕`, x.book&&`${x.book} 🎉`])||'—'}`)); }
+  if(r.C.length){ L.push('', '🏘️ *Colony-wise*');
+    r.C.forEach(x=>L.push(`• ${x.n} — ${join([x.fu&&`${x.fu} follow-ups`, x.pos&&`${x.pos} ✅`, x.visits&&`${x.visits} 🏠`, x.newLeads&&`${x.newLeads} 🆕`, x.book&&`${x.book} 🎉${x.bookVal?' '+inr(x.bookVal):''}`])}`)); }
+  if(r.dueTom!=null) L.push('', `⏰ Kal ke follow-ups: ${r.dueTom} · Overdue: ${r.overdue}`);
+  return L.join('\n');
+}
+function _capShare(){ try{ if(!isNative()||!window.Capacitor) return null; return (Capacitor.Plugins&&Capacitor.Plugins.Share)||(Capacitor.registerPlugin?Capacitor.registerPlugin('Share'):null); }catch(_){ return null; } }
+async function synCopy(){
+  const t=syn.text||'';
+  try{ await navigator.clipboard.writeText(t); toast('Copied ✓ — ab WhatsApp group me paste karo'); return; }catch(e){}
+  const ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} ta.remove();
+  ok ? toast('Copied ✓ — ab WhatsApp group me paste karo') : alert('Copy nahi hua — neeche ka text long-press karke copy karo.');
+}
+async function synShare(){
+  const t=syn.text||'', S=_capShare();
+  if(S){ try{ await S.share({text:t}); return; }catch(e){} }
+  if(navigator.share){ try{ await navigator.share({text:t}); return; }catch(e){} }
+  window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');
+}
+function synopsisHTML(){
+  if(!synAllowed()) return `<div class="main-inner"><div class="empty">Synopsis sirf admin / Sarola team ke liye hai.</div></div>`;
+  const full=synFull(), date=syn.date||today(), scope=full?(syn.scope||'all'):'sarola';
+  const cols=[...new Set(leads.map(L=>L.colony).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const label = scope==='all'?'':scope==='sarola'?'Sarola (Tejas Vihar)':scope.startsWith('col:')?scope.slice(4):scope.slice(3);
+  const r=synCompute(date,scope); syn.text=synText(r,date,label);
+  const T=r.T, tile=(l,v)=>`<div class="md-t" style="cursor:default"><span>${l}</span><b>${v}</b></div>`;
+  const opt=(v,l)=>`<option value="${esc(v)}" ${scope===v?'selected':''}>${esc(l)}</option>`;
+  return `<div class="main-inner" style="max-width:820px">
+    <div class="page-title">📊 Daily Synopsis</div>
+    <div class="page-sub">Din bhar ka hisaab — copy karke WhatsApp group me paste karo.</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0">
+      <button class="btn ghost sm" onclick="syn.date=_addDays(syn.date||today(),-1);render()" title="Pichhla din">${IC.back}</button>
+      <input type="date" value="${date}" onchange="syn.date=this.value;render()" style="width:auto">
+      <button class="btn ghost sm" onclick="syn.date=_addDays(syn.date||today(),1);render()" title="Agla din">${IC.chev}</button>
+      <button class="btn ghost sm" onclick="syn.date=today();render()">Today</button>
+      ${full?`<select onchange="syn.scope=this.value;render()" style="width:auto;max-width:220px">
+        ${opt('all','Poori team')}${opt('sarola','Sarola (Tejas Vihar)')}
+        <optgroup label="Colony">${cols.map(c=>opt('col:'+c,c)).join('')}</optgroup>
+        <optgroup label="Executive">${EXECS.map(n=>opt('ex:'+n,n)).join('')}</optgroup></select>`:`<span class="hm-pill ac">Sarola (Tejas Vihar)</span>`}
+      <button class="btn ghost sm" onclick="synLoad()" title="Call Log ka taaza data">${syn.loading?'…':'↻'}</button>
+    </div>
+    ${syn.err?`<div class="tiny" style="color:#b45309;margin-bottom:8px">⚠ ${esc(syn.err)}</div>`:''}
+    ${syn.loading&&!syn.cl?`<div class="tiny" style="margin-bottom:8px">Call Log ka data aa raha hai…</div>`:''}
+    <div class="md-tiles" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+      ${tile('Calls diye',T.given)}${tile('Calls hue',T.calls)}${tile('Positive',T.pos)}${tile('Site visits',T.visits)}${tile('Nayi leads',T.newLeads)}${tile('Booking',T.book)}
+    </div>
+    <div class="row" style="gap:8px;margin:14px 0 8px">
+      <button class="btn grow" onclick="synCopy()">📋 Copy for WhatsApp</button>
+      <button class="btn ghost" onclick="synShare()">📤 Share</button>
+    </div>
+    <pre class="card" style="padding:14px;white-space:pre-wrap;font:inherit;font-size:.86rem;line-height:1.55;margin:0">${esc(syn.text)}</pre>
+    <div class="tiny" style="margin-top:8px;color:var(--muted)">Positive / negative sirf naye entries me (26 Nov 2026 se) — call ke baad ✅ 🤔 ❌ 📵 dabana zaroori hai. Site visit tabhi ginta hai jab lead me "🏠 Site visit report" bhari jaaye. "Diye" = us din Call Log Sheet me assign hue number.</div>
+  </div>`;
+}
+
 // ════ TEAM HUB ════
 function openTeam(){ route.view='team'; route.id=null; render(); window.scrollTo(0,0); }
 function teamHTML(){
@@ -3456,6 +3655,7 @@ function render(){
                   route.view==='team' ? teamHTML() :
                   route.view==='funnel' ? funnelHTML() :
                   route.view==='att' ? attView() :
+                  route.view==='synopsis' ? synopsisHTML() :
                   route.view==='board' ? boardHTML() :
                   route.view==='wall' ? wallHTML() :
                   route.view==='huddle' ? huddleHTML() :
@@ -3529,7 +3729,8 @@ function setupBackHandler(){
 document.getElementById('app').innerHTML = '<div class="login"><div class="login-card">Loading…</div></div>';
 // deep-link: shared WhatsApp link (#att/#huddle/#board/#wall) se seedha us section pe
 function _deepOpen(hv){
-  if(hv==='att') openAtt();
+  if(hv==='synopsis'){ if(synAllowed()) openSynopsis(); }
+  else if(hv==='att') openAtt();
   else if(hv==='huddle') openHuddle();
   else if(hv==='board'){ if(canViewAllHA()) openBoard(); }
   else if(hv==='wall') openWall();

@@ -135,7 +135,8 @@ function doGet(e) {
         feedback   : r['feedback']   || '',
         callDate   : r['calldate']   || r['call date']  || '',
         assignedTo : uid,
-        ts         : r['saved at']   || r['ts']         || ''
+        ts         : r['saved at']   || r['ts']         || '',
+        notified   : r['notified']   || ''   // assign hone ki tareekh (YYYY-MM-DD); purane rows me 'yes'
       };
     }).filter(r => {
       const mob = String(r.mob || '').replace(/\s/g,'');
@@ -171,6 +172,8 @@ function doGet(e) {
           audChecks: r['auditchecks'] || '',
           audNote  : r['auditnote']   || '',
           audIssues: r['auditissues'] || '',
+          callStatus: r['callstatus'] || '',
+          callStatusLabel: r['callstatuslabel'] || '',
           ts      : r['ts']      || r['date'] || ''
         };
       })
@@ -254,6 +257,21 @@ function doPost(e) {
 function saveLog(ss, rec) {
   const sheet = getOrCreateSheet(ss, SHEET_LOGS, LOG_COLS);
   upsertRow(sheet, LOG_COLS, rec, 'id');
+  // Call ka nateeja (Daily Synopsis) — LOG_COLS ke baad wale columns me Audit* bhi hain, isliye header ke naam se likho
+  if (rec.callStatus != null) {
+    _setRowExtra(sheet, rec.id, 'CallStatus', rec.callStatus);
+    _setRowExtra(sheet, rec.id, 'CallStatusLabel', rec.callStatusLabel || '');
+  }
+}
+function _setRowExtra(sheet, id, col, val) {
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  let c = headers.indexOf(col.toLowerCase()) + 1;
+  if (!c) { c = lastCol + 1; sheet.getRange(1, c).setValue(col).setFontWeight('bold').setBackground('#15242c').setFontColor('#ffffff'); }
+  const ids = sheet.getRange(1, 1, sheet.getLastRow(), 1).getValues();
+  for (let i = ids.length - 1; i >= 1; i--) {
+    if (String(ids[i][0]) === String(id)) { sheet.getRange(i + 1, c).setValue(val); return; }
+  }
 }
 
 function saveContact(ss, rec) {
@@ -646,7 +664,9 @@ function notifyNewAssignments() {
     toks.forEach(tk => _sendFcm(at, tk, '📞 Naye number assign',
       c + ' naya number aapko assign hua hai — Call Log kholke call karo.'));
   });
-  rows.forEach(rr => sheet.getRange(rr, nCol).setValue('yes'));
+  // 'yes' ki jagah tareekh — Daily Synopsis isse "us din kitne number diye" ginta hai
+  const assignedOn = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+  rows.forEach(rr => sheet.getRange(rr, nCol).setValue(assignedOn));
 }
 
 function markAllNotifiedBaseline() {
@@ -957,6 +977,26 @@ function installAttendanceReminder(){
   Logger.log('✅ Attendance/Standup reminder chalu — roz ~'+REMIND_HOUR+':'+REMIND_MIN+' (India time).');
 }
 function testAttendanceReminder(){ sendAttendanceReminder(); }
+
+// ── Daily Synopsis reminder — roz ~7 baje: "aaj ka synopsis copy karke group me daalo" ──
+// SETUP (ek baar): installSynopsisReminder() → Run.   Test: sendSynopsisReminder() → Run.
+var SYNOPSIS_HOUR = 19;
+var SYNOPSIS_EMAILS = [
+  'krishan.sr1974@gmail.com', 'telecaller1.akd@gmail.com', 'trainer.akshardham@gmail.com', 'bhaveshakd3@gmail.com',   // poora synopsis
+  'akdrupesh@gmail.com', 'akdankushmehra@gmail.com', 'shanu.akshardham@gmail.com'                                     // Sarola synopsis
+];
+function sendSynopsisReminder(){
+  var at; try{ at=_fcmAccessToken(); }catch(e){ Logger.log('Token error: '+e.message); return; }
+  var n=0;
+  SYNOPSIS_EMAILS.forEach(function(em){ _tokensForEmail(at, em).forEach(function(tk){
+    _sendFcm(at, tk, '📊 Aaj ka Daily Synopsis', 'Plot CRM → Menu → 📊 Synopsis kholo → "Copy for WhatsApp" dabao → group me paste karo.'); n++; }); });
+  Logger.log('Synopsis reminder bheja — '+n+' device.');
+}
+function installSynopsisReminder(){
+  ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction()==='sendSynopsisReminder') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('sendSynopsisReminder').timeBased().everyDays(1).atHour(SYNOPSIS_HOUR).nearMinute(0).create();
+  Logger.log('✅ Synopsis reminder chalu — roz ~'+SYNOPSIS_HOUR+':00 (India time).');
+}
 
 
 /**

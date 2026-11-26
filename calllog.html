@@ -379,6 +379,15 @@
           <input class="catother" id="f_catOther" placeholder="Type custom category">
           <label class="req">Called To (name)</label><input id="f_name" placeholder="e.g. Ramlal ji">
           <label>Mobile</label><input id="f_mob" type="tel" inputmode="numeric" placeholder="98XXXXXXXX">
+          <label>Call ka nateeja</label>
+          <div class="seg" id="f_status">
+            <button data-v="pos">✅ Positive</button>
+            <button data-v="think">🤔 Soch raha</button>
+            <button data-v="no">❌ Nahi chahiye</button>
+            <button data-v="nopick">📵 Nahi uthaya</button>
+            <button class="other" data-v="other">Other ＋</button>
+          </div>
+          <input class="catother" id="f_statusOther" placeholder="Type status (e.g. wrong number, call back later)">
           <label class="req">Purpose</label><input id="f_purpose" placeholder="Purpose of the call">
           <label>Response (what was discussed)</label><textarea id="f_resp" placeholder="What did they say..."></textarea>
           <label>Next action</label><input id="f_action" placeholder="What to do next">
@@ -423,10 +432,12 @@
 <div class="modal" id="callModal"><div class="sheet"><div class="grab"></div>
   <button class="modal-close-btn" onclick="closeModal('callModal')" title="Close">✕</button>
   <div class="callhead"><div class="av" id="cl_av">?</div><div><div class="cn" id="cl_name">—</div><div class="cd" id="cl_dur">Call done — fill the details</div></div></div>
-  <label class="req">Call Status</label>
+  <label class="req">Call ka nateeja</label>
   <div class="seg" id="cl_status">
-    <button data-v="connected">✅ Connected</button>
-    <button data-v="notpicked">❌ Not Picked</button>
+    <button data-v="pos">✅ Positive</button>
+    <button data-v="think">🤔 Soch raha</button>
+    <button data-v="no">❌ Nahi chahiye</button>
+    <button data-v="nopick">📵 Nahi uthaya</button>
     <button class="other" data-v="other">Other ＋</button>
   </div>
   <input class="catother" id="cl_statusOther" placeholder="Type status (e.g. wrong number, call back later)">
@@ -696,7 +707,7 @@ async function syncNow(){
 }
 
 function init(){
-  buildCallStatusSeg();
+  buildCallStatusSeg();buildCallStatusSeg('f_status','f_statusOther');
   document.getElementById('li_pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   // Plot CRM wala Firebase session — already logged in ho to seedha app khulega (dubara login nahi)
   fbAuth.onAuthStateChanged(async u=>{
@@ -1060,22 +1071,32 @@ function waNum(m){let n=String(m).replace(/\D/g,'');if(n.length===10)n='91'+n;wi
 function durTxt(s){if(s<60)return s+'s';return Math.floor(s/60)+'m '+(s%60)+'s';}
 
 /* ----- call status segment (Connected / Not Picked / Other) ----- */
-function buildCallStatusSeg(){
-  const el=document.getElementById('cl_status');
+// Call ka nateeja — Daily Synopsis yahi ginta hai. pos/think/no = call lagi (connected), nopick = nahi lagi.
+// Purane logs me 'connected'/'notpicked' bhi ho sakte hain.
+const CALL_CONNECTED=['pos','think','no','connected'];
+function buildCallStatusSeg(seg,other){
+  seg=seg||'cl_status';other=other||'cl_statusOther';
+  const el=document.getElementById(seg);if(!el)return;
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-    el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-    const oth=document.getElementById('cl_statusOther');
-    if(b.dataset.v==='other'){oth.style.display='block';oth.focus();}else{oth.style.display='none';oth.value='';}
+    const was=b.classList.contains('on');
+    el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));if(!was||seg==='cl_status')b.classList.add('on');
+    const oth=document.getElementById(other);
+    if(b.dataset.v==='other'&&b.classList.contains('on')){oth.style.display='block';oth.focus();}else{oth.style.display='none';oth.value='';}
   });
 }
-function resetCallStatus(){
-  document.getElementById('cl_status').querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-  const oth=document.getElementById('cl_statusOther');oth.style.display='none';oth.value='';
+function resetCallStatus(seg,other){
+  document.getElementById(seg||'cl_status').querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+  const oth=document.getElementById(other||'cl_statusOther');oth.style.display='none';oth.value='';
 }
-function getCallStatus(){
-  const el=document.getElementById('cl_status');const on=el.querySelector('button.on');
+function setCallStatus(seg,other,key,label){
+  resetCallStatus(seg,other);if(!key)return;
+  const el=document.getElementById(seg);const b=el.querySelector('button[data-v="'+key+'"]')||(key?el.querySelector('button.other'):null);if(!b)return;
+  b.classList.add('on');if(b.dataset.v==='other'){const oth=document.getElementById(other);oth.style.display='block';oth.value=label||key;}
+}
+function getCallStatus(seg,other){
+  const el=document.getElementById(seg||'cl_status');const on=el.querySelector('button.on');
   if(!on)return null;
-  if(on.dataset.v==='other'){const v=document.getElementById('cl_statusOther').value.trim();return v?{key:'other',label:v}:null;}
+  if(on.dataset.v==='other'){const v=document.getElementById(other||'cl_statusOther').value.trim();return v?{key:'other',label:v}:null;}
   return {key:on.dataset.v,label:on.textContent.trim()};
 }
 /* ----- remove a contact once the call is actually connected ----- */
@@ -1114,7 +1135,7 @@ function saveCallModal(){
   const recFile=document.getElementById('cl_recording').files&&document.getElementById('cl_recording').files[0];
   const lid=commit({date:today(),cat:getSegCat('cl_segCat','cl_catOther'),name:ctx.name,mob:ctx.mob||'',purpose,resp:document.getElementById('cl_resp').value.trim(),action:document.getElementById('cl_action').value.trim(),next,comment:'',dur:ctx.dur||'',hasRec:!!recFile,callStatus:status.key,callStatusLabel:status.label});
   if(recFile&&lid)saveRec(lid,recFile);
-  if(status.key==='connected')removeContactByMobile(ctx.mob);
+  if(CALL_CONNECTED.includes(status.key))removeContactByMobile(ctx.mob);
   closeModal('callModal');document.getElementById('cl_recording').value='';toast('Call log saved ✓');renderAll();
 }
 
@@ -1123,7 +1144,7 @@ function openNewLog(){
   editId=null;document.getElementById('formTitle').textContent='New Call Log';
   document.getElementById('f_date').value=today();document.getElementById('f_next').value='';
   ['f_name','f_mob','f_purpose','f_resp','f_action','f_comment'].forEach(i=>document.getElementById(i).value='');
-  setSegCat('f_segCat','f_catOther',getCats()[0]||'Customer');go('newlog');
+  setSegCat('f_segCat','f_catOther',getCats()[0]||'Customer');resetCallStatus('f_status','f_statusOther');go('newlog');
 }
 function logFromContact(n,m,c){openNewLog();document.getElementById('f_name').value=n;document.getElementById('f_mob').value=m;setSegCat('f_segCat','f_catOther',c);}
 function editLog(id){
@@ -1133,13 +1154,14 @@ function editLog(id){
   document.getElementById('f_name').value=l.name||'';document.getElementById('f_mob').value=l.mob||'';
   document.getElementById('f_purpose').value=l.purpose||'';document.getElementById('f_resp').value=l.resp||'';
   document.getElementById('f_action').value=l.action||'';document.getElementById('f_comment').value=l.comment||'';
-  setSegCat('f_segCat','f_catOther',l.cat||'Customer');go('newlog');
+  setSegCat('f_segCat','f_catOther',l.cat||'Customer');setCallStatus('f_status','f_statusOther',l.callStatus,l.callStatusLabel);go('newlog');
 }
 function saveLog(){
   const name=document.getElementById('f_name').value.trim();const purpose=document.getElementById('f_purpose').value.trim();
   if(!name){toast('Name is required');return;}if(!purpose){toast('Purpose is required');return;}
   const date=document.getElementById('f_date').value||today();const next=document.getElementById('f_next').value||plusDays(date,7);
-  commit({id:editId,date,cat:getSegCat('f_segCat','f_catOther'),name,mob:document.getElementById('f_mob').value.trim(),purpose,resp:document.getElementById('f_resp').value.trim(),action:document.getElementById('f_action').value.trim(),next,comment:document.getElementById('f_comment').value.trim(),dur:''});
+  const fst=getCallStatus('f_status','f_statusOther');
+  commit({...(fst?{callStatus:fst.key,callStatusLabel:fst.label}:{}),id:editId,date,cat:getSegCat('f_segCat','f_catOther'),name,mob:document.getElementById('f_mob').value.trim(),purpose,resp:document.getElementById('f_resp').value.trim(),action:document.getElementById('f_action').value.trim(),next,comment:document.getElementById('f_comment').value.trim(),dur:''});
   toast(editId?'Updated ✓':'Saved ✓');editId=null;renderAll();go('home');
 }
 function commit(o){
