@@ -2453,7 +2453,8 @@ async function hudLoad(){
     if(!hud.editing) hudFillDraftFor(hud.draft.date);
     if(canViewAllHA()){ const s=await db.collection('standups').where('date','==',hud.date).get();
       hud.items=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'')); }
-  }catch(e){ alert('Huddle load error: '+e.message); }
+    _loadOk('hud');
+  }catch(e){ if(_loadFail('hud',e,hudLoad,'Huddle')) return; }
   if(route.view==='huddle') render();
 }
 
@@ -2708,7 +2709,8 @@ async function boardLoad(){
     board.std=ss.docs.map(d=>d.data());
     board.att=as.docs.map(d=>d.data());
     board.award=aw.exists?(aw.data()||{}):{};
-  }catch(e){ alert('Board load error: '+e.message); }
+    _loadOk('board');
+  }catch(e){ if(_loadFail('board',e,boardLoad,'Score Board')) return; }
   if(route.view==='board') render();
 }
 // 📋 Member ka pichhle 7 din ka kaam report (naam ke aage 📋 se khulta hai)
@@ -2947,7 +2949,8 @@ async function attLoad(){
       att.items=s.docs.map(x=>({id:x.id,...x.data()}));
       if(att.mode==='week'){ const w=await db.collection('attendance').where('date','in',_weekDates(att.date)).get(); att.week=w.docs.map(x=>x.data()); } }
     await holLoad();
-  }catch(e){ alert('Attendance load error: '+e.message); }
+    _loadOk('att');
+  }catch(e){ if(_loadFail('att',e,attLoad,'Attendance')) return; }
   if(route.view==='att') render();
 }
 
@@ -3937,6 +3940,42 @@ function _deepOpen(hv){
   else if(hv==='board'){ if(canViewAllHA()) openBoard(); }
   else if(hv==='wall') openWall();
 }
+// ── Subah ka "pehli baar error": app raat bhar background me rehta hai → Firebase connection / login token
+//    purana ho jaata hai, pehli request fail. Aise temporary error pe popup nahi — chup-chap 1s/3s/6s baad dobara try.
+const _transient = e => /unavailable|deadline|offline|network|failed to fetch|internal|indexeddb|database connection|closing|aborted|cancelled|unauthenticated|timeout|resource-exhausted/i
+  .test(String((e&&e.code)||'')+' '+String((e&&e.message)||e||''));
+const _retryN = {};
+function _loadOk(key){ _retryN[key]=0; }
+// true = dobara try schedule hua (caller ruk jaaye); false = haar maan li, chhota toast dikhaya
+function _loadFail(key,e,retry,label){
+  console.warn(label+' load error', e);
+  const n=_retryN[key]||0;
+  if(_transient(e) && n<3){ _retryN[key]=n+1; setTimeout(()=>{ if(user) retry(); },[1000,3000,6000][n]); return true; }
+  _retryN[key]=0; toast('⚠ '+label+' load nahi hua — net check karke app dobara kholo'); return false;
+}
+// Leads ka live connection — error aaye to band ho jaata tha aur dobara judta hi nahi tha; ab khud dobara judta hai
+function _subLeads(){
+  unsub = col().onSnapshot(snap=>{
+    _loadOk('leads');
+    const all = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
+      if(!Array.isArray(L.followUps)) L.followUps=[]; if(!L.need) L.need={}; return L; });
+    deletedLeads = all.filter(L=>L.deleted);     // bin
+    leads = all.filter(L=>!L.deleted);           // active (sab jagah yahi use hota)
+    if(window._pendingLead && leads.some(L=>L.id===window._pendingLead)){ _openLeadDeep(window._pendingLead); updateBadge(); return; }
+    render(); updateBadge();
+  }, err=>{ unsub=null; _loadFail('leads', err, ()=>{ if(!unsub) _subLeads(); }, 'Leads'); });
+}
+// 3 ghante se zyada background me raha ya din badal gaya → wapas aate hi fresh reload (purana connection + purani "aaj" ki tareekh hat jaati hai)
+let _hiddenAt=0, _hiddenDay='';
+function _onHide(){ _hiddenAt=Date.now(); _hiddenDay=today(); }
+function _onShow(){
+  if(!_hiddenAt) return; const long=Date.now()-_hiddenAt>3*3600e3, newDay=_hiddenDay&&_hiddenDay!==today(); _hiddenAt=0;
+  if((long||newDay) && !document.querySelector('.modal-bg')){ location.reload(); return; }
+  if(user && !unsub && !isHuddleOnly()) _subLeads();   // connection pehle haar gaya tha → wapas aate hi phir jodo
+}
+document.addEventListener('visibilitychange',()=>{ document.hidden?_onHide():_onShow(); });
+document.addEventListener('pause',_onHide); document.addEventListener('resume',_onShow);   // Capacitor (APK) events
+
 auth.onAuthStateChanged(u=>{
   user=u;
   if(u){
@@ -3947,16 +3986,7 @@ auth.onAuthStateChanged(u=>{
       return; }
     attLoadOffices(); teamPhonesLoad(); _pnActionSetup();
     const deepLead=_leadFromHash(); if(deepLead) window._pendingLead=deepLead;   // WhatsApp tag link (#lead=<id>)
-    if(!unsub){
-      unsub = col().onSnapshot(snap=>{
-        const all = snap.docs.map(d=>{ const L={id:d.id, ...d.data()};
-          if(!Array.isArray(L.followUps)) L.followUps=[]; if(!L.need) L.need={}; return L; });
-        deletedLeads = all.filter(L=>L.deleted);     // bin
-        leads = all.filter(L=>!L.deleted);           // active (sab jagah yahi use hota)
-        if(window._pendingLead && leads.some(L=>L.id===window._pendingLead)){ _openLeadDeep(window._pendingLead); updateBadge(); return; }
-        render(); updateBadge();
-      }, err=>{ alert('Data load error: '+err.message); });
-    }
+    if(!unsub) _subLeads();
     if(!deepLead) _deepOpen(hv);   // link se seedha us section pe
   } else {
     if(unsub){ unsub(); unsub=null; }
