@@ -2610,7 +2610,7 @@ function huddleHTML(){
     const N=names.length, plans=info.filter(x=>x.t.length).length, reps=info.filter(x=>x.rep).length;
     const tile=x=>!x.s?`<div class="hud-tile none"><b>${esc(x.n)}</b><div class="tiny">No plan yet</div></div>`
       :`<button class="hud-tile ${x.rep?'rep':''}" onclick="hudOpenCard('${esc(x.s.id)}')"><b class="ell">${esc(x.n)}</b>
-          <div class="tiny">${x.t.length?(x.rep?`${x.t.length} tasks · ${x.done} done`:x.upd?`${x.t.length} tasks · ${x.upd} updated`:`${x.t.length} tasks · planned`):'Blockers only'}${x.iss?` · ⚠ ${x.iss}`:''}${x.s.feedback?' · 💬':''}</div>
+          <div class="tiny">${x.t.length?(x.rep?`${x.t.length} tasks · ${x.done} done`:x.upd?`${x.t.length} tasks · ${x.upd} updated`:`${x.t.length} tasks · planned`):(x.s.callTally&&+x.s.callTally.total?`📞 ${x.s.callTally.total} calls`:(x.iss?'Blockers only':'—'))}${x.iss?` · ⚠ ${x.iss}`:''}${x.s.feedback?' · 💬':''}</div>
           <div class="bar"><i style="width:${x.t.length?Math.round(x.done/x.t.length*100):0}%"></i></div></button>`;
     board=`<div class="sec" style="display:flex;align-items:center;gap:8px">${IC.users} Team board — ${fmtDate(hud.date)}</div>
       <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
@@ -3418,6 +3418,7 @@ function homeHTML(){
       <div style="display:flex;flex-direction:column;gap:14px">
         <div><div class="sec" style="margin:0 2px 8px">My day</div><div class="md-tiles">${attT}${planT}${repT}</div></div>
         ${ho?'':myTagsHTML()}
+        ${tallyCardHTML()}
         ${callCard}
       </div>
       <div style="display:flex;flex-direction:column;gap:12px">${side}</div>
@@ -3500,7 +3501,15 @@ function _execName(raw,id){
   return r||'—';
 }
 function _outKey(s){ s=String(s||''); return s==='pos'?'pos':s==='think'?'think':s==='no'?'no':(s==='nopick'||s==='notpicked')?'nopick':s==='other'?'other':''; }
-let syn={date:'',scope:'',cl:null,loading:false,err:'',text:''};
+let syn={date:'',scope:'',cl:null,loading:false,err:'',text:'',tally:{},_tl:''};
+// Us din ki khud bhari call ginti (standups doc ka callTally) — date-wise cache
+function synTallyLoad(date){
+  if(syn.tally[date]||syn._tl===date) return; syn._tl=date;
+  db.collection('standups').where('date','==',date).get()
+    .then(s=>{ syn.tally[date]=s.docs.map(d=>d.data()).filter(x=>x.callTally&&+x.callTally.total>0).map(x=>({name:x.name,t:x.callTally})); })
+    .catch(()=>{ syn.tally[date]=[]; })
+    .finally(()=>{ syn._tl=''; if(route.view==='synopsis') render(); });
+}
 function openSynopsis(){ if(!synAllowed()) return; route.view='synopsis'; route.id=null; syn.date=syn.date||today(); syn.scope=synFull()?(syn.scope||'all'):'sarola'; render(); if(!syn.cl&&!syn.loading) synLoad(); window.scrollTo(0,0); }
 async function synLoad(){
   syn.loading=true; syn.err=''; if(route.view==='synopsis') render();
@@ -3522,9 +3531,13 @@ function synCompute(date,scope){
   const e=n=>E[n]||(E[n]={n,given:0,calls:0,fu:0,pos:0,visits:0,newLeads:0,book:0});
   const c=n=>C[n]||(C[n]={n,fu:0,pos:0,visits:0,newLeads:0,book:0,bookVal:0});
   const bump=(n,o)=>{ if(o){ T[o]++; if(o==='pos') e(n).pos++; } };
+  // phone ke dialer se call karne walon ki khud bhari ginti (Kamana mam) — us din unki Call Log entries nahi gini jaati (double na ho)
+  const tallies=((syn.tally||{})[date]||[]).map(x=>({n:_execName(x.name),t:x.t})), tallyN=new Set(tallies.map(x=>x.n));
   if(!colF){
     cl.contacts.forEach(k=>{ if(String(k.notified||'').slice(0,10)!==date) return; const n=uname(k.assignedTo||k.uid,k.user); if(!clIn(n)) return; T.given++; e(n).given++; });
-    cl.logs.forEach(l=>{ if(String(l.date||'').slice(0,10)!==date) return; const n=uname(l.uid,l.user); if(!clIn(n)) return; T.calls++; e(n).calls++; bump(n,_outKey(l.callStatus)); });
+    cl.logs.forEach(l=>{ if(String(l.date||'').slice(0,10)!==date) return; const n=uname(l.uid,l.user); if(!clIn(n)||tallyN.has(n)) return; T.calls++; e(n).calls++; bump(n,_outKey(l.callStatus)); });
+    tallies.forEach(({n,t})=>{ if(!clIn(n)) return; const x=e(n); x.manual=true; const tot=+t.total||0; T.calls+=tot; x.calls+=tot;
+      ['pos','think','no','nopick'].forEach(k=>{ const v=+t[k]||0; T[k]+=v; if(k==='pos') x.pos+=v; }); });
   }
   leads.forEach(L=>{ if(!leadIn(L)) return; const col=L.colony||'(colony nahi)';
     if((L.createdAt||'')===date){ const n=_execName(L.createdByName||ownerOf(L)); if(okEx(n)){ T.newLeads++; e(n).newLeads++; c(col).newLeads++; } }
@@ -3557,7 +3570,8 @@ function synText(r,date,label){
       if(v.notes) L.push(`   📝 ${v.notes.replace(/\s+/g,' ').slice(0,160)}`);
       if(v.next||v.nextDate) L.push(`   ➡️ ${join([v.next, v.nextDate&&fmtDate(v.nextDate)])}`); }); }
   if(r.E.length){ L.push('', '👥 *Executive-wise*');
-    r.E.forEach(x=>L.push(`• ${x.n} — ${join([(x.calls||x.given)&&`${x.calls} calls${x.given?' ('+x.given+' diye)':''}`, x.fu&&`${x.fu} CRM`, x.pos&&`${x.pos} ✅`, x.visits&&`${x.visits} 🏠`, x.newLeads&&`${x.newLeads} 🆕`, x.book&&`${x.book} 🎉`])||'—'}`)); }
+    r.E.forEach(x=>L.push(`• ${x.n} — ${join([(x.calls||x.given)&&`${x.calls} calls${x.manual?' ✍️':''}${x.given?' ('+x.given+' diye)':''}`, x.fu&&`${x.fu} CRM`, x.pos&&`${x.pos} ✅`, x.visits&&`${x.visits} 🏠`, x.newLeads&&`${x.newLeads} 🆕`, x.book&&`${x.book} 🎉`])||'—'}`));
+    if(r.E.some(x=>x.manual)) L.push('_✍️ = phone se ki calls, ginti khud bhari_'); }
   if(r.C.length){ L.push('', '🏘️ *Colony-wise*');
     r.C.forEach(x=>L.push(`• ${x.n} — ${join([x.fu&&`${x.fu} follow-ups`, x.pos&&`${x.pos} ✅`, x.visits&&`${x.visits} 🏠`, x.newLeads&&`${x.newLeads} 🆕`, x.book&&`${x.book} 🎉${x.bookVal?' '+inr(x.bookVal):''}`])}`)); }
   if(r.dueTom!=null) L.push('', `⏰ Kal ke follow-ups: ${r.dueTom} · Overdue: ${r.overdue}`);
@@ -3582,6 +3596,7 @@ function synopsisHTML(){
   const full=synFull(), date=syn.date||today(), scope=full?(syn.scope||'all'):'sarola';
   const cols=[...new Set(leads.map(L=>L.colony).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const label = scope==='all'?'':scope==='sarola'?'Sarola (Tejas Vihar)':scope.startsWith('col:')?scope.slice(4):scope.slice(3);
+  synTallyLoad(date);
   const r=synCompute(date,scope); syn.text=synText(r,date,label);
   const T=r.T, tile=(l,v)=>`<div class="md-t" style="cursor:default"><span>${l}</span><b>${v}</b></div>`;
   const opt=(v,l)=>`<option value="${esc(v)}" ${scope===v?'selected':''}>${esc(l)}</option>`;
@@ -3605,6 +3620,7 @@ function synopsisHTML(){
       ${tile('Calls diye',T.given)}${tile('Calls hue',T.calls)}${tile('Positive',T.pos)}${tile('Site visits',T.visits)}${tile('Nayi leads',T.newLeads)}${tile('Booking',T.book)}
     </div>
     <div class="row" style="gap:8px;margin:14px 0 8px">
+      ${isTallyUser()?`<button class="btn ghost" onclick="openTally('${date}')">📞 Meri call ginti</button>`:''}
       <button class="btn grow" onclick="synCopy()">📋 Copy for WhatsApp</button>
       <button class="btn ghost" onclick="synShare()">📤 Share</button>
     </div>
@@ -3784,6 +3800,51 @@ function sideColoniesHTML(){
   const st=_colStats().filter(s=>s.c!=='(Colony nahi)').slice(0,10);
   if(!st.length) return '';
   return `<div class="nav-sub">${st.map(s=>`<button class="nav-subitem ${route.view==='colony'&&route.id===s.c?'on':''}" onclick="openColony(${esc(JSON.stringify(s.c))})"><span class="ell">${esc(s.c)}</span><span class="nav-subn">${s.total}</span></button>`).join('')}</div>`;
+}
+
+// ════ CALL TALLY — phone ke dialer se call karne wale (Kamana mam, ~100 calls/din) shaam ko ginti bharte hain ════
+// Standup doc (standups/{date__name}).callTally me save — rules pehle se allow karte hain; Synopsis yahi padhta hai.
+const CALL_TALLY_MATCH=/kamana/i;   // naya aisa member aaye to yahan uska naam jodo
+const isTallyUser = () => CALL_TALLY_MATCH.test(_myName()||'');
+const _sdocId = (date,name) => date+'__'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+const TALLY_F=[['total','Kul calls ki','100'],['pos','✅ Positive',''],['think','🤔 Soch rahe',''],['no','❌ Nahi chahiye',''],['nopick','📵 Nahi uthaya / band','']];
+async function openTally(date){
+  date=date||today(); const me=_myName(); if(!me){ hudPickName(); return; }
+  let cur={}; try{ const d=await db.collection('standups').doc(_sdocId(date,me)).get(); cur=(d.exists&&d.data().callTally)||{}; }catch(e){}
+  const f=([k,l,ph])=>`<div class="field"><label>${l}</label><input id="ct_${k}" type="number" inputmode="numeric" min="0" step="1" value="${cur[k]!=null?esc(cur[k]):''}" placeholder="${ph||'0'}" oninput="_tallySum()"></div>`;
+  modal(`<h2>📞 Call ginti</h2><div class="msub">${esc(me)} · ${fmtDate(date)} · phone se ki gayi calls — bas 30 second</div>
+    ${f(TALLY_F[0])}
+    <div class="grid2">${TALLY_F.slice(1).map(f).join('')}</div>
+    <div class="tiny" id="ct_sum" style="margin:-4px 0 12px"></div>
+    <div class="row" style="gap:11px"><button class="btn ghost grow" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+      <button class="btn grow" onclick="saveTally('${date}')">Save</button></div>`);
+  _tallySum();
+}
+function _tallyVals(){ const o={}; TALLY_F.forEach(([k])=>{ const el=document.getElementById('ct_'+k); o[k]=el&&el.value!==''?Math.max(0,Math.floor(+el.value||0)):0; }); return o; }
+function _tallySum(){
+  const v=_tallyVals(), el=document.getElementById('ct_sum'); if(!el) return;
+  const talked=v.pos+v.think+v.no, rest=v.total-talked-v.nopick;
+  el.innerHTML = v.total ? (rest<0 ? `<span style="color:#b91c1c;font-weight:700">⚠ Hisaab kul calls (${v.total}) se zyada ho gaya</span>`
+    : `Baat hui: <b>${talked}</b> · Nahi uthaya: <b>${v.nopick}</b>${rest?` · Baaki (busy / wrong no. / other): <b>${rest}</b>`:''}`) : 'Pehle "Kul calls ki" bharo';
+}
+async function saveTally(date){
+  const v=_tallyVals(), me=_myName();
+  if(!v.total){ alert('"Kul calls ki" bharo'); return; }
+  if(v.pos+v.think+v.no+v.nopick>v.total){ alert('Positive + Soch rahe + Nahi chahiye + Nahi uthaya, kul calls se zyada nahi ho sakte.'); return; }
+  try{
+    await db.collection('standups').doc(_sdocId(date,me)).set({ date, name:me, nameKey:me.toLowerCase(), callTally:Object.assign(v,{ts:Date.now()}) },{merge:true});
+    toast('Call ginti saved ✓ — Synopsis me aa gayi'); const m=document.querySelector('.modal-bg'); if(m) m.remove();
+    delete syn.tally[date]; home.loaded=false; render();
+  }catch(e){ alert('Save nahi hua: '+e.message); }
+}
+// Home card (sirf tally wale member ko)
+function tallyCardHTML(){
+  if(!isTallyUser()) return '';
+  const t=home.std&&home.std.callTally, late=_istHour()>=17;
+  return t&&+t.total ? `<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openTally()">
+      <div class="grow"><b>📞 Aaj ki call ginti</b><div class="tiny">${t.total} calls · ${t.pos||0} ✅ · ${t.think||0} 🤔 · ${t.no||0} ❌ · ${t.nopick||0} 📵</div></div><span class="hm-pill ok">Bhar di ✓</span></div>`
+    : `<button class="md-t ${late?'wn':''}" style="width:100%;display:flex;align-items:center;gap:10px" onclick="openTally()">
+      <span style="font-size:1.4rem">📞</span><span style="flex:1;text-align:left"><b style="font-size:.95rem;margin:0">Aaj ki call ginti bharo</b><span style="text-transform:none;letter-spacing:0;font-weight:600;font-size:.72rem">Kitni calls ki · kitni positive — 30 second</span></span></button>`;
 }
 
 // ════ TEAM HUB ════

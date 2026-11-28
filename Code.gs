@@ -1021,8 +1021,12 @@ var SYNOPSIS_EMAILS = [
 function sendSynopsisReminder(){
   var at; try{ at=_fcmAccessToken(); }catch(e){ Logger.log('Token error: '+e.message); return; }
   var n=0;
-  SYNOPSIS_EMAILS.forEach(function(em){ _tokensForEmail(at, em).forEach(function(tk){
-    _sendFcm(at, tk, '📊 Aaj ka Daily Synopsis', 'Plot CRM → Menu → 📊 Synopsis kholo → "Copy for WhatsApp" dabao → group me paste karo.'); n++; }); });
+  SYNOPSIS_EMAILS.forEach(function(em){
+    var tally = em === 'telecaller1.akd@gmail.com';   // Kamana mam phone ke dialer se call karti hain — pehle ginti bharein
+    _tokensForEmail(at, em).forEach(function(tk){
+      _sendFcm(at, tk, tally ? '📞 Aaj ki call ginti bharo' : '📊 Aaj ka Daily Synopsis',
+        tally ? 'Plot CRM → Home → "Aaj ki call ginti bharo" (30 sec). Phir 📊 Synopsis → Copy → group me paste.'
+              : 'Plot CRM → Menu → 📊 Synopsis kholo → "Copy for WhatsApp" dabao → group me paste karo.'); n++; }); });
   Logger.log('Synopsis reminder bheja — '+n+' device.');
 }
 function installSynopsisReminder(){
